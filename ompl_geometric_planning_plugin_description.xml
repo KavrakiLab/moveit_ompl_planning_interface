@@ -1,0 +1,7 @@
+<library path="libmoveit_ompl_planning_interface">
+  <class name="moveit_ompl_interface/GeometricPlanningContext" type="moveit_ompl_interface::GeometricPlanningContext" base_class_type="moveit_ompl_interface::OMPLPlanningContext">
+    <description>
+        A planning context for computing kinematic paths in joint space.
+    </description>
+  </class>
+</library>
