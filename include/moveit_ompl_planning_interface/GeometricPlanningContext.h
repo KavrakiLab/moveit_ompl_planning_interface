@@ -102,7 +102,7 @@ protected:
     /// \brief Allocate a (possibly constrained) state sampler.  If there are no path constraints, the
     /// sampler is the default from OMPL.  Otherwise, a custom sampler is created to sample states from
     /// the constraints specified in the motion plan request.
-    ompl::base::StateSamplerPtr allocPathConstrainedSampler(const ompl::base::StateSpace* ss) const;
+    virtual ompl::base::StateSamplerPtr allocPathConstrainedSampler(const ompl::base::StateSpace* ss) const;
 
     /// \brief A method that is invoked immediately before every call to solve()
     virtual void preSolve();

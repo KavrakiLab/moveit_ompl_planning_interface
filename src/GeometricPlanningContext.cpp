@@ -44,6 +44,7 @@
 #include "moveit_ompl_planning_interface/ConstrainedSampler.h"
 
 #include <pluginlib/class_loader.h>
+#include <moveit/kinematic_constraints/utils.h>
 
 #include <ompl/geometric/planners/rrt/RRT.h>
 #include <ompl/geometric/planners/rrt/pRRT.h>
@@ -555,12 +556,22 @@ bool GeometricPlanningContext::setGoalConstraints(const std::vector<moveit_msgs:
     }
 
     // Translating goal constraints
+    goal_constraints_.clear();
     for(size_t i = 0; i < goal_constraints.size(); ++i)
     {
+        moveit_msgs::Constraints constr = kinematic_constraints::mergeConstraints(goal_constraints[i], request_.path_constraints);
         kinematic_constraints::KinematicConstraintSetPtr kset(new kinematic_constraints::KinematicConstraintSet(getRobotModel()));
-        kset->add(goal_constraints[i], getPlanningScene()->getTransforms());
+        kset->add(constr, getPlanningScene()->getTransforms());
         if (!kset->empty())
             goal_constraints_.push_back(kset);
+    }
+
+    if (goal_constraints_.empty())
+    {
+        ROS_WARN("No goal constraints specified. There is no problem to solve.");
+        if (error)
+            error->val = moveit_msgs::MoveItErrorCodes::INVALID_GOAL_CONSTRAINTS;
+        return false;
     }
 
     // Creating constraint sampler for each constraint
