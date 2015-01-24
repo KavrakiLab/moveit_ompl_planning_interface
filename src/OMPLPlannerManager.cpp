@@ -81,7 +81,7 @@ public:
             ROS_FATAL_STREAM("Exception while creating planning plugin loader " << ex.what());
         }
 
-        // read in planner configurations and group information from yaml config file
+        // read in planner configurations and group information from param server
         configurePlanningContexts();
 
         return planning_interface::PlannerManager::initialize(model, ns);
@@ -143,6 +143,8 @@ public:
         {
             // identify the correct planning configuration
             planning_interface::PlannerConfigurationMap::const_iterator pc = config_settings_.end();
+
+            // The user can specify either "planner_name" or "group_name[planner_name]"
             pc = config_settings_.find(req.planner_id.find(req.group_name) == std::string::npos ? req.group_name + "[" + req.planner_id + "]" : req.planner_id);
             if (pc == config_settings_.end())
             {
@@ -203,27 +205,17 @@ public:
     /// \brief Determine whether this plugin instance is able to represent this planning request
     virtual bool canServiceRequest(const planning_interface::MotionPlanRequest &req) const
     {
-        // I don't this is actually used by anything
-        return true;
+        // Trajectory constraints are not supported by OMPL planners yet
+        return req.trajectory_constraints.constraints.empty();
     }
 
 protected:
     boost::shared_ptr<OMPLPlanningContext> getPlanningContext(const planning_interface::PlannerConfigurationSettings &config) const
     {
-        // TODO: Cache contexts we have created before
+        // TODO: Cache contexts we have created before?
         std::map<std::string, std::string>::const_iterator config_it = config.config.find("plugin");
         if (config_it != config.config.end())
         {
-
-            /*std::map<std::string, boost::shared_ptr<OMPLPlanningContext> >::const_iterator cache_iterator;
-            cache_iterator = context_cache_.find(config_it->second);
-            if (cache_iterator != context_cache_.end())
-                return cache_iterator->second;
-
-            else
-            */
-
-
             return ompl_planner_loader_->createInstance(config_it->second);
         }
         ROS_WARN("No plugin specified for planner configuration '%s'.  Assuming default plugin.", config.name.c_str());
@@ -267,7 +259,7 @@ protected:
                         if (xml_config.getType() == XmlRpc::XmlRpcValue::TypeStruct)
                         {
                             planning_interface::PlannerConfigurationSettings pc;
-                            pc.name = group_names[i] + "[" + planner_config + "]";
+                            pc.name = planner_config;
                             pc.group = group_names[i];
                             // inherit parameters from the group (which can be overriden)
                             pc.config = specific_group_params;
@@ -291,7 +283,7 @@ protected:
                                         break;
                                 }
                             }
-                            pconfig[pc.name] = pc;
+                            pconfig[group_names[i] + "[" + planner_config + "]"] = pc;
                         }
                     }
                 }
