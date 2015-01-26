@@ -59,6 +59,7 @@ struct PlanningContextSpecification
     bool interpolate_solution;                  // If true, solution path should contain a minimum number of waypoints (after simplification)
     unsigned int min_waypoint_count;            // The minimum number of waypoints (for interpolation)
     double max_waypoint_distance;               // The maximum allowed distance between waypoints (for interpolation)
+    unsigned int max_num_threads;               // The maximum number of threads allowed for calls to solve()
 
     robot_model::RobotModelConstPtr model;      // the robot model
     constraint_samplers::ConstraintSamplerManagerPtr constraint_sampler_mgr; // Constraint sampler loaders

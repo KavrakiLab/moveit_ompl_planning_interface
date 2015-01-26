@@ -110,6 +110,11 @@ protected:
     /// \brief A method that is invoked immediately after every call to solve()
     virtual void postSolve();
 
+    /// \brief The solve method that actually does all of the solving
+    /// Solve the problem \e count times or until \e timeout seconds elapse.
+    /// The total time taken by this call is returned in \e total_time.
+    virtual bool solve(double timeout, unsigned int count, double& total_time);
+
     /// \brief Begin the goal sampling thread
     void startGoalSampling();
 
@@ -163,6 +168,9 @@ protected:
 
     /// \brief The specification parameters for this context
     PlanningContextSpecification spec_;
+
+    /// \brief The id of the planner this context is configured for
+    std::string planner_id_;
 
     /// \brief The set of planner allocators that have been registered
     std::map<std::string, PlannerAllocator> planner_allocators_;

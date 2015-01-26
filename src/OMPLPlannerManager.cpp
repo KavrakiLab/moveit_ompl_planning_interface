@@ -175,6 +175,7 @@ public:
             spec.interpolate_solution = interpolate_;
             spec.min_waypoint_count = min_waypoint_count_;
             spec.max_waypoint_distance = max_waypoint_distance_;
+            spec.max_num_threads = max_num_threads_;
 
             context->initialize(spec);
 
@@ -346,6 +347,7 @@ private:
         interpolate_ = config.minimum_waypoint_count > 2;
         min_waypoint_count_ = config.minimum_waypoint_count;
         max_waypoint_distance_ = config.maximum_waypoint_distance;
+        max_num_threads_ = config.maximum_number_threads;
     }
 
     /// \brief kinematic model of the robot to plan for
@@ -369,6 +371,7 @@ private:
     bool interpolate_;
     unsigned int min_waypoint_count_;
     double max_waypoint_distance_;
+    unsigned int max_num_threads_;
 
 };
 

@@ -46,6 +46,9 @@
 #include <pluginlib/class_loader.h>
 #include <moveit/kinematic_constraints/utils.h>
 
+#include <ompl/tools/multiplan/ParallelPlan.h>
+#include <ompl/tools/config/SelfConfig.h>
+
 #include <ompl/geometric/planners/rrt/RRT.h>
 #include <ompl/geometric/planners/rrt/pRRT.h>
 #include <ompl/geometric/planners/rrt/RRTConnect.h>
@@ -75,6 +78,8 @@ GeometricPlanningContext::GeometricPlanningContext() : OMPLPlanningContext()
 
     // Attempt to smooth the final solution path
     simplify_ = true;
+
+    planner_id_ = "";
 }
 
 GeometricPlanningContext::~GeometricPlanningContext()
@@ -129,10 +134,9 @@ void GeometricPlanningContext::initialize(const PlanningContextSpecification& sp
 
     // Erase the type and plugin fields from the configuration items
     std::map<std::string, std::string>::iterator it = spec_.config.find("type");
-    std::string planner_type("");
     if (it != spec_.config.end())
     {
-        planner_type = it->second;
+        planner_id_ = it->second;
         spec_.config.erase(it);
     }
     else
@@ -164,13 +168,13 @@ void GeometricPlanningContext::initialize(const PlanningContextSpecification& sp
         setProjectionEvaluator(boost::trim_copy(it->second));
         spec_.config.erase(it);
     }
-    else if (planner_type != "")
-        ROS_WARN("No projection evaluator for '%s'", planner_type.c_str());
+    else if (planner_id_ != "")
+        ROS_WARN("No projection evaluator for '%s'", planner_id_.c_str());
 
     // OMPL Planner
-    if (planner_type != "")
+    if (planner_id_ != "")
     {
-        ompl::base::PlannerPtr planner = configurePlanner(planner_type, spec_.config);
+        ompl::base::PlannerPtr planner = configurePlanner(planner_id_, spec_.config);
         simple_setup_->setPlanner(planner);
     }
 
@@ -329,25 +333,16 @@ void GeometricPlanningContext::stopGoalSampling()
 
 bool GeometricPlanningContext::solve(planning_interface::MotionPlanResponse& res)
 {
-    ompl::time::point start = ompl::time::now();
     double timeout = request_.allowed_planning_time;
-
-    preSolve();
-
-    ompl::base::PlannerTerminationCondition ptc = ompl::base::timedPlannerTerminationCondition(timeout);
-    registerTerminationCondition(ptc);
-    bool result = simple_setup_->solve(ptc) == ompl::base::PlannerStatus::EXACT_SOLUTION;
-    double plan_time = simple_setup_->getLastPlanComputationTime();
-    unregisterTerminationCondition();
-
-    postSolve();
+    double plan_time = 0.0;
+    bool result = solve(timeout, request_.num_planning_attempts, plan_time);
 
     if (result)
     {
         // Simplifying solution
         if (simplify_ && (timeout - plan_time) > 0)
         {
-            ROS_WARN("Simplifying solution...");
+            ROS_DEBUG("Simplifying solution...");
             simple_setup_->simplifySolution(timeout - plan_time);
             plan_time += simple_setup_->getLastSimplificationTime();
         }
@@ -356,16 +351,14 @@ bool GeometricPlanningContext::solve(planning_interface::MotionPlanResponse& res
         // Interpolating the solution
         if (interpolate_)
         {
-            ROS_WARN("Interpolating solution...");
+            ROS_DEBUG("Interpolating solution...");
             // The maximum length of a single segment in the solution path
             double max_segment_length;
             if (spec_.max_waypoint_distance > 0.0)
                 max_segment_length = spec_.max_waypoint_distance;
             else max_segment_length = simple_setup_->getStateSpace()->getMaximumExtent() / 100.0;
 
-            unsigned int min_waypoint_count = spec_.min_waypoint_count;
-
-            pg.interpolate(std::max((unsigned int)floor(0.5 + pg.length() / max_segment_length), min_waypoint_count));
+            pg.interpolate(std::max((unsigned int)floor(0.5 + pg.length() / spec_.max_waypoint_distance), spec_.min_waypoint_count));
         }
 
         ROS_DEBUG("%s: Returning successful solution with %lu states", getName().c_str(),
@@ -394,34 +387,20 @@ bool GeometricPlanningContext::solve(planning_interface::MotionPlanResponse& res
 
 bool GeometricPlanningContext::solve(planning_interface::MotionPlanDetailedResponse& res)
 {
-    ompl::time::point start = ompl::time::now();
     double timeout = request_.allowed_planning_time;
-    // The maximum length of a single segment in the solution path
-    double max_segment_length = simple_setup_->getStateSpace()->getMaximumExtent() / 100.0;
-    unsigned int min_waypoint_count = 2;
-
-    preSolve();
-
-    ompl::base::PlannerTerminationCondition ptc = ompl::base::timedPlannerTerminationCondition(timeout);
-    registerTerminationCondition(ptc);
-    bool result = simple_setup_->solve(ptc) == ompl::base::PlannerStatus::EXACT_SOLUTION;
-    double plan_time = simple_setup_->getLastPlanComputationTime();
-    unregisterTerminationCondition();
-
-    postSolve();
+    double plan_time = 0.0;
+    bool result = solve(timeout, request_.num_planning_attempts, plan_time);
 
     if (result)
     {
         // Getting the raw solution
         ompl::geometric::PathGeometric &pg = simple_setup_->getSolutionPath();
-        //pg.interpolate(std::max((unsigned int)floor(0.5 + pg.length() / max_segment_length), min_waypoint_count));
         res.processing_time_.push_back(plan_time);
         res.description_.push_back("plan");
 
         res.trajectory_.resize(res.trajectory_.size() + 1);
         res.trajectory_.back().reset(new robot_trajectory::RobotTrajectory(getRobotModel(), getGroupName()));
 
-        //robot_state::RobotState ks = *(complete_initial_robot_state_.get());
         robot_state::RobotState ks = *complete_initial_robot_state_;
         for (std::size_t i = 0 ; i < pg.getStateCount() ; ++i)
         {
@@ -455,7 +434,7 @@ bool GeometricPlanningContext::solve(planning_interface::MotionPlanDetailedRespo
         {
             pg = simple_setup_->getSolutionPath();
             ompl::time::point start_interpolate = ompl::time::now();
-            pg.interpolate(std::max((unsigned int)floor(0.5 + pg.length() / max_segment_length), min_waypoint_count));
+            pg.interpolate(std::max((unsigned int)floor(0.5 + pg.length() / spec_.max_waypoint_distance), spec_.min_waypoint_count));
             res.processing_time_.push_back(ompl::time::seconds(ompl::time::now() - start_interpolate));
             res.description_.push_back("interpolate");
 
@@ -480,6 +459,96 @@ bool GeometricPlanningContext::solve(planning_interface::MotionPlanDetailedRespo
         ROS_INFO("%s: Unable to solve the planning problem", getName().c_str());
         res.error_code_.val = moveit_msgs::MoveItErrorCodes::PLANNING_FAILED;
     }
+
+    return result;
+}
+
+bool GeometricPlanningContext::solve(double timeout, unsigned int count, double& total_time)
+{
+    ompl::time::point start = ompl::time::now();
+
+    preSolve();
+
+    bool result = false;
+    total_time = 0.0;
+    if (count <= 1)
+    {
+        ompl::base::PlannerTerminationCondition ptc = ompl::base::timedPlannerTerminationCondition(timeout - ompl::time::seconds(ompl::time::now() - start));
+        registerTerminationCondition(ptc);
+        result = simple_setup_->solve(ptc) == ompl::base::PlannerStatus::EXACT_SOLUTION;
+        total_time = simple_setup_->getLastPlanComputationTime();
+        unregisterTerminationCondition();
+    }
+    else // attempt to solve in parallel
+    {
+        ROS_WARN("Solving problem in parallel with up to %lu threads", spec_.max_num_threads);
+        ompl::tools::ParallelPlan pp(simple_setup_->getProblemDefinition());
+        if (count <= spec_.max_num_threads) // fewer attempts than threads
+        {
+            if (planner_id_.size())
+            {
+                for(unsigned int i = 0; i < count; ++i)
+                    pp.addPlanner(configurePlanner(planner_id_, spec_.config));
+            }
+            else
+            {
+                for (unsigned int i = 0 ; i < count; ++i)
+                    pp.addPlanner(ompl::tools::SelfConfig::getDefaultPlanner(simple_setup_->getGoal()));
+            }
+
+            ompl::base::PlannerTerminationCondition ptc = ompl::base::timedPlannerTerminationCondition(timeout - ompl::time::seconds(ompl::time::now() - start));
+            registerTerminationCondition(ptc);
+            // Solve in parallel.  Hybridize the solution paths.
+            result = pp.solve(ptc, 1, count, true) == ompl::base::PlannerStatus::EXACT_SOLUTION;
+            total_time = ompl::time::seconds(ompl::time::now() - start);
+            unregisterTerminationCondition();
+        }
+        else // more attempts than threads
+        {
+            ompl::base::PlannerTerminationCondition ptc = ompl::base::timedPlannerTerminationCondition(timeout - ompl::time::seconds(ompl::time::now() - start));
+            registerTerminationCondition(ptc);
+            int n = count / spec_.max_num_threads;
+            result = true;
+            for (int i = 0; i < n && !ptc(); ++i)
+            {
+                if (planner_id_.size())
+                {
+                    for(unsigned int i = 0; i < spec_.max_num_threads; ++i)
+                        pp.addPlanner(configurePlanner(planner_id_, spec_.config));
+                }
+                else
+                {
+                    for (unsigned int i = 0 ; i < spec_.max_num_threads; ++i)
+                        pp.addPlanner(ompl::tools::SelfConfig::getDefaultPlanner(simple_setup_->getGoal()));
+                }
+
+                result &= pp.solve(ptc, 1, count, true) == ompl::base::PlannerStatus::EXACT_SOLUTION;
+            }
+
+            // Do the remainder
+            n = count % spec_.max_num_threads;
+            if (n && !ptc())
+            {
+                pp.clearPlanners();
+                if (planner_id_.size())
+                {
+                    for(unsigned int i = 0; i < spec_.max_num_threads; ++i)
+                        pp.addPlanner(configurePlanner(planner_id_, spec_.config));
+                }
+                else
+                {
+                    for (unsigned int i = 0 ; i < spec_.max_num_threads; ++i)
+                        pp.addPlanner(ompl::tools::SelfConfig::getDefaultPlanner(simple_setup_->getGoal()));
+                }
+
+                result &= pp.solve(ptc, 1, count, true) == ompl::base::PlannerStatus::EXACT_SOLUTION;
+            }
+            total_time = ompl::time::seconds(ompl::time::now() - start);
+            unregisterTerminationCondition();
+        }
+    }
+
+    postSolve();
 
     return result;
 }
