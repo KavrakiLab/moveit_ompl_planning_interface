@@ -1,29 +1,39 @@
 <package>
-  <name>moveit_ompl_planning_interface</name>
-  <version>0.1.0</version>
-  <description>Plugin interface for OMPL and MoveIt planners</description>
-  <author email="rluna@rice.edu">Ryan Luna</author>
-  <maintainer email="rluna@rice.edu">Ryan Luna</maintainer>
+  <name>moveit_planners_ompl_interface</name> <!-- added interface to avoid conflict with existing MoveIt library -->
+  <version>0.6.7</version>
+  <description>MoveIt interface to OMPL</description>
+  <author email="isucan@willowgarage.com">Ioan Sucan</author>
+  <maintainer email="isucan@willowgarage.com">Ioan Sucan</maintainer>
 
   <license>BSD</license>
 
+  <url type="website">http://moveit.ros.org</url>
+  <url type="bugtracker">https://github.com/ros-planning/moveit_planners/issues</url>
+  <url type="repository">https://github.com/ros-planning/moveit_planners</url>
+
   <buildtool_depend>catkin</buildtool_depend>
 
-  <build_depend>ompl</build_depend>
-  <build_depend>moveit_planners_ompl</build_depend>
   <build_depend>moveit_core</build_depend>
+  <build_depend>ompl</build_depend>
+  <build_depend>eigen_conversions</build_depend>
   <build_depend>moveit_ros_planning</build_depend>
   <build_depend>dynamic_reconfigure</build_depend>
+  <build_depend>roscpp</build_depend>
+  <build_depend>tf</build_depend>
+  <build_depend>pluginlib</build_depend>
 
-  <run_depend>ompl</run_depend>
-  <run_depend>moveit_planners_ompl</run_depend>
   <run_depend>moveit_core</run_depend>
+  <run_depend>ompl</run_depend>
+  <run_depend>eigen_conversions</run_depend>
   <run_depend>moveit_ros_planning</run_depend>
   <run_depend>dynamic_reconfigure</run_depend>
+  <run_depend>roscpp</run_depend>
+  <run_depend>tf</run_depend>
+  <run_depend>pluginlib</run_depend>
 
   <export>
-    <moveit_core plugin="${prefix}/moveit_ompl_plugin_description.xml"/>
-    <moveit_ompl_planning_interface plugin="${prefix}/ompl_geometric_planning_plugin_description.xml"/>
+    <moveit_core plugin="${prefix}/moveit_ompl_interface_plugin_description.xml"/>
+    <moveit_planners_ompl_interface plugin="${prefix}/ompl_geometric_planning_plugin_description.xml"/>
   </export>
 
 </package>
