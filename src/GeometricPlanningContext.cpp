@@ -481,7 +481,7 @@ bool GeometricPlanningContext::solve(double timeout, unsigned int count, double&
     }
     else // attempt to solve in parallel
     {
-        ROS_WARN("Solving problem in parallel with up to %lu threads", spec_.max_num_threads);
+        ROS_WARN("Solving problem in parallel with up to %u threads", spec_.max_num_threads);
         ompl::tools::ParallelPlan pp(simple_setup_->getProblemDefinition());
         if (count <= spec_.max_num_threads) // fewer attempts than threads
         {
