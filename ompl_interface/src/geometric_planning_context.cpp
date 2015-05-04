@@ -125,8 +125,14 @@ void GeometricPlanningContext::registerPlannerAllocator(const std::string &plann
     planner_allocators_[planner_id] = pa;
 }
 
-void GeometricPlanningContext::initialize(const PlanningContextSpecification& spec)
+ConstraintsLibraryPtr GeometricPlanningContext::getConstraintsLibrary() const
 {
+    return constraints_library_;
+}
+
+void GeometricPlanningContext::initialize(const std::string& ros_namespace, const PlanningContextSpecification& spec)
+{
+    nh_ = ros::NodeHandle(ros_namespace);
     spec_ = spec;
 
     simplify_ = spec.simplify_solution;
@@ -146,7 +152,7 @@ void GeometricPlanningContext::initialize(const PlanningContextSpecification& sp
     if (it != spec_.config.end())
         spec_.config.erase(it);
 
-    OMPLPlanningContext::initialize(spec_);
+    OMPLPlanningContext::initialize(ros_namespace, spec_);
 
     constraint_sampler_manager_ = spec_.constraint_sampler_mgr;
     if (!complete_initial_robot_state_)
@@ -192,8 +198,21 @@ void GeometricPlanningContext::initialize(const PlanningContextSpecification& sp
         path_constraints_.reset();
     }
 
+    // Library of constraints
+    constraints_library_.reset(new ConstraintsLibrary(this, constraint_sampler_manager_));
+    std::string cpath;
+    if (nh_.getParam("constraint_approximations_path", cpath))
+    {
+        constraints_library_->loadConstraintApproximations(cpath);
+        std::stringstream ss;
+        constraints_library_->printConstraintApproximations(ss);
+        ROS_INFO_STREAM(ss.str());
+    }
+
     // OMPL StateSampler
     mbss_->setStateSamplerAllocator(boost::bind(&GeometricPlanningContext::allocPathConstrainedSampler, this, _1));
+
+
 }
 
 void GeometricPlanningContext::allocateStateSpace(const ModelBasedStateSpaceSpecification& state_space_spec)
@@ -254,25 +273,22 @@ ompl::base::StateSamplerPtr GeometricPlanningContext::allocPathConstrainedSample
 
     ROS_DEBUG("%s: Allocating a new state sampler (attempts to use path constraints)", name_.c_str());
 
-    if (path_constraints_)
+    if (path_constraints_ && constraints_library_)
     {
-        /*if (spec_.constraints_library_)
+        const ConstraintApproximationPtr &ca = constraints_library_->getConstraintApproximation(request_.path_constraints);
+        if (ca)
         {
-            const ConstraintApproximationPtr &ca = spec_.constraints_library_->getConstraintApproximation(path_constraints_msg_);
-            if (ca)
+            ompl::base::StateSamplerAllocator c_ssa = ca->getStateSamplerAllocator(request_.path_constraints);
+            if (c_ssa)
             {
-                ompl::base::StateSamplerAllocator c_ssa = ca->getStateSamplerAllocator(path_constraints_msg_);
-                if (c_ssa)
+                ompl::base::StateSamplerPtr res = c_ssa(ss);
+                if (res)
                 {
-                    ompl::base::StateSamplerPtr res = c_ssa(ss);
-                    if (res)
-                    {
-                        logInform("%s: Using precomputed state sampler (approximated constraint space) for constraint '%s'", name_.c_str(), path_constraints_msg_.name.c_str());
-                        return res;
-                    }
+                    logInform("%s: Using precomputed state sampler (approximated constraint space) for constraint '%s'", name_.c_str(), request_.path_constraints.name.c_str());
+                    return res;
                 }
             }
-        }*/
+        }
 
         constraint_samplers::ConstraintSamplerPtr cs = constraint_sampler_manager_->selectSampler(getPlanningScene(), getGroupName(), path_constraints_->getAllConstraints());
         if (cs)
@@ -342,27 +358,22 @@ bool GeometricPlanningContext::solve(planning_interface::MotionPlanResponse& res
         // Simplifying solution
         if (simplify_ && (timeout - plan_time) > 0)
         {
-            ROS_DEBUG("Simplifying solution...");
-            simple_setup_->simplifySolution(timeout - plan_time);
-            plan_time += simple_setup_->getLastSimplificationTime();
+            plan_time += simplifySolution(timeout - plan_time);
         }
 
         ompl::geometric::PathGeometric &pg = simple_setup_->getSolutionPath();
         // Interpolating the solution
         if (interpolate_)
         {
-            ROS_DEBUG("Interpolating solution...");
             // The maximum length of a single segment in the solution path
-            double max_segment_length;
-            if (spec_.max_waypoint_distance > 0.0)
-                max_segment_length = spec_.max_waypoint_distance;
-            else max_segment_length = simple_setup_->getStateSpace()->getMaximumExtent() / 100.0;
-
-            pg.interpolate(std::max((unsigned int)floor(0.5 + pg.length() / spec_.max_waypoint_distance), spec_.min_waypoint_count));
+            double max_segment_length = (spec_.max_waypoint_distance > 0.0 ? spec_.max_waypoint_distance : simple_setup_->getStateSpace()->getMaximumExtent() / 100.0);
+            // Computing the total number of waypoints we want in the solution path
+            unsigned int waypoint_count = std::max((unsigned int)floor(0.5 + pg.length() / max_segment_length), spec_.min_waypoint_count);
+            interpolateSolution(pg, waypoint_count);
         }
 
         ROS_DEBUG("%s: Returning successful solution with %lu states", getName().c_str(),
-                   simple_setup_->getSolutionPath().getStateCount());
+                   pg.getStateCount());
 
         res.trajectory_.reset(new robot_trajectory::RobotTrajectory(getRobotModel(), getGroupName()));
 
@@ -412,8 +423,7 @@ bool GeometricPlanningContext::solve(planning_interface::MotionPlanDetailedRespo
         // Simplifying solution
         if (simplify_ && (timeout - plan_time) > 0)
         {
-            simple_setup_->simplifySolution(timeout - plan_time);
-            double simplify_time = simple_setup_->getLastSimplificationTime();
+            double simplify_time = simplifySolution(timeout - plan_time);
 
             res.processing_time_.push_back(simplify_time);
             res.description_.push_back("simplify");
@@ -433,17 +443,20 @@ bool GeometricPlanningContext::solve(planning_interface::MotionPlanDetailedRespo
         if (interpolate_)
         {
             pg = simple_setup_->getSolutionPath();
-            ompl::time::point start_interpolate = ompl::time::now();
-            pg.interpolate(std::max((unsigned int)floor(0.5 + pg.length() / spec_.max_waypoint_distance), spec_.min_waypoint_count));
-            res.processing_time_.push_back(ompl::time::seconds(ompl::time::now() - start_interpolate));
+            // The maximum length of a single segment in the solution path
+            double max_segment_length = (spec_.max_waypoint_distance > 0.0 ? spec_.max_waypoint_distance : simple_setup_->getStateSpace()->getMaximumExtent() / 100.0);
+            // Computing the total number of waypoints we want in the solution path
+            unsigned int waypoint_count = std::max((unsigned int)floor(0.5 + pg.length() / max_segment_length), spec_.min_waypoint_count);
+            double interpolate_time = interpolateSolution(pg, waypoint_count);
+
+            res.processing_time_.push_back(interpolate_time);
             res.description_.push_back("interpolate");
 
             ROS_DEBUG("%s: Returning successful solution with %lu states", getName().c_str(),
-                       simple_setup_->getSolutionPath().getStateCount());
+                       pg.getStateCount());
 
             res.trajectory_.resize(res.trajectory_.size() + 1);
             res.trajectory_.back().reset(new robot_trajectory::RobotTrajectory(getRobotModel(), getGroupName()));
-
 
             for (std::size_t i = 0 ; i < pg.getStateCount() ; ++i)
             {
@@ -481,11 +494,11 @@ bool GeometricPlanningContext::solve(double timeout, unsigned int count, double&
     }
     else // attempt to solve in parallel
     {
-        ROS_WARN("Solving problem in parallel with up to %u threads", spec_.max_num_threads);
+        ROS_DEBUG("Solving problem in parallel with up to %u threads", spec_.max_num_threads);
         ompl::tools::ParallelPlan pp(simple_setup_->getProblemDefinition());
         if (count <= spec_.max_num_threads) // fewer attempts than threads
         {
-            if (planner_id_.size())
+            if (planner_id_.size()) // There is a planner configured
             {
                 for(unsigned int i = 0; i < count; ++i)
                     pp.addPlanner(configurePlanner(planner_id_, spec_.config));
@@ -511,7 +524,8 @@ bool GeometricPlanningContext::solve(double timeout, unsigned int count, double&
             result = true;
             for (int i = 0; i < n && !ptc(); ++i)
             {
-                if (planner_id_.size())
+                pp.clearPlanners();
+                if (planner_id_.size()) // There is a planner configured
                 {
                     for(unsigned int i = 0; i < spec_.max_num_threads; ++i)
                         pp.addPlanner(configurePlanner(planner_id_, spec_.config));
@@ -530,7 +544,7 @@ bool GeometricPlanningContext::solve(double timeout, unsigned int count, double&
             if (n && !ptc())
             {
                 pp.clearPlanners();
-                if (planner_id_.size())
+                if (planner_id_.size()) // There is a planner configured
                 {
                     for(unsigned int i = 0; i < spec_.max_num_threads; ++i)
                         pp.addPlanner(configurePlanner(planner_id_, spec_.config));
@@ -551,6 +565,19 @@ bool GeometricPlanningContext::solve(double timeout, unsigned int count, double&
     postSolve();
 
     return result;
+}
+
+double GeometricPlanningContext::simplifySolution(double max_time)
+{
+    simple_setup_->simplifySolution(max_time);
+    return simple_setup_->getLastSimplificationTime();
+}
+
+double GeometricPlanningContext::interpolateSolution(ompl::geometric::PathGeometric &path, unsigned int waypoint_count)
+{
+    ompl::time::point start = ompl::time::now();
+    path.interpolate(waypoint_count);
+    return ompl::time::seconds(ompl::time::now() - start);
 }
 
 void GeometricPlanningContext::registerTerminationCondition(const ompl::base::PlannerTerminationCondition &ptc)
@@ -594,7 +621,7 @@ const robot_state::RobotState& GeometricPlanningContext::getCompleteInitialRobot
     return *complete_initial_robot_state_;
 }
 
-void GeometricPlanningContext::setCompleteInitialRobotState(const robot_state::RobotStatePtr& state)
+void GeometricPlanningContext::setCompleteInitialRobotState(const robot_state::RobotState& state)
 {
     if (!complete_initial_robot_state_)
     {
@@ -602,7 +629,7 @@ void GeometricPlanningContext::setCompleteInitialRobotState(const robot_state::R
         return;
     }
 
-    *complete_initial_robot_state_ = *(state.get());
+    *complete_initial_robot_state_ = state;
 
     // Start state
     ompl::base::ScopedState<> start_state(mbss_);
@@ -657,7 +684,7 @@ bool GeometricPlanningContext::setGoalConstraints(const std::vector<moveit_msgs:
         }
         else
         {
-            ROS_WARN("No constraint sampler!");
+            ROS_WARN("No constraint sampler available to sample goal constraints");
         }
     }
 
@@ -693,7 +720,7 @@ ompl::base::PlannerPtr GeometricPlanningContext::configurePlanner(const std::str
     std::map<std::string, PlannerAllocator>::const_iterator it = planner_allocators_.find(planner_name);
     // Allocating planner using planner allocator
     if (it != planner_allocators_.end())
-        return it->second(simple_setup_->getSpaceInformation(), "", params);
+        return it->second(simple_setup_->getSpaceInformation(), spec_.name, params);
 
     // No planner configured by this name
     ROS_WARN("No planner allocator found with name '%s'", planner_name.c_str());

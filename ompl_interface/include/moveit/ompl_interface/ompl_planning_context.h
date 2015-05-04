@@ -79,7 +79,7 @@ public:
 
     /// \brief Initialize this planning context.  Give the context a name and
     /// the name of a group to plan for
-    virtual void initialize(const PlanningContextSpecification& spec)
+    virtual void initialize(const std::string& ros_namespace, const PlanningContextSpecification& spec)
     {
         name_ = spec.name;
         group_ = spec.group;
@@ -115,7 +115,13 @@ public:
     virtual const robot_state::RobotState& getCompleteInitialRobotState() const = 0;
 
     /// \brief Set the values of the initial state of the robot
-    virtual void setCompleteInitialRobotState(const robot_state::RobotStatePtr& state) = 0;
+    virtual void setCompleteInitialRobotState(const robot_state::RobotStatePtr& state)
+    {
+        setCompleteInitialRobotState(*(state.get()));
+    }
+
+    /// \brief Set the values of the initial state of the robot
+    virtual void setCompleteInitialRobotState(const robot_state::RobotState& state) = 0;
 
     /// \brief Set the goal state of the robot via a set of constraints
     virtual bool setGoalConstraints(const std::vector<moveit_msgs::Constraints> &goal_constraints,

@@ -37,7 +37,9 @@
 #ifndef MOVEIT_OMPL_INTERFACE_GEOMETRIC_PLANNING_CONTEXT_
 #define MOVEIT_OMPL_INTERFACE_GEOMETRIC_PLANNING_CONTEXT_
 
+#include <ros/ros.h>
 #include "moveit/ompl_interface/ompl_planning_context.h"
+#include "moveit/ompl_interface/constraints_library.h"
 #include <ompl/geometric/SimpleSetup.h>
 #include <moveit/constraint_samplers/constraint_sampler_manager.h>
 #include <boost/thread/mutex.hpp>
@@ -57,7 +59,7 @@ public:
 
     virtual std::string getDescription();
 
-    virtual void initialize(const PlanningContextSpecification& spec);
+    virtual void initialize(const std::string& ros_namespace, const PlanningContextSpecification& spec);
 
     /// \brief Clear all data structures used by the planner
     virtual void clear();
@@ -84,12 +86,20 @@ public:
 
     virtual const robot_state::RobotState& getCompleteInitialRobotState() const;
 
-    virtual void setCompleteInitialRobotState(const robot_state::RobotStatePtr& state);
+    virtual void setCompleteInitialRobotState(const robot_state::RobotState& state);
 
     virtual bool setGoalConstraints(const std::vector<moveit_msgs::Constraints> &goal_constraints,
                                     moveit_msgs::MoveItErrorCodes *error);
 
+    ConstraintsLibraryPtr getConstraintsLibrary() const;
+
 protected:
+    /// \brief Simplify the solution path (in simple setup).  Use no more than max_time seconds.
+    virtual double simplifySolution(double max_time);
+
+    /// \brief Ensure that the given path has at least waypoint_count waypoints.
+    virtual double interpolateSolution(ompl::geometric::PathGeometric &path, unsigned int waypoint_count);
+
     /// \brief Definition of a PlannerAllocator function.  This function takes the OMPL SpaceInformation
     /// object, the new name of the planner (if any), and a map containing planner configuration items.
     typedef boost::function<ompl::base::PlannerPtr(const ompl::base::SpaceInformationPtr&, const std::string&,
@@ -166,6 +176,9 @@ protected:
     /// \brief The constraint sampler factory.
     constraint_samplers::ConstraintSamplerManagerPtr constraint_sampler_manager_;
 
+    /// \brief A pointer to the constraints library.  Used for precomputed state sampling.
+    ConstraintsLibraryPtr constraints_library_;
+
     /// \brief The specification parameters for this context
     PlanningContextSpecification spec_;
 
@@ -186,7 +199,7 @@ protected:
     /// \brief If true, the solution path will be shortened after discovery.
     bool simplify_;
 
-    //boost::scoped_ptr<dynamic_reconfigure::Server<RiceOMPLDynamicReconfigureConfig> > dynamic_reconfigure_server_;
+    ros::NodeHandle nh_;
 };
 
 }
