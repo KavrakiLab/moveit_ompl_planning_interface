@@ -50,4 +50,6 @@ link_directories(${catkin_LIBRARY_DIRS})
 add_subdirectory(ompl_interface)
 
 install(FILES ompl_interface_plugin_description.xml ompl_geometric_planning_plugin_description.xml
-  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION})
+        DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION})
+install(DIRECTORY include/
+        DESTINATION include)
