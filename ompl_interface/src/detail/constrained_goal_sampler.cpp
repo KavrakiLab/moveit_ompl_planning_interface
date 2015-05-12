@@ -93,7 +93,7 @@ bool ompl_interface::ConstrainedGoalSampler::sampleUsingConstraintSampler(const 
 
   // terminate after a maximum number of samples
   //if (gls->getStateCount() >= planning_context_->getMaximumGoalSamples())
-  unsigned int max_goal_samples = 10;
+  unsigned int max_goal_samples = 50;
   if (gls->getStateCount() >= max_goal_samples)
     return false;
 
