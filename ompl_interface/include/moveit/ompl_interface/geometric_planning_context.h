@@ -76,6 +76,7 @@ public:
     /// path constraints.
     virtual bool solve(planning_interface::MotionPlanDetailedResponse& res);
 
+    /// \brief Stop planning
     virtual bool terminate();
 
     virtual const ModelBasedStateSpacePtr& getOMPLStateSpace() const;
@@ -86,14 +87,21 @@ public:
 
     virtual const robot_state::RobotState& getCompleteInitialRobotState() const;
 
+    /// \brief Set the initial (start) state of the robot
     virtual void setCompleteInitialRobotState(const robot_state::RobotState& state);
 
+    /// \brief Set the set of constraints that encapsulate the set of valid goal states
+    /// These constraints are merged with any path constraints that are specified in the
+    /// motion plan request.
     virtual bool setGoalConstraints(const std::vector<moveit_msgs::Constraints> &goal_constraints,
                                     moveit_msgs::MoveItErrorCodes *error);
 
     ConstraintsLibraryPtr getConstraintsLibrary() const;
 
 protected:
+    /// \brief Merge constraints c1 and c2, storing the result in output.
+    virtual void mergeConstraints(const moveit_msgs::Constraints& c1, const moveit_msgs::Constraints& c2, moveit_msgs::Constraints& output) const;
+
     /// \brief Simplify the solution path (in simple setup).  Use no more than max_time seconds.
     virtual double simplifySolution(double max_time);
 

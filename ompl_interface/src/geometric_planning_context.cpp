@@ -45,6 +45,8 @@
 
 #include <pluginlib/class_loader.h>
 #include <moveit/kinematic_constraints/utils.h>
+#include <eigen_conversions/eigen_msg.h>
+#include <boost/math/constants/constants.hpp>
 
 #include <ompl/tools/multiplan/ParallelPlan.h>
 #include <ompl/tools/config/SelfConfig.h>
@@ -651,11 +653,16 @@ bool GeometricPlanningContext::setGoalConstraints(const std::vector<moveit_msgs:
         return false;
     }
 
-    // Translating goal constraints
+    // Merge path constraints (if any) with goal constraints
     goal_constraints_.clear();
     for(size_t i = 0; i < goal_constraints.size(); ++i)
     {
-        moveit_msgs::Constraints constr = kinematic_constraints::mergeConstraints(goal_constraints[i], request_.path_constraints);
+        // NOTE: This only "intelligently" merges joint constraints.  All other constraint types are simply concatenated.
+        //moveit_msgs::Constraints constr = kinematic_constraints::mergeConstraints(goal_constraints[i], request_.path_constraints);
+
+        moveit_msgs::Constraints constr;
+        mergeConstraints(goal_constraints[i], request_.path_constraints, constr);
+
         kinematic_constraints::KinematicConstraintSetPtr kset(new kinematic_constraints::KinematicConstraintSet(getRobotModel()));
         kset->add(constr, getPlanningScene()->getTransforms());
         if (!kset->empty())
@@ -785,6 +792,137 @@ ompl::base::ProjectionEvaluatorPtr GeometricPlanningContext::getProjectionEvalua
     else
       ROS_ERROR("Unable to allocate projection evaluator based on description: '%s'", peval.c_str());
   return ompl::base::ProjectionEvaluatorPtr();
+}
+
+// Merge c2 with c1, if useful
+void GeometricPlanningContext::mergeConstraints(const moveit_msgs::Constraints& c1, const moveit_msgs::Constraints& c2, moveit_msgs::Constraints& output) const
+{
+    // Merge orientation constraints in c2 that have a common link with c1
+    for(size_t i = 0; i < c1.orientation_constraints.size(); ++i)
+    {
+        bool merged = false;
+        for (size_t j = 0; j < c2.orientation_constraints.size(); ++j)
+        {
+            // Common link
+            if (c1.orientation_constraints[i].link_name == c2.orientation_constraints[j].link_name &&
+                c1.orientation_constraints[i].header.frame_id == c2.orientation_constraints[j].header.frame_id) // TODO: Frame ids need not be the same.
+            {
+
+                // Check that c1 pose is compatible with c2 constraint
+                Eigen::Quaterniond q1, q2;
+                tf::quaternionMsgToEigen(c1.orientation_constraints[i].orientation, q1);
+                tf::quaternionMsgToEigen(c2.orientation_constraints[j].orientation, q2);
+
+                Eigen::Vector3d rpy1 = Eigen::Affine3d(q1).rotation().eulerAngles(0,1,2);
+                Eigen::Vector3d rpy2 = Eigen::Affine3d(q2).rotation().eulerAngles(0,1,2);
+
+                // Rotational difference, absolute value mod pi
+                Eigen::Vector3d diff(rpy2 - rpy1);
+                diff(0) = std::min(fabs(diff(0)), boost::math::constants::pi<double>() - fabs(diff(0)));
+                diff(1) = std::min(fabs(diff(1)), boost::math::constants::pi<double>() - fabs(diff(1)));
+                diff(2) = std::min(fabs(diff(2)), boost::math::constants::pi<double>() - fabs(diff(2)));
+
+                // Diff will satisfy c1 by construction.  If diff also satisfies c2, then we can merge the constraints
+                if (diff(0) < c2.orientation_constraints[j].absolute_x_axis_tolerance &&
+                    diff(1) < c2.orientation_constraints[j].absolute_y_axis_tolerance &&
+                    diff(2) < c2.orientation_constraints[j].absolute_z_axis_tolerance)
+                {
+                    merged = true;
+                    ROS_INFO("GeometricPlanningContext: Merging orientation constraints for %s", c1.orientation_constraints[i].link_name.c_str());
+
+                    moveit_msgs::OrientationConstraint or_constraint;
+                    or_constraint.header = c1.orientation_constraints[i].header;
+                    or_constraint.orientation = c1.orientation_constraints[i].orientation;
+                    or_constraint.link_name = c1.orientation_constraints[i].link_name;
+                    or_constraint.absolute_x_axis_tolerance = std::min(c1.orientation_constraints[i].absolute_x_axis_tolerance, c2.orientation_constraints[j].absolute_x_axis_tolerance);
+                    or_constraint.absolute_y_axis_tolerance = std::min(c1.orientation_constraints[i].absolute_y_axis_tolerance, c2.orientation_constraints[j].absolute_y_axis_tolerance);
+                    or_constraint.absolute_z_axis_tolerance = std::min(c1.orientation_constraints[i].absolute_z_axis_tolerance, c2.orientation_constraints[j].absolute_z_axis_tolerance);
+                    or_constraint.weight = std::max(c1.orientation_constraints[i].weight, c2.orientation_constraints[i].weight);
+                    output.orientation_constraints.push_back(or_constraint);
+                }
+                else
+                {
+                    ROS_ERROR("Failed to merge orientation constraints for %s", c1.orientation_constraints[i].link_name.c_str());
+                    ROS_ERROR("[x] %f <? %f: %s", diff(0), c2.orientation_constraints[j].absolute_x_axis_tolerance, diff(0) < c2.orientation_constraints[j].absolute_x_axis_tolerance ? "TRUE" : "FALSE");
+                    ROS_ERROR("[y] %f <? %f: %s", diff(1), c2.orientation_constraints[j].absolute_y_axis_tolerance, diff(1) < c2.orientation_constraints[j].absolute_y_axis_tolerance ? "TRUE" : "FALSE");
+                    ROS_ERROR("[z] %f <? %f: %s", diff(2), c2.orientation_constraints[j].absolute_z_axis_tolerance, diff(2) < c2.orientation_constraints[j].absolute_z_axis_tolerance ? "TRUE" : "FALSE");
+                }
+            }
+        }
+
+        if (!merged)
+            output.orientation_constraints.push_back(c1.orientation_constraints[i]);
+    }
+
+    // add all orientation constraints that are in c2 but not in c1
+    for (size_t i = 0; i < c2.orientation_constraints.size(); ++i)
+    {
+        bool add = true;
+        for (size_t j = 0; j < c1.orientation_constraints.size() ; ++j)
+            if (c2.orientation_constraints[i].link_name == c1.orientation_constraints[j].link_name)
+            {
+                add = false;
+                break;
+            }
+        if (add)
+            output.orientation_constraints.push_back(c2.orientation_constraints[i]);
+    }
+
+    // Joint constraints.  Totally pilfered from kinematic_constraints/src/utils.cpp
+    // add all joint constraints that are in c1 but not in c2
+    // and merge joint constraints that are for the same joint
+    for (std::size_t i = 0 ; i < c1.joint_constraints.size() ; ++i)
+    {
+        bool add = true;
+        for (std::size_t j = 0 ; j < c2.joint_constraints.size() ; ++j)
+            if (c2.joint_constraints[j].joint_name == c1.joint_constraints[i].joint_name)
+            {
+                add = false;
+                // now we merge
+                moveit_msgs::JointConstraint m;
+                const moveit_msgs::JointConstraint &a = c1.joint_constraints[i];
+                const moveit_msgs::JointConstraint &b = c2.joint_constraints[j];
+                double low = std::max(a.position - a.tolerance_below, b.position - b.tolerance_below);
+                double high = std::min(a.position + a.tolerance_above, b.position + b.tolerance_above);
+                if (low > high)
+                    ROS_ERROR("Attempted to merge incompatible constraints for joint '%s'. Discarding constraint.", a.joint_name.c_str());
+                else
+                {
+                    m.joint_name = a.joint_name;
+                    m.position = std::max(low, std::min((a.position * a.weight + b.position * b.weight) / (a.weight + b.weight), high));
+                    m.weight = (a.weight + b.weight) / 2.0;
+                    m.tolerance_above = std::max(0.0, high - m.position);
+                    m.tolerance_below = std::max(0.0, m.position - low);
+                    output.joint_constraints.push_back(m);
+                }
+                break;
+            }
+        if (add)
+            output.joint_constraints.push_back(c1.joint_constraints[i]);
+    }
+
+    // add all joint constraints that are in c2 but not in c1
+    for (std::size_t i = 0 ; i < c2.joint_constraints.size() ; ++i)
+    {
+        bool add = true;
+        for (std::size_t j = 0 ; j < c1.joint_constraints.size() ; ++j)
+            if (c2.joint_constraints[i].joint_name == c1.joint_constraints[j].joint_name)
+            {
+                add = false;
+                break;
+            }
+        if (add)
+            output.joint_constraints.push_back(c2.joint_constraints[i]);
+    }
+
+    // Concatenate other constraints
+    output.position_constraints = c1.position_constraints;
+    for (std::size_t i = 0 ; i < c2.position_constraints.size() ; ++i)
+        output.position_constraints.push_back(c2.position_constraints[i]);
+
+    output.visibility_constraints = c1.visibility_constraints;
+    for (std::size_t i = 0 ; i < c2.visibility_constraints.size() ; ++i)
+        output.visibility_constraints.push_back(c2.visibility_constraints[i]);
 }
 
 CLASS_LOADER_REGISTER_CLASS(ompl_interface::GeometricPlanningContext, ompl_interface::OMPLPlanningContext);
