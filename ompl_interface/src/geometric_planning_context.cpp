@@ -81,6 +81,9 @@ GeometricPlanningContext::GeometricPlanningContext() : OMPLPlanningContext()
     // Attempt to smooth the final solution path
     simplify_ = true;
 
+    // This context is not initialized
+    initialized_ = false;
+
     planner_id_ = "";
 }
 
@@ -214,7 +217,7 @@ void GeometricPlanningContext::initialize(const std::string& ros_namespace, cons
     // OMPL StateSampler
     mbss_->setStateSamplerAllocator(boost::bind(&GeometricPlanningContext::allocPathConstrainedSampler, this, _1));
 
-
+    initialized_ = true;
 }
 
 void GeometricPlanningContext::allocateStateSpace(const ModelBasedStateSpaceSpecification& state_space_spec)
@@ -351,6 +354,13 @@ void GeometricPlanningContext::stopGoalSampling()
 
 bool GeometricPlanningContext::solve(planning_interface::MotionPlanResponse& res)
 {
+    if (!initialized_)
+    {
+        ROS_ERROR("%s: Cannot solve motion plan query.  Planning context is not initialized", getDescription().c_str());
+        res.error_code_.val = moveit_msgs::MoveItErrorCodes::INVALID_MOTION_PLAN;
+        return false;
+    }
+
     double timeout = request_.allowed_planning_time;
     double plan_time = 0.0;
     bool result = solve(timeout, request_.num_planning_attempts, plan_time);
@@ -660,8 +670,15 @@ bool GeometricPlanningContext::setGoalConstraints(const std::vector<moveit_msgs:
         // NOTE: This only "intelligently" merges joint constraints.  All other constraint types are simply concatenated.
         //moveit_msgs::Constraints constr = kinematic_constraints::mergeConstraints(goal_constraints[i], request_.path_constraints);
 
+        // This will merge the path constraints with goal_constraints[i]
         moveit_msgs::Constraints constr;
-        mergeConstraints(goal_constraints[i], request_.path_constraints, constr);
+        if (!mergeConstraints(goal_constraints[i], request_.path_constraints, constr))
+        {
+            ROS_ERROR("Failed to merge path constraints with goal constraints.  Motion plan request is invalid.");
+            if (error)
+                error->val = moveit_msgs::MoveItErrorCodes::INVALID_GOAL_CONSTRAINTS;
+            return false;
+        }
 
         kinematic_constraints::KinematicConstraintSetPtr kset(new kinematic_constraints::KinematicConstraintSet(getRobotModel()));
         kset->add(constr, getPlanningScene()->getTransforms());
@@ -795,7 +812,7 @@ ompl::base::ProjectionEvaluatorPtr GeometricPlanningContext::getProjectionEvalua
 }
 
 // Merge c2 with c1, if useful
-void GeometricPlanningContext::mergeConstraints(const moveit_msgs::Constraints& c1, const moveit_msgs::Constraints& c2, moveit_msgs::Constraints& output) const
+bool GeometricPlanningContext::mergeConstraints(const moveit_msgs::Constraints& c1, const moveit_msgs::Constraints& c2, moveit_msgs::Constraints& output) const
 {
     // Merge orientation constraints in c2 that have a common link with c1
     for(size_t i = 0; i < c1.orientation_constraints.size(); ++i)
@@ -846,6 +863,7 @@ void GeometricPlanningContext::mergeConstraints(const moveit_msgs::Constraints& 
                     ROS_ERROR("[x] %f <? %f: %s", diff(0), c2.orientation_constraints[j].absolute_x_axis_tolerance, diff(0) < c2.orientation_constraints[j].absolute_x_axis_tolerance ? "TRUE" : "FALSE");
                     ROS_ERROR("[y] %f <? %f: %s", diff(1), c2.orientation_constraints[j].absolute_y_axis_tolerance, diff(1) < c2.orientation_constraints[j].absolute_y_axis_tolerance ? "TRUE" : "FALSE");
                     ROS_ERROR("[z] %f <? %f: %s", diff(2), c2.orientation_constraints[j].absolute_z_axis_tolerance, diff(2) < c2.orientation_constraints[j].absolute_z_axis_tolerance ? "TRUE" : "FALSE");
+                    return false;
                 }
             }
         }
@@ -923,6 +941,8 @@ void GeometricPlanningContext::mergeConstraints(const moveit_msgs::Constraints& 
     output.visibility_constraints = c1.visibility_constraints;
     for (std::size_t i = 0 ; i < c2.visibility_constraints.size() ; ++i)
         output.visibility_constraints.push_back(c2.visibility_constraints[i]);
+
+    return true;
 }
 
 CLASS_LOADER_REGISTER_CLASS(ompl_interface::GeometricPlanningContext, ompl_interface::OMPLPlanningContext);

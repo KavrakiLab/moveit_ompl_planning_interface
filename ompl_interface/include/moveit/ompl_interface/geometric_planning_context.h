@@ -100,7 +100,8 @@ public:
 
 protected:
     /// \brief Merge constraints c1 and c2, storing the result in output.
-    virtual void mergeConstraints(const moveit_msgs::Constraints& c1, const moveit_msgs::Constraints& c2, moveit_msgs::Constraints& output) const;
+    /// If the constraints cannot be merged, false is returned.
+    virtual bool mergeConstraints(const moveit_msgs::Constraints& c1, const moveit_msgs::Constraints& c2, moveit_msgs::Constraints& output) const;
 
     /// \brief Simplify the solution path (in simple setup).  Use no more than max_time seconds.
     virtual double simplifySolution(double max_time);
@@ -208,6 +209,8 @@ protected:
     bool simplify_;
 
     ros::NodeHandle nh_;
+
+    bool initialized_;
 };
 
 }
