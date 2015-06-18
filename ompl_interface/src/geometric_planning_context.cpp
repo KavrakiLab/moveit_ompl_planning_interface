@@ -165,30 +165,6 @@ void GeometricPlanningContext::initialize(const std::string& ros_namespace, cons
 
     ROS_INFO("Initializing GeometricPlanningContext for '%s'", spec_.planner.c_str());
 
-    // OMPL StateSpace
-    ModelBasedStateSpaceSpecification state_space_spec(spec_.model, spec_.group);
-    allocateStateSpace(state_space_spec);
-
-    // OMPL SimpleSetup
-    simple_setup_.reset(new ompl::geometric::SimpleSetup(mbss_));
-
-    // OMPL ProjectionEvaluator
-    it = spec_.config.find("projection_evaluator");
-    if (it != spec_.config.end())
-    {
-        setProjectionEvaluator(boost::trim_copy(it->second));
-        spec_.config.erase(it);
-    }
-    else if (planner_id_ != "")
-        ROS_WARN("No projection evaluator for '%s'", planner_id_.c_str());
-
-    // OMPL Planner
-    if (planner_id_ != "")
-    {
-        ompl::base::PlannerPtr planner = configurePlanner(planner_id_, spec_.config);
-        simple_setup_->setPlanner(planner);
-    }
-
     // Initialize path constraints, if any
     if (!request_.path_constraints.position_constraints.empty() ||
         !request_.path_constraints.orientation_constraints.empty() ||
@@ -212,6 +188,30 @@ void GeometricPlanningContext::initialize(const std::string& ros_namespace, cons
         std::stringstream ss;
         constraints_library_->printConstraintApproximations(ss);
         ROS_INFO_STREAM(ss.str());
+    }
+
+    // OMPL StateSpace
+    ModelBasedStateSpaceSpecification state_space_spec(spec_.model, spec_.group);
+    allocateStateSpace(state_space_spec);
+
+    // OMPL SimpleSetup
+    simple_setup_.reset(new ompl::geometric::SimpleSetup(mbss_));
+
+    // OMPL ProjectionEvaluator
+    it = spec_.config.find("projection_evaluator");
+    if (it != spec_.config.end())
+    {
+        setProjectionEvaluator(boost::trim_copy(it->second));
+        spec_.config.erase(it);
+    }
+    else if (planner_id_ != "")
+        ROS_WARN("No projection evaluator for '%s'", planner_id_.c_str());
+
+    // OMPL Planner
+    if (planner_id_ != "")
+    {
+        ompl::base::PlannerPtr planner = configurePlanner(planner_id_, spec_.config);
+        simple_setup_->setPlanner(planner);
     }
 
     // OMPL StateSampler
@@ -289,7 +289,7 @@ ompl::base::StateSamplerPtr GeometricPlanningContext::allocPathConstrainedSample
                 ompl::base::StateSamplerPtr res = c_ssa(ss);
                 if (res)
                 {
-                    logInform("%s: Using precomputed state sampler (approximated constraint space) for constraint '%s'", name_.c_str(), request_.path_constraints.name.c_str());
+                    ROS_INFO("%s: Using precomputed state sampler (approximated constraint space) for constraint '%s'", name_.c_str(), request_.path_constraints.name.c_str());
                     return res;
                 }
             }
@@ -731,12 +731,14 @@ bool GeometricPlanningContext::setGoalConstraints(const std::vector<moveit_msgs:
 
 const robot_model::RobotModelConstPtr& GeometricPlanningContext::getRobotModel() const
 {
-    return mbss_->getRobotModel();
+    //return mbss_->getRobotModel();
+    return spec_.model;
 }
 
 const robot_model::JointModelGroup* GeometricPlanningContext::getJointModelGroup() const
 {
-    return mbss_->getJointModelGroup();
+    //return mbss_->getJointModelGroup();
+    return spec_.model->getJointModelGroup(spec_.group);
 }
 
 ompl::base::PlannerPtr GeometricPlanningContext::configurePlanner(const std::string& planner_name, const std::map<std::string, std::string>& params)
