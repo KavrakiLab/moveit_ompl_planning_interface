@@ -210,6 +210,7 @@ protected:
 
     ros::NodeHandle nh_;
 
+    /// \brief True when the context is properly initialized
     bool initialized_;
 };
 
