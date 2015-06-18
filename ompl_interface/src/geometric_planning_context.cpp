@@ -731,13 +731,11 @@ bool GeometricPlanningContext::setGoalConstraints(const std::vector<moveit_msgs:
 
 const robot_model::RobotModelConstPtr& GeometricPlanningContext::getRobotModel() const
 {
-    //return mbss_->getRobotModel();
     return spec_.model;
 }
 
 const robot_model::JointModelGroup* GeometricPlanningContext::getJointModelGroup() const
 {
-    //return mbss_->getJointModelGroup();
     return spec_.model->getJointModelGroup(spec_.group);
 }
 
