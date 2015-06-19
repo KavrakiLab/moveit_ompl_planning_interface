@@ -401,7 +401,7 @@ bool GeometricPlanningContext::solve(planning_interface::MotionPlanResponse& res
     }
     else
     {
-        ROS_INFO("%s: Unable to solve the planning problem", getName().c_str());
+        ROS_WARN("%s: Unable to solve the planning problem", getName().c_str());
         res.error_code_.val = moveit_msgs::MoveItErrorCodes::PLANNING_FAILED;
     }
 
