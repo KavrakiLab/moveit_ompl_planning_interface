@@ -41,7 +41,7 @@
 
 using namespace ompl_interface;
 
-OMPLPlannerManager::OMPLPlannerManager() : planning_interface::PlannerManager()
+OMPLPlanningContextManager::OMPLPlanningContextManager() : planning_interface::PlannerManager()
 {
     constraint_sampler_manager_.reset(new constraint_samplers::ConstraintSamplerManager());
     constraint_sampler_manager_loader_.reset(new constraint_sampler_manager_loader::ConstraintSamplerManagerLoader(constraint_sampler_manager_));
@@ -49,15 +49,15 @@ OMPLPlannerManager::OMPLPlannerManager() : planning_interface::PlannerManager()
 
 /// \brief Initialize the planner manager for the given robot
 /// Assumed that any ROS functionalities are namespaced by ns
-bool OMPLPlannerManager::initialize(const robot_model::RobotModelConstPtr& model, const std::string& ns)
+bool OMPLPlanningContextManager::initialize(const robot_model::RobotModelConstPtr& model, const std::string& ns)
 {
     kmodel_ = model;
     ns_ = ns;
 
     nh_ = ros::NodeHandle(ns);
 
-    dynamic_reconfigure_server_.reset(new dynamic_reconfigure::Server<moveit_ompl_planning_interface::OMPLDynamicReconfigureConfig>(ros::NodeHandle(nh_, ns.empty() ? "ompl" : ns + "/ompl")));
-    dynamic_reconfigure_server_->setCallback(boost::bind(&OMPLPlannerManager::dynamicReconfigureCallback, this, _1, _2));
+    dynamic_reconfigure_server_.reset(new dynamic_reconfigure::Server<moveit_ompl_planning_interface::OMPLDynamicReconfigureConfig>(ros::NodeHandle(nh_, ns.empty() ? "ompl_context_mgr" : ns + "/ompl_context_mgr")));
+    dynamic_reconfigure_server_->setCallback(boost::bind(&OMPLPlanningContextManager::dynamicReconfigureCallback, this, _1, _2));
 
     // Initialize planning context plugin loader
     try
@@ -76,12 +76,12 @@ bool OMPLPlannerManager::initialize(const robot_model::RobotModelConstPtr& model
     return planning_interface::PlannerManager::initialize(model, ns);
 }
 
-std::string OMPLPlannerManager::getDescription() const
+std::string OMPLPlanningContextManager::getDescription() const
 {
     return "OMPL+LUNA";
 }
 
-void OMPLPlannerManager::getPlanningAlgorithms(std::vector<std::string> &algs) const
+void OMPLPlanningContextManager::getPlanningAlgorithms(std::vector<std::string> &algs) const
 {
     algs.clear();
     algs.reserve(config_settings_.size());
@@ -89,7 +89,7 @@ void OMPLPlannerManager::getPlanningAlgorithms(std::vector<std::string> &algs) c
       algs.push_back(it->first);
 }
 
-planning_interface::PlanningContextPtr OMPLPlannerManager::getPlanningContext(const planning_scene::PlanningSceneConstPtr& planning_scene,
+planning_interface::PlanningContextPtr OMPLPlanningContextManager::getPlanningContext(const planning_scene::PlanningSceneConstPtr& planning_scene,
                                                                               const planning_interface::MotionPlanRequest &req,
                                                                               moveit_msgs::MoveItErrorCodes &error_code) const
 {
@@ -182,14 +182,14 @@ planning_interface::PlanningContextPtr OMPLPlannerManager::getPlanningContext(co
 }
 
 /// \brief Determine whether this plugin instance is able to represent this planning request
-bool OMPLPlannerManager::canServiceRequest(const planning_interface::MotionPlanRequest &req) const
+bool OMPLPlanningContextManager::canServiceRequest(const planning_interface::MotionPlanRequest &req) const
 {
     // Trajectory constraints are not supported by OMPL planners
     return req.trajectory_constraints.constraints.empty();
 }
 
 
-boost::shared_ptr<OMPLPlanningContext> OMPLPlannerManager::getPlanningContext(const planning_interface::PlannerConfigurationSettings &config) const
+boost::shared_ptr<OMPLPlanningContext> OMPLPlanningContextManager::getPlanningContext(const planning_interface::PlannerConfigurationSettings &config) const
 {
     // TODO: Cache contexts we have created before?
     std::map<std::string, std::string>::const_iterator config_it = config.config.find("plugin");
@@ -201,7 +201,7 @@ boost::shared_ptr<OMPLPlanningContext> OMPLPlannerManager::getPlanningContext(co
     return ompl_planner_loader_->createInstance(DEFAULT_OMPL_PLANNING_PLUGIN);
 }
 
-void OMPLPlannerManager::configurePlanningContexts()
+void OMPLPlanningContextManager::configurePlanningContexts()
 {
     const std::vector<std::string> &group_names = kmodel_->getJointModelGroupNames();
     planning_interface::PlannerConfigurationMap pconfig;
@@ -278,7 +278,7 @@ void OMPLPlannerManager::configurePlanningContexts()
     setPlannerConfigurations(pconfig);
 }
 
-void OMPLPlannerManager::getGroupSpecificParameters(const std::string& group_name,
+void OMPLPlanningContextManager::getGroupSpecificParameters(const std::string& group_name,
                                                     std::map<std::string, std::string>& specific_group_params)
 {
     // the set of planning parameters that can be specific for the group (inherited by configurations of that group)
@@ -319,7 +319,7 @@ void OMPLPlannerManager::getGroupSpecificParameters(const std::string& group_nam
     }
 }
 
-void OMPLPlannerManager::dynamicReconfigureCallback(moveit_ompl_planning_interface::OMPLDynamicReconfigureConfig &config, uint32_t level)
+void OMPLPlanningContextManager::dynamicReconfigureCallback(moveit_ompl_planning_interface::OMPLDynamicReconfigureConfig &config, uint32_t level)
 {
     simplify_ = config.simplify_solutions;
     interpolate_ = config.minimum_waypoint_count > 2;
@@ -328,4 +328,4 @@ void OMPLPlannerManager::dynamicReconfigureCallback(moveit_ompl_planning_interfa
     max_num_threads_ = config.maximum_number_threads;
 }
 
-CLASS_LOADER_REGISTER_CLASS(ompl_interface::OMPLPlannerManager, planning_interface::PlannerManager);
+CLASS_LOADER_REGISTER_CLASS(ompl_interface::OMPLPlanningContextManager, planning_interface::PlannerManager);

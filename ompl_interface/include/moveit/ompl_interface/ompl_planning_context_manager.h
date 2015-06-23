@@ -34,8 +34,8 @@
 
 /* Author: Ryan Luna */
 
-#ifndef MOVEIT_OMPL_INTERFACE_OMPL_PLANNER_MANAGER_
-#define MOVEIT_OMPL_INTERFACE_OMPL_PLANNER_MANAGER_
+#ifndef MOVEIT_OMPL_INTERFACE_OMPL_PLANNING_CONTEXT_MANAGER_
+#define MOVEIT_OMPL_INTERFACE_OMPL_PLANNING_CONTEXT_MANAGER_
 
 #include <ros/ros.h>
 #include <pluginlib/class_loader.h>
@@ -50,10 +50,10 @@
 namespace ompl_interface
 {
 
-class OMPLPlannerManager : public planning_interface::PlannerManager
+class OMPLPlanningContextManager : public planning_interface::PlannerManager
 {
 public:
-    OMPLPlannerManager();
+    OMPLPlanningContextManager();
 
     /// \brief Initialize the planner manager for the given robot.
     /// All ROS functionalities are namespaced by \e ns
