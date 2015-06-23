@@ -34,7 +34,7 @@
 
 /* Author: Ryan Luna */
 
-#include <moveit/ompl_interface/ompl_planner_manager.h>
+#include <moveit/ompl_interface/ompl_planning_context_manager.h>
 
 // For backward compatibility with older .yaml files.
 #define DEFAULT_OMPL_PLANNING_PLUGIN "ompl_interface/GeometricPlanningContext"
