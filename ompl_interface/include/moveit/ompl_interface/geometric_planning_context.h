@@ -39,9 +39,8 @@
 
 #include <ros/ros.h>
 #include "moveit/ompl_interface/ompl_planning_context.h"
-#include "moveit/ompl_interface/constraints_library.h"
+//#include "moveit/ompl_interface/constraints_library.h"
 #include <ompl/geometric/SimpleSetup.h>
-#include <moveit/constraint_samplers/constraint_sampler_manager.h>
 #include <boost/thread/mutex.hpp>
 
 
@@ -66,14 +65,12 @@ public:
 
     /// \brief Solve the motion planning problem and store the result in \e res.
     /// This function should not clear data structures before computing. The constructor
-    /// and clear() do that.  Note that this planning context does NOT incorporate
-    /// path constraints.
+    /// and clear() do that.
     virtual bool solve(planning_interface::MotionPlanResponse& res);
 
     /// \brief Solve the motion planning problem and store the detailed result in \e res.
     /// This function should not clear data structures before computing. The constructor
-    /// and clear() do that.  Note that this planning context does NOT incorporate
-    /// path constraints.
+    /// and clear() do that.
     virtual bool solve(planning_interface::MotionPlanDetailedResponse& res);
 
     /// \brief Stop planning
@@ -96,7 +93,11 @@ public:
     virtual bool setGoalConstraints(const std::vector<moveit_msgs::Constraints> &goal_constraints,
                                     moveit_msgs::MoveItErrorCodes *error);
 
-    ConstraintsLibraryPtr getConstraintsLibrary() const;
+    /// \brief Return the set of constraints that must be satisfied along the entire path
+    virtual const kinematic_constraints::KinematicConstraintSetPtr& getPathConstraints() const;
+
+    // TODO: Remove this.
+    // ConstraintsLibraryPtr getConstraintsLibrary() const;
 
 protected:
     /// \brief Merge constraints c1 and c2, storing the result in output.
@@ -185,8 +186,9 @@ protected:
     /// \brief The constraint sampler factory.
     constraint_samplers::ConstraintSamplerManagerPtr constraint_sampler_manager_;
 
-    /// \brief A pointer to the constraints library.  Used for precomputed state sampling.
-    ConstraintsLibraryPtr constraints_library_;
+    // \brief A pointer to the constraints library.  Used for precomputed state sampling.
+    // TODO: Remove this.
+    //ConstraintsLibraryPtr constraints_library_;
 
     /// \brief The specification parameters for this context
     PlanningContextSpecification spec_;
