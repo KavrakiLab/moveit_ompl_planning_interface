@@ -130,10 +130,10 @@ void GeometricPlanningContext::registerPlannerAllocator(const std::string &plann
     planner_allocators_[planner_id] = pa;
 }
 
-ConstraintsLibraryPtr GeometricPlanningContext::getConstraintsLibrary() const
-{
-    return constraints_library_;
-}
+// ConstraintsLibraryPtr GeometricPlanningContext::getConstraintsLibrary() const
+// {
+//     return constraints_library_;
+// }
 
 void GeometricPlanningContext::initialize(const std::string& ros_namespace, const PlanningContextSpecification& spec)
 {
@@ -180,15 +180,15 @@ void GeometricPlanningContext::initialize(const std::string& ros_namespace, cons
     }
 
     // Library of constraints
-    constraints_library_.reset(new ConstraintsLibrary(this, constraint_sampler_manager_));
-    std::string cpath;
-    if (nh_.getParam("constraint_approximations_path", cpath))
-    {
-        constraints_library_->loadConstraintApproximations(cpath);
-        std::stringstream ss;
-        constraints_library_->printConstraintApproximations(ss);
-        ROS_INFO_STREAM(ss.str());
-    }
+    // constraints_library_.reset(new ConstraintsLibrary(this, constraint_sampler_manager_));
+    // std::string cpath;
+    // if (nh_.getParam("constraint_approximations_path", cpath))
+    // {
+    //     constraints_library_->loadConstraintApproximations(cpath);
+    //     std::stringstream ss;
+    //     constraints_library_->printConstraintApproximations(ss);
+    //     ROS_INFO_STREAM(ss.str());
+    // }
 
     // OMPL StateSpace
     ModelBasedStateSpaceSpecification state_space_spec(spec_.model, spec_.group);
@@ -278,22 +278,23 @@ ompl::base::StateSamplerPtr GeometricPlanningContext::allocPathConstrainedSample
 
     ROS_DEBUG("%s: Allocating a new state sampler (attempts to use path constraints)", name_.c_str());
 
-    if (path_constraints_ && constraints_library_)
+    //if (path_constraints_ && constraints_library_)
+    if (path_constraints_)
     {
-        const ConstraintApproximationPtr &ca = constraints_library_->getConstraintApproximation(request_.path_constraints);
-        if (ca)
-        {
-            ompl::base::StateSamplerAllocator c_ssa = ca->getStateSamplerAllocator(request_.path_constraints);
-            if (c_ssa)
-            {
-                ompl::base::StateSamplerPtr res = c_ssa(ss);
-                if (res)
-                {
-                    ROS_INFO("%s: Using precomputed state sampler (approximated constraint space) for constraint '%s'", name_.c_str(), request_.path_constraints.name.c_str());
-                    return res;
-                }
-            }
-        }
+        // const ConstraintApproximationPtr &ca = constraints_library_->getConstraintApproximation(request_.path_constraints);
+        // if (ca)
+        // {
+        //     ompl::base::StateSamplerAllocator c_ssa = ca->getStateSamplerAllocator(request_.path_constraints);
+        //     if (c_ssa)
+        //     {
+        //         ompl::base::StateSamplerPtr res = c_ssa(ss);
+        //         if (res)
+        //         {
+        //             ROS_INFO("%s: Using precomputed state sampler (approximated constraint space) for constraint '%s'", name_.c_str(), request_.path_constraints.name.c_str());
+        //             return res;
+        //         }
+        //     }
+        // }
 
         constraint_samplers::ConstraintSamplerPtr cs = constraint_sampler_manager_->selectSampler(getPlanningScene(), getGroupName(), path_constraints_->getAllConstraints());
         if (cs)
@@ -727,6 +728,11 @@ bool GeometricPlanningContext::setGoalConstraints(const std::vector<moveit_msgs:
 
     OMPL_ERROR("Unable to construct goal representation");
     return false;
+}
+
+const kinematic_constraints::KinematicConstraintSetPtr& GeometricPlanningContext::getPathConstraints() const
+{
+    return path_constraints_;
 }
 
 const robot_model::RobotModelConstPtr& GeometricPlanningContext::getRobotModel() const

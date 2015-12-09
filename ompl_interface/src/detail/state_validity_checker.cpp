@@ -71,17 +71,13 @@ void ompl_interface::StateValidityChecker::setVerbose(bool flag)
 bool ompl_interface::StateValidityChecker::isValid(const ompl::base::State *state, bool verbose) const
 {
   //  moveit::Profiler::ScopedBlock sblock("isValid");
-  //return planning_context_->useStateValidityCache() ? isValidWithCache(state, verbose) : isValidWithoutCache(state, verbose);
-
-  return isValidWithCache(state, verbose);
+  return planning_context_->useStateValidityCache() ? isValidWithCache(state, verbose) : isValidWithoutCache(state, verbose);
 }
 
 bool ompl_interface::StateValidityChecker::isValid(const ompl::base::State *state, double &dist, bool verbose) const
 {
   //  moveit::Profiler::ScopedBlock sblock("isValid");
-  //return planning_context_->useStateValidityCache() ? isValidWithCache(state, dist, verbose) : isValidWithoutCache(state, dist, verbose);
-
-  return isValidWithCache(state, dist, verbose);
+  return planning_context_->useStateValidityCache() ? isValidWithCache(state, dist, verbose) : isValidWithoutCache(state, dist, verbose);
 }
 
 double ompl_interface::StateValidityChecker::cost(const ompl::base::State *state) const
@@ -126,9 +122,9 @@ bool ompl_interface::StateValidityChecker::isValidWithoutCache(const ompl::base:
   planning_context_->getOMPLStateSpace()->copyToRobotState(*kstate, state);
 
   // check path constraints
-  //const kinematic_constraints::KinematicConstraintSetPtr &kset = planning_context_->getPathConstraints();
-  //if (kset && !kset->decide(*kstate, verbose).satisfied)
-  //  return false;
+  const kinematic_constraints::KinematicConstraintSetPtr &kset = planning_context_->getPathConstraints();
+  if (kset && !kset->decide(*kstate, verbose).satisfied)
+   return false;
 
   // check feasibility
   if (!planning_context_->getPlanningScene()->isStateFeasible(*kstate, verbose))
@@ -153,16 +149,16 @@ bool ompl_interface::StateValidityChecker::isValidWithoutCache(const ompl::base:
   planning_context_->getOMPLStateSpace()->copyToRobotState(*kstate, state);
 
   // check path constraints
-  //const kinematic_constraints::KinematicConstraintSetPtr &kset = planning_context_->getPathConstraints();
-  //if (kset)
-  //{
-  //  kinematic_constraints::ConstraintEvaluationResult cer = kset->decide(*kstate, verbose);
-  //  if (!cer.satisfied)
-  //  {
-  //    dist = cer.distance;
-  //    return false;
-  //  }
-  //}
+  const kinematic_constraints::KinematicConstraintSetPtr &kset = planning_context_->getPathConstraints();
+  if (kset)
+  {
+   kinematic_constraints::ConstraintEvaluationResult cer = kset->decide(*kstate, verbose);
+   if (!cer.satisfied)
+   {
+     dist = cer.distance;
+     return false;
+   }
+  }
 
   // check feasibility
   if (!planning_context_->getPlanningScene()->isStateFeasible(*kstate, verbose))
@@ -195,12 +191,12 @@ bool ompl_interface::StateValidityChecker::isValidWithCache(const ompl::base::St
   planning_context_->getOMPLStateSpace()->copyToRobotState(*kstate, state);
 
   // check path constraints
-  //const kinematic_constraints::KinematicConstraintSetPtr &kset = planning_context_->getPathConstraints();
-  //if (kset && !kset->decide(*kstate, verbose).satisfied)
-  //{
-  //  const_cast<ob::State*>(state)->as<ModelBasedStateSpace::StateType>()->markInvalid();
-  //  return false;
-  //}
+  const kinematic_constraints::KinematicConstraintSetPtr &kset = planning_context_->getPathConstraints();
+  if (kset && !kset->decide(*kstate, verbose).satisfied)
+  {
+   const_cast<ompl::base::State*>(state)->as<ModelBasedStateSpace::StateType>()->markInvalid();
+   return false;
+  }
 
   // check feasibility
   if (!planning_context_->getPlanningScene()->isStateFeasible(*kstate, verbose))
@@ -244,17 +240,17 @@ bool ompl_interface::StateValidityChecker::isValidWithCache(const ompl::base::St
   planning_context_->getOMPLStateSpace()->copyToRobotState(*kstate, state);
 
   // check path constraints
-  //const kinematic_constraints::KinematicConstraintSetPtr &kset = planning_context_->getPathConstraints();
-  //if (kset)
-  //{
-  //  kinematic_constraints::ConstraintEvaluationResult cer = kset->decide(*kstate, verbose);
-  //  if (!cer.satisfied)
-  //  {
-  //    dist = cer.distance;
-  //    const_cast<ob::State*>(state)->as<ModelBasedStateSpace::StateType>()->markInvalid(dist);
-  //    return false;
-  //  }
-  //}
+  const kinematic_constraints::KinematicConstraintSetPtr &kset = planning_context_->getPathConstraints();
+  if (kset)
+  {
+   kinematic_constraints::ConstraintEvaluationResult cer = kset->decide(*kstate, verbose);
+   if (!cer.satisfied)
+   {
+     dist = cer.distance;
+     const_cast<ompl::base::State*>(state)->as<ModelBasedStateSpace::StateType>()->markInvalid(dist);
+     return false;
+   }
+  }
 
   // check feasibility
   if (!planning_context_->getPlanningScene()->isStateFeasible(*kstate, verbose))

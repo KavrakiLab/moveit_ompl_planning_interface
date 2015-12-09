@@ -70,7 +70,7 @@ struct PlanningContextSpecification
 class OMPLPlanningContext : public planning_interface::PlanningContext
 {
 public:
-    OMPLPlanningContext() : planning_interface::PlanningContext("UNINITIALIZED", "NO_GROUP") {}
+    OMPLPlanningContext() : planning_interface::PlanningContext("UNINITIALIZED", "NO_GROUP"), use_state_validity_cache_(true) {}
 
     virtual ~OMPLPlanningContext() {}
 
@@ -126,6 +126,26 @@ public:
     /// \brief Set the goal state of the robot via a set of constraints
     virtual bool setGoalConstraints(const std::vector<moveit_msgs::Constraints> &goal_constraints,
                                     moveit_msgs::MoveItErrorCodes *error) = 0;
+
+    /// \brief Return the set of constraints that must be satisfied along the entire path
+    virtual const kinematic_constraints::KinematicConstraintSetPtr& getPathConstraints() const = 0;
+
+    /// \brief Return true if caching is enabled in the StateValidityChecker
+    bool useStateValidityCache() const
+    {
+        return use_state_validity_cache_;
+    }
+
+    /// \brief Enable/disable caching in the StateValidityChecker
+    void useStateValidityCache(bool flag)
+    {
+        use_state_validity_cache_ = flag;
+    }
+
+protected:
+
+    /// \brief Flag indicating whether caching is used in the StateValidityChecker.
+    bool use_state_validity_cache_;
 };
 
 }
