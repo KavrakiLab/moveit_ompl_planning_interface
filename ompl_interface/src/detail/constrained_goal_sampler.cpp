@@ -126,7 +126,7 @@ bool ompl_interface::ConstrainedGoalSampler::sampleUsingConstraintSampler(const 
 
       unsigned int max_state_sampling_attempts = 4;
       //if (constraint_sampler_->project(work_state_, planning_context_->getMaximumStateSamplingAttempts()))
-      if (constraint_sampler_->project(work_state_, max_state_sampling_attempts))
+      if (constraint_sampler_->sample(work_state_, max_state_sampling_attempts))
       {
         work_state_.update();
         if (kinematic_constraint_set_->decide(work_state_, verbose).satisfied)
