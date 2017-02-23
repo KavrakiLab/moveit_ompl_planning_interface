@@ -211,6 +211,8 @@ std::shared_ptr<OMPLPlanningContext> OMPLPlanningContextManager::getPlanningCont
                                                });
 }
 
+
+
 void OMPLPlanningContextManager::configurePlanningContexts()
 {
     const std::vector<std::string> &group_names = kmodel_->getJointModelGroupNames();
@@ -233,15 +235,15 @@ void OMPLPlanningContextManager::configurePlanningContexts()
                 continue;
             }
 
-            for (auto & config_name : config_names)
+            for (size_t j = 0; j < config_names.size(); ++j)
             {
-                if (config_name.second.getType() != XmlRpc::XmlRpcValue::TypeString)
+                if (config_names[j].getType() != XmlRpc::XmlRpcValue::TypeString)
                 {
                     ROS_ERROR("Expected a list of strings for the planner configurations of group '%s'", group_name.c_str());
                     continue;
                 }
 
-                std::string planner_config = static_cast<std::string>(config_name.first);
+                std::string planner_config = static_cast<std::string>(config_names[j]);
                 XmlRpc::XmlRpcValue xml_config;
                 if (nh_.getParam("planner_configs/" + planner_config, xml_config))
                 {
