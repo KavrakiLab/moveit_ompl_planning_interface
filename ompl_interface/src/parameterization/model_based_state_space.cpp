@@ -77,8 +77,7 @@ ompl_interface::ModelBasedStateSpace::ModelBasedStateSpace(const ModelBasedState
 }
 
 ompl_interface::ModelBasedStateSpace::~ModelBasedStateSpace()
-{
-}
+= default;
 
 double ompl_interface::ModelBasedStateSpace::getTagSnapToSegment() const
 {
@@ -98,7 +97,7 @@ void ompl_interface::ModelBasedStateSpace::setTagSnapToSegment(double snap)
 
 ompl::base::State* ompl_interface::ModelBasedStateSpace::allocState() const
 {
-  StateType *state = new StateType();
+  auto state = new StateType();
   state->values = new double[variable_count_];
   return state;
 }
@@ -137,8 +136,8 @@ void ompl_interface::ModelBasedStateSpace::deserialize(ompl::base::State *state,
 unsigned int ompl_interface::ModelBasedStateSpace::getDimension() const
 {
   unsigned int d = 0;
-  for (std::size_t i = 0 ; i < joint_model_vector_.size() ; ++i)
-    d += joint_model_vector_[i]->getStateSpaceDimension();
+  for (auto i : joint_model_vector_)
+    d += i->getStateSpaceDimension();
   return d;
 }
 
@@ -150,12 +149,12 @@ double ompl_interface::ModelBasedStateSpace::getMaximumExtent() const
 double ompl_interface::ModelBasedStateSpace::getMeasure() const
 {
     double m = 1.0;
-    for (std::size_t i = 0 ; i < spec_.joint_bounds_.size() ; ++i)
+    for (auto joint_bound : spec_.joint_bounds_)
     {
-        const robot_model::JointModel::Bounds& bounds = *spec_.joint_bounds_[i];
-        for (std::size_t j = 0; j < bounds.size(); ++j)
+        const robot_model::JointModel::Bounds& bounds = *joint_bound;
+        for (const auto & bound : bounds)
         {
-            m *= bounds[j].max_position_ - bounds[j].min_position_;
+            m *= bound.max_position_ - bound.min_position_;
         }
     }
     return m;
@@ -211,7 +210,7 @@ void ompl_interface::ModelBasedStateSpace::interpolate(const ompl::base::State *
 double* ompl_interface::ModelBasedStateSpace::getValueAddressAtIndex(ompl::base::State *state, const unsigned int index) const
 {
   if (index >= variable_count_)
-    return NULL;
+    return nullptr;
   return state->as<StateType>()->values + index;
 }
 
@@ -252,19 +251,19 @@ ompl::base::StateSamplerPtr ompl_interface::ModelBasedStateSpace::allocDefaultSt
     {
     }
 
-    virtual void sampleUniform(ompl::base::State *state)
+    void sampleUniform(ompl::base::State *state) override
     {
       joint_model_group_->getVariableRandomPositions(moveit_rng_, state->as<StateType>()->values, *joint_bounds_);
       state->as<StateType>()->clearKnownInformation();
     }
 
-    virtual void sampleUniformNear(ompl::base::State *state, const ompl::base::State *near, const double distance)
+    void sampleUniformNear(ompl::base::State *state, const ompl::base::State *near, const double distance) override
     {
       joint_model_group_->getVariableRandomPositionsNearBy(moveit_rng_, state->as<StateType>()->values, *joint_bounds_, near->as<StateType>()->values, distance);
       state->as<StateType>()->clearKnownInformation();
     }
 
-    virtual void sampleGaussian(ompl::base::State *state, const ompl::base::State *mean, const double stdDev)
+    void sampleGaussian(ompl::base::State *state, const ompl::base::State *mean, const double stdDev) override
     {
       sampleUniformNear(state, mean, rng_.gaussian(0.0, stdDev));
     }
@@ -287,11 +286,11 @@ void ompl_interface::ModelBasedStateSpace::printSettings(std::ostream &out) cons
 
 void ompl_interface::ModelBasedStateSpace::printState(const ompl::base::State *state, std::ostream &out) const
 {
-  for (std::size_t j = 0 ; j < joint_model_vector_.size() ; ++j)
+  for (auto j : joint_model_vector_)
   {
-    out << joint_model_vector_[j]->getName() << " = ";
-    const int idx = spec_.joint_model_group_->getVariableGroupIndex(joint_model_vector_[j]->getName());
-    const int vc = joint_model_vector_[j]->getVariableCount();
+    out << j->getName() << " = ";
+    const int idx = spec_.joint_model_group_->getVariableGroupIndex(j->getName());
+    const int vc = j->getVariableCount();
     for (int i = 0 ; i < vc ; ++i)
       out << state->as<StateType>()->values[idx + i] << " ";
     out << std::endl;

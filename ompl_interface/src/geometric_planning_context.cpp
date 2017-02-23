@@ -73,7 +73,7 @@ using namespace ompl_interface;
 GeometricPlanningContext::GeometricPlanningContext() : OMPLPlanningContext()
 {
     initializePlannerAllocators();
-    complete_initial_robot_state_ = NULL;
+    complete_initial_robot_state_ = nullptr;
 
     // Interpolate the final solution path to have a minimum number of states
     interpolate_ = true;
@@ -144,7 +144,7 @@ void GeometricPlanningContext::initialize(const std::string& ros_namespace, cons
     interpolate_ = spec.interpolate_solution;
 
     // Erase the type and plugin fields from the configuration items
-    std::map<std::string, std::string>::iterator it = spec_.config.find("type");
+    auto it = spec_.config.find("type");
     if (it != spec_.config.end())
     {
         planner_id_ = it->second;
@@ -242,10 +242,10 @@ void GeometricPlanningContext::allocateStateSpace(const ModelBasedStateSpaceSpec
                 // or an IK solver for each of the subgroups
                 unsigned int vc = 0;
                 unsigned int bc = 0;
-                for (robot_model::JointModelGroup::KinematicsSolverMap::const_iterator jt = slv.second.begin() ; jt != slv.second.end() ; ++jt)
+                for (const auto & jt : slv.second)
                 {
-                    vc += jt->first->getVariableCount();
-                    bc += jt->second.bijection_.size();
+                    vc += jt.first->getVariableCount();
+                    bc += jt.second.bijection_.size();
                 }
                 if (vc == jmg->getVariableCount() && vc == bc)
                     ik = true;
@@ -602,7 +602,7 @@ void GeometricPlanningContext::registerTerminationCondition(const ompl::base::Pl
 void GeometricPlanningContext::unregisterTerminationCondition()
 {
     boost::mutex::scoped_lock slock(ptc_lock_);
-    ptc_ = NULL;
+    ptc_ = nullptr;
 }
 
 
@@ -666,14 +666,14 @@ bool GeometricPlanningContext::setGoalConstraints(const std::vector<moveit_msgs:
 
     // Merge path constraints (if any) with goal constraints
     goal_constraints_.clear();
-    for(size_t i = 0; i < goal_constraints.size(); ++i)
+    for(const auto & goal_constraint : goal_constraints)
     {
         // NOTE: This only "intelligently" merges joint constraints.  All other constraint types are simply concatenated.
         //moveit_msgs::Constraints constr = kinematic_constraints::mergeConstraints(goal_constraints[i], request_.path_constraints);
 
         // This will merge the path constraints with goal_constraints[i]
         moveit_msgs::Constraints constr;
-        if (!mergeConstraints(goal_constraints[i], request_.path_constraints, constr))
+        if (!mergeConstraints(goal_constraint, request_.path_constraints, constr))
         {
             ROS_ERROR("Failed to merge path constraints with goal constraints.  Motion plan request is invalid.");
             if (error)
@@ -697,14 +697,14 @@ bool GeometricPlanningContext::setGoalConstraints(const std::vector<moveit_msgs:
 
     // Creating constraint sampler for each constraint
     std::vector<ompl::base::GoalPtr> goals;
-    for (std::size_t i = 0 ; i < goal_constraints_.size() ; ++i)
+    for (auto & goal_constraint : goal_constraints_)
     {
         constraint_samplers::ConstraintSamplerPtr cs;
         if (constraint_sampler_manager_)
-            cs = constraint_sampler_manager_->selectSampler(getPlanningScene(), getGroupName(), goal_constraints_[i]->getAllConstraints());
+            cs = constraint_sampler_manager_->selectSampler(getPlanningScene(), getGroupName(), goal_constraint->getAllConstraints());
         if (cs)
         {
-            ompl::base::GoalPtr g = ompl::base::GoalPtr(new ConstrainedGoalSampler(this, goal_constraints_[i], cs));
+            ompl::base::GoalPtr g = ompl::base::GoalPtr(new ConstrainedGoalSampler(this, goal_constraint, cs));
             goals.push_back(g);
         }
         else
@@ -879,33 +879,33 @@ bool GeometricPlanningContext::mergeConstraints(const moveit_msgs::Constraints& 
     }
 
     // add all orientation constraints that are in c2 but not in c1
-    for (size_t i = 0; i < c2.orientation_constraints.size(); ++i)
+    for (const auto & orientation_constraint : c2.orientation_constraints)
     {
         bool add = true;
-        for (size_t j = 0; j < c1.orientation_constraints.size() ; ++j)
-            if (c2.orientation_constraints[i].link_name == c1.orientation_constraints[j].link_name)
+        for (const auto & j : c1.orientation_constraints)
+            if (orientation_constraint.link_name == j.link_name)
             {
                 add = false;
                 break;
             }
         if (add)
-            output.orientation_constraints.push_back(c2.orientation_constraints[i]);
+            output.orientation_constraints.push_back(orientation_constraint);
     }
 
     // Joint constraints.  Totally pilfered from kinematic_constraints/src/utils.cpp
     // add all joint constraints that are in c1 but not in c2
     // and merge joint constraints that are for the same joint
-    for (std::size_t i = 0 ; i < c1.joint_constraints.size() ; ++i)
+    for (const auto & joint_constraint : c1.joint_constraints)
     {
         bool add = true;
-        for (std::size_t j = 0 ; j < c2.joint_constraints.size() ; ++j)
-            if (c2.joint_constraints[j].joint_name == c1.joint_constraints[i].joint_name)
+        for (const auto & j : c2.joint_constraints)
+            if (j.joint_name == joint_constraint.joint_name)
             {
                 add = false;
                 // now we merge
                 moveit_msgs::JointConstraint m;
-                const moveit_msgs::JointConstraint &a = c1.joint_constraints[i];
-                const moveit_msgs::JointConstraint &b = c2.joint_constraints[j];
+                const moveit_msgs::JointConstraint &a = joint_constraint;
+                const moveit_msgs::JointConstraint &b = j;
                 double low = std::max(a.position - a.tolerance_below, b.position - b.tolerance_below);
                 double high = std::min(a.position + a.tolerance_above, b.position + b.tolerance_above);
                 if (low > high)
@@ -922,31 +922,31 @@ bool GeometricPlanningContext::mergeConstraints(const moveit_msgs::Constraints& 
                 break;
             }
         if (add)
-            output.joint_constraints.push_back(c1.joint_constraints[i]);
+            output.joint_constraints.push_back(joint_constraint);
     }
 
     // add all joint constraints that are in c2 but not in c1
-    for (std::size_t i = 0 ; i < c2.joint_constraints.size() ; ++i)
+    for (const auto & joint_constraint : c2.joint_constraints)
     {
         bool add = true;
-        for (std::size_t j = 0 ; j < c1.joint_constraints.size() ; ++j)
-            if (c2.joint_constraints[i].joint_name == c1.joint_constraints[j].joint_name)
+        for (const auto & j : c1.joint_constraints)
+            if (joint_constraint.joint_name == j.joint_name)
             {
                 add = false;
                 break;
             }
         if (add)
-            output.joint_constraints.push_back(c2.joint_constraints[i]);
+            output.joint_constraints.push_back(joint_constraint);
     }
 
     // Concatenate other constraints
     output.position_constraints = c1.position_constraints;
-    for (std::size_t i = 0 ; i < c2.position_constraints.size() ; ++i)
-        output.position_constraints.push_back(c2.position_constraints[i]);
+    for (const auto & position_constraint : c2.position_constraints)
+        output.position_constraints.push_back(position_constraint);
 
     output.visibility_constraints = c1.visibility_constraints;
-    for (std::size_t i = 0 ; i < c2.visibility_constraints.size() ; ++i)
-        output.visibility_constraints.push_back(c2.visibility_constraints[i]);
+    for (const auto & visibility_constraint : c2.visibility_constraints)
+        output.visibility_constraints.push_back(visibility_constraint);
 
     return true;
 }

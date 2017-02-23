@@ -62,7 +62,7 @@ public:
   {
   }
 
-  virtual void log(const std::string &text, ompl::msg::LogLevel level, const char *filename, int line)
+  void log(const std::string &text, ompl::msg::LogLevel level, const char *filename, int line) override
   {
     switch (level)
     {
@@ -71,7 +71,7 @@ public:
         ROSCONSOLE_DEFINE_LOCATION(true, ::ros::console::levels::Info, std::string(ROSCONSOLE_ROOT_LOGGER_NAME) + ".ompl");
         if (ROS_UNLIKELY(OMPL_CONSOLE_ENABLED))
         {
-          ::ros::console::print(NULL, OMPL_CONSOLE_LOGGER, OMPL_CONSOLE_LEVEL, filename, line, "", "%s", text.c_str());
+          ::ros::console::print(nullptr, OMPL_CONSOLE_LOGGER, OMPL_CONSOLE_LEVEL, filename, line, "", "%s", text.c_str());
         }
       }
       break;
@@ -80,7 +80,7 @@ public:
         ROSCONSOLE_DEFINE_LOCATION(true, ::ros::console::levels::Warn, std::string(ROSCONSOLE_ROOT_LOGGER_NAME) + ".ompl");
         if (ROS_UNLIKELY(OMPL_CONSOLE_ENABLED))
         {
-          ::ros::console::print(NULL, OMPL_CONSOLE_LOGGER, OMPL_CONSOLE_LEVEL, filename, line, "", "%s", text.c_str());
+          ::ros::console::print(nullptr, OMPL_CONSOLE_LOGGER, OMPL_CONSOLE_LEVEL, filename, line, "", "%s", text.c_str());
         }
       }
       break;
@@ -89,7 +89,7 @@ public:
         ROSCONSOLE_DEFINE_LOCATION(true, ::ros::console::levels::Error, std::string(ROSCONSOLE_ROOT_LOGGER_NAME) + ".ompl");
         if (ROS_UNLIKELY(OMPL_CONSOLE_ENABLED))
         {
-          ::ros::console::print(NULL, OMPL_CONSOLE_LOGGER, OMPL_CONSOLE_LEVEL, filename, line, "", "%s", text.c_str());
+          ::ros::console::print(nullptr, OMPL_CONSOLE_LOGGER, OMPL_CONSOLE_LEVEL, filename, line, "", "%s", text.c_str());
         }
       }
       break;
@@ -99,7 +99,7 @@ public:
         ROSCONSOLE_DEFINE_LOCATION(true, ::ros::console::levels::Debug, std::string(ROSCONSOLE_ROOT_LOGGER_NAME) + ".ompl");
         if (ROS_UNLIKELY(OMPL_CONSOLE_ENABLED))
         {
-          ::ros::console::print(NULL, OMPL_CONSOLE_LOGGER, OMPL_CONSOLE_LEVEL, filename, line, "", "%s", text.c_str());
+          ::ros::console::print(nullptr, OMPL_CONSOLE_LOGGER, OMPL_CONSOLE_LEVEL, filename, line, "", "%s", text.c_str());
         }
       }
       break;

@@ -85,8 +85,8 @@ void OMPLPlanningContextManager::getPlanningAlgorithms(std::vector<std::string> 
 {
     algs.clear();
     algs.reserve(config_settings_.size());
-    for (planning_interface::PlannerConfigurationMap::const_iterator it = config_settings_.begin() ; it != config_settings_.end() ; ++it)
-      algs.push_back(it->first);
+    for (const auto & config_setting : config_settings_)
+      algs.push_back(config_setting.first);
 }
 
 planning_interface::PlanningContextPtr OMPLPlanningContextManager::getPlanningContext(const planning_scene::PlanningSceneConstPtr& planning_scene,
@@ -120,7 +120,7 @@ planning_interface::PlanningContextPtr OMPLPlanningContextManager::getPlanningCo
     else
     {
         // identify the correct planning configuration
-        planning_interface::PlannerConfigurationMap::const_iterator pc = config_settings_.end();
+        auto pc = config_settings_.end();
 
         // The user can specify either "planner_name" or "group_name[planner_name]"
         pc = config_settings_.find(req.planner_id.find(req.group_name) == std::string::npos ? req.group_name + "[" + req.planner_id + "]" : req.planner_id);
@@ -192,7 +192,7 @@ bool OMPLPlanningContextManager::canServiceRequest(const planning_interface::Mot
 boost::shared_ptr<OMPLPlanningContext> OMPLPlanningContextManager::getPlanningContext(const planning_interface::PlannerConfigurationSettings &config) const
 {
     // TODO: Cache contexts we have created before?
-    std::map<std::string, std::string>::const_iterator config_it = config.config.find("plugin");
+    auto config_it = config.config.find("plugin");
     if (config_it != config.config.end())
     {
         return ompl_planner_loader_->createInstance(config_it->second);
@@ -207,31 +207,31 @@ void OMPLPlanningContextManager::configurePlanningContexts()
     planning_interface::PlannerConfigurationMap pconfig;
 
     // Looking for each group in the planner configurations
-    for (std::size_t i = 0 ; i < group_names.size() ; ++i)
+    for (const auto & group_name : group_names)
     {
         // get parameters specific for the robot planning group
         std::map<std::string, std::string> specific_group_params;
-        getGroupSpecificParameters(group_names[i], specific_group_params);
+        getGroupSpecificParameters(group_name, specific_group_params);
 
         // Retrieve the parameters for each planner configured for this group
         XmlRpc::XmlRpcValue config_names;
-        if (nh_.getParam(group_names[i] + "/planner_configs", config_names))
+        if (nh_.getParam(group_name + "/planner_configs", config_names))
         {
             if (config_names.getType() != XmlRpc::XmlRpcValue::TypeArray)
             {
-                ROS_ERROR("Expected a list of planner configurations for group '%s'", group_names[i].c_str());
+                ROS_ERROR("Expected a list of planner configurations for group '%s'", group_name.c_str());
                 continue;
             }
 
-            for (size_t j = 0; j < config_names.size(); ++j)
+            for (auto & config_name : config_names)
             {
-                if (config_names[j].getType() != XmlRpc::XmlRpcValue::TypeString)
+                if (config_name.getType() != XmlRpc::XmlRpcValue::TypeString)
                 {
-                    ROS_ERROR("Expected a list of strings for the planner configurations of group '%s'", group_names[i].c_str());
+                    ROS_ERROR("Expected a list of strings for the planner configurations of group '%s'", group_name.c_str());
                     continue;
                 }
 
-                std::string planner_config = static_cast<std::string>(config_names[j]);
+                std::string planner_config = static_cast<std::string>(config_name);
                 XmlRpc::XmlRpcValue xml_config;
                 if (nh_.getParam("planner_configs/" + planner_config, xml_config))
                 {
@@ -239,37 +239,37 @@ void OMPLPlanningContextManager::configurePlanningContexts()
                     {
                         planning_interface::PlannerConfigurationSettings pc;
                         pc.name = planner_config;
-                        pc.group = group_names[i];
+                        pc.group = group_name;
                         // inherit parameters from the group (which can be overriden)
                         pc.config = specific_group_params;
 
                         // read parameters specific for this configuration
-                        for (XmlRpc::XmlRpcValue::iterator it = xml_config.begin() ; it != xml_config.end() ; ++it)
+                        for (auto & it : xml_config)
                         {
-                            switch(it->second.getType())
+                            switch(it.second.getType())
                             {
                                 case XmlRpc::XmlRpcValue::TypeString:
-                                    pc.config[it->first] = static_cast<std::string>(it->second);
+                                    pc.config[it.first] = static_cast<std::string>(it.second);
                                     break;
                                 case XmlRpc::XmlRpcValue::TypeDouble:
-                                    pc.config[it->first] = boost::lexical_cast<std::string>(static_cast<double>(it->second));
+                                    pc.config[it.first] = boost::lexical_cast<std::string>(static_cast<double>(it.second));
                                     break;
                                 case XmlRpc::XmlRpcValue::TypeInt:
-                                    pc.config[it->first] = boost::lexical_cast<std::string>(static_cast<int>(it->second));
+                                    pc.config[it.first] = boost::lexical_cast<std::string>(static_cast<int>(it.second));
                                     break;
                                 case XmlRpc::XmlRpcValue::TypeBoolean:
-                                    pc.config[it->first] = boost::lexical_cast<std::string>(static_cast<bool>(it->second));
+                                    pc.config[it.first] = boost::lexical_cast<std::string>(static_cast<bool>(it.second));
                                     break;
                             }
                         }
-                        pconfig[group_names[i] + "[" + planner_config + "]"] = pc;
+                        pconfig[group_name + "[" + planner_config + "]"] = pc;
                     }
                 }
             }
         }
     }
 
-    for(planning_interface::PlannerConfigurationMap::iterator it = pconfig.begin(); it != pconfig.end(); ++it)
+    for(auto it = pconfig.begin(); it != pconfig.end(); ++it)
     {
         ROS_DEBUG_STREAM_NAMED("parameters", "Parameters for configuration '"<< it->first << "'");
         for (std::map<std::string, std::string>::const_iterator config_it = it->second.config.begin() ; config_it != it->second.config.end() ; ++config_it)
@@ -287,31 +287,31 @@ void OMPLPlanningContextManager::getGroupSpecificParameters(const std::string& g
         "projection_evaluator", "longest_valid_segment_fraction"
     };
 
-    for (std::size_t k = 0 ; k < sizeof(KNOWN_GROUP_PARAMS) / sizeof(std::string) ; ++k)
+    for (const auto & k : KNOWN_GROUP_PARAMS)
     {
-        if (nh_.hasParam(group_name + "/" + KNOWN_GROUP_PARAMS[k]))
+        if (nh_.hasParam(group_name + "/" + k))
         {
             std::string value;
-            if (nh_.getParam(group_name + "/" + KNOWN_GROUP_PARAMS[k], value))
+            if (nh_.getParam(group_name + "/" + k, value))
             {
                 if (!value.empty())
-                    specific_group_params[KNOWN_GROUP_PARAMS[k]] = value;
+                    specific_group_params[k] = value;
             }
             else
             {
                 double value_d;
-                if (nh_.getParam(group_name + "/" + KNOWN_GROUP_PARAMS[k], value_d))
-                    specific_group_params[KNOWN_GROUP_PARAMS[k]] = boost::lexical_cast<std::string>(value_d);
+                if (nh_.getParam(group_name + "/" + k, value_d))
+                    specific_group_params[k] = boost::lexical_cast<std::string>(value_d);
                 else
                 {
                     int value_i;
-                    if (nh_.getParam(group_name + "/" + KNOWN_GROUP_PARAMS[k], value_d))
-                        specific_group_params[KNOWN_GROUP_PARAMS[k]] = boost::lexical_cast<std::string>(value_i);
+                    if (nh_.getParam(group_name + "/" + k, value_d))
+                        specific_group_params[k] = boost::lexical_cast<std::string>(value_i);
                     else
                     {
                         bool value_b;
-                        if (nh_.getParam(group_name + "/" + KNOWN_GROUP_PARAMS[k], value_b))
-                            specific_group_params[KNOWN_GROUP_PARAMS[k]] = boost::lexical_cast<std::string>(value_b);
+                        if (nh_.getParam(group_name + "/" + k, value_b))
+                            specific_group_params[k] = boost::lexical_cast<std::string>(value_b);
                     }
                 }
             }
@@ -319,7 +319,7 @@ void OMPLPlanningContextManager::getGroupSpecificParameters(const std::string& g
     }
 }
 
-void OMPLPlanningContextManager::dynamicReconfigureCallback(moveit_ompl_planning_interface::OMPLDynamicReconfigureConfig &config, uint32_t level)
+void OMPLPlanningContextManager::dynamicReconfigureCallback(moveit_ompl_planning_interface::OMPLDynamicReconfigureConfig &config, uint32_t  /*level*/)
 {
     simplify_ = config.simplify_solutions;
     interpolate_ = config.minimum_waypoint_count > 2;

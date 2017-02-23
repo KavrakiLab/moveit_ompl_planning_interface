@@ -50,8 +50,8 @@ ompl_interface::PoseModelStateSpace::PoseModelStateSpace(const ModelBasedStateSp
     if (!spec.joint_model_group_->getGroupKinematics().second.empty())
     {
       const robot_model::JointModelGroup::KinematicsSolverMap &m = spec.joint_model_group_->getGroupKinematics().second;
-      for (robot_model::JointModelGroup::KinematicsSolverMap::const_iterator it = m.begin() ; it != m.end() ; ++it)
-        poses_.push_back(PoseComponent(it->first, it->second));
+      for (const auto & it : m)
+        poses_.push_back(PoseComponent(it.first, it.second));
     }
   if (poses_.empty())
     logError("No kinematics solvers specified. Unable to construct a PoseModelStateSpace");
@@ -61,8 +61,7 @@ ompl_interface::PoseModelStateSpace::PoseModelStateSpace(const ModelBasedStateSp
 }
 
 ompl_interface::PoseModelStateSpace::~PoseModelStateSpace()
-{
-}
+= default;
 
 double ompl_interface::PoseModelStateSpace::distance(const ompl::base::State *state1, const ompl::base::State *state2) const
 {
@@ -75,14 +74,14 @@ double ompl_interface::PoseModelStateSpace::distance(const ompl::base::State *st
 double ompl_interface::PoseModelStateSpace::getMaximumExtent() const
 {
   double total = 0.0;
-  for (std::size_t i = 0 ; i < poses_.size() ; ++i)
-    total += poses_[i].state_space_->getMaximumExtent();
+  for (const auto & pose : poses_)
+    total += pose.state_space_->getMaximumExtent();
   return total;
 }
 
 ompl::base::State* ompl_interface::PoseModelStateSpace::allocState() const
 {
-  StateType *state = new StateType();
+  auto state = new StateType();
   state->values = new double[variable_count_]; // need to allocate this here since ModelBasedStateSpace::allocState() is not called
   state->poses = new ompl::base::SE3StateSpace::StateType*[poses_.size()];
   for (std::size_t i = 0 ; i < poses_.size() ; ++i)
@@ -160,8 +159,8 @@ void ompl_interface::PoseModelStateSpace::setPlanningVolume(double minX, double 
   ompl::base::RealVectorBounds b(3);
   b.low[0] = minX; b.low[1] = minY; b.low[2] = minZ;
   b.high[0] = maxX; b.high[1] = maxY; b.high[2] = maxZ;
-  for (std::size_t i = 0 ; i < poses_.size() ; ++i)
-    poses_[i].state_space_->as<ompl::base::SE3StateSpace>()->setBounds(b);
+  for (auto & pose : poses_)
+    pose.state_space_->as<ompl::base::SE3StateSpace>()->setBounds(b);
 }
 
 ompl_interface::PoseModelStateSpace::PoseComponent::PoseComponent(const robot_model::JointModelGroup *subgroup,
@@ -289,25 +288,25 @@ ompl::base::StateSamplerPtr ompl_interface::PoseModelStateSpace::allocDefaultSta
   {
   public:
     PoseModelStateSampler(const ompl::base::StateSpace *space,
-                          const ompl::base::StateSamplerPtr &sampler)
+                          ompl::base::StateSamplerPtr sampler)
       : ompl::base::StateSampler(space)
-      , sampler_(sampler)
+      , sampler_(std::move(sampler))
     {
     }
 
-    virtual void sampleUniform(ompl::base::State *state)
+    void sampleUniform(ompl::base::State *state) override
     {
       sampler_->sampleUniform(state);
       afterStateSample(state);
     }
 
-    virtual void sampleUniformNear(ompl::base::State *state, const ompl::base::State *near, const double distance)
+    void sampleUniformNear(ompl::base::State *state, const ompl::base::State *near, const double distance) override
     {
       sampler_->sampleUniformNear(state, near, distance);
       afterStateSample(state);
     }
 
-    virtual void sampleGaussian(ompl::base::State *state, const ompl::base::State *mean, const double stdDev)
+    void sampleGaussian(ompl::base::State *state, const ompl::base::State *mean, const double stdDev) override
     {
       sampler_->sampleGaussian(state, mean, stdDev);
       afterStateSample(state);
