@@ -51,8 +51,8 @@ typedef std::pair<std::vector<std::size_t>, std::map<std::size_t, std::pair<std:
 typedef ompl::base::StateStorageWithMetadata<ConstrainedStateMetadata> ConstraintApproximationStateStorage;
 
 class ConstraintApproximation;
-typedef boost::shared_ptr<ConstraintApproximation> ConstraintApproximationPtr;
-typedef boost::shared_ptr<const ConstraintApproximation> ConstraintApproximationConstPtr;
+typedef std::shared_ptr<ConstraintApproximation> ConstraintApproximationPtr;
+typedef std::shared_ptr<const ConstraintApproximation> ConstraintApproximationConstPtr;
 
 class ConstraintApproximation
 {
@@ -205,8 +205,8 @@ private:
 
 };
 
-typedef boost::shared_ptr<ConstraintsLibrary> ConstraintsLibraryPtr;
-typedef boost::shared_ptr<const ConstraintsLibrary> ConstraintsLibraryConstPtr;
+typedef std::shared_ptr<ConstraintsLibrary> ConstraintsLibraryPtr;
+typedef std::shared_ptr<const ConstraintsLibrary> ConstraintsLibraryConstPtr;
 
 }
 

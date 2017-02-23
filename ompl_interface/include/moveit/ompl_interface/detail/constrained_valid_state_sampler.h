@@ -70,8 +70,8 @@ private:
   ompl::RNG                                         rng_;
 };
 
-typedef boost::shared_ptr<ValidConstrainedSampler> ValidConstrainedSamplerPtr;
-typedef boost::shared_ptr<const ValidConstrainedSampler> ValidConstrainedSamplerConstPtr;
+typedef std::shared_ptr<ValidConstrainedSampler> ValidConstrainedSamplerPtr;
+typedef std::shared_ptr<const ValidConstrainedSampler> ValidConstrainedSamplerConstPtr;
 
 }
 

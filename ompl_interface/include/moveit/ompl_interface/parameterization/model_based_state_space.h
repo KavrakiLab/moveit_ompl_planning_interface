@@ -278,7 +278,7 @@ protected:
 
 };
 
-typedef boost::shared_ptr<ModelBasedStateSpace> ModelBasedStateSpacePtr;
+typedef std::shared_ptr<ModelBasedStateSpace> ModelBasedStateSpacePtr;
 
 }
 

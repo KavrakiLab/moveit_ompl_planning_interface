@@ -57,7 +57,7 @@ bool OMPLPlanningContextManager::initialize(const robot_model::RobotModelConstPt
     nh_ = ros::NodeHandle(ns);
 
     dynamic_reconfigure_server_.reset(new dynamic_reconfigure::Server<moveit_ompl_planning_interface::OMPLDynamicReconfigureConfig>(ros::NodeHandle(nh_, ns.empty() ? "ompl_context_mgr" : ns + "/ompl_context_mgr")));
-    dynamic_reconfigure_server_->setCallback(boost::bind(&OMPLPlanningContextManager::dynamicReconfigureCallback, this, _1, _2));
+    dynamic_reconfigure_server_->setCallback(std::bind(&OMPLPlanningContextManager::dynamicReconfigureCallback, this, _1, _2));
 
     // Initialize planning context plugin loader
     try
@@ -133,7 +133,7 @@ planning_interface::PlanningContextPtr OMPLPlanningContextManager::getPlanningCo
         config = pc->second;
     }
 
-    boost::shared_ptr<OMPLPlanningContext> context = getPlanningContext(config);
+    std::shared_ptr<OMPLPlanningContext> context = getPlanningContext(config);
 
     if (context)
     {
@@ -189,7 +189,7 @@ bool OMPLPlanningContextManager::canServiceRequest(const planning_interface::Mot
 }
 
 
-boost::shared_ptr<OMPLPlanningContext> OMPLPlanningContextManager::getPlanningContext(const planning_interface::PlannerConfigurationSettings &config) const
+std::shared_ptr<OMPLPlanningContext> OMPLPlanningContextManager::getPlanningContext(const planning_interface::PlannerConfigurationSettings &config) const
 {
     // TODO: Cache contexts we have created before?
     auto config_it = config.config.find("plugin");

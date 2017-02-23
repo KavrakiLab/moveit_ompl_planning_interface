@@ -132,7 +132,7 @@ private:
     }
 
     const robot_model::JointModelGroup *subgroup_;
-    boost::shared_ptr<kinematics::KinematicsBase> kinematics_solver_;
+    std::shared_ptr<kinematics::KinematicsBase> kinematics_solver_;
     std::vector<unsigned int> bijection_;
     ompl::base::StateSpacePtr state_space_;
     std::vector<std::string> fk_link_;

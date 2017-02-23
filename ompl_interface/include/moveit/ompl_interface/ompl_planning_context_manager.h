@@ -83,7 +83,7 @@ public:
 
 protected:
     /// \brief Retrieve an instance of a planning context given the configuration settings
-    boost::shared_ptr<OMPLPlanningContext> getPlanningContext(const planning_interface::PlannerConfigurationSettings &config) const;
+    std::shared_ptr<OMPLPlanningContext> getPlanningContext(const planning_interface::PlannerConfigurationSettings &config) const;
 
     /// \brief Read planning context information from the ROS param server
     void configurePlanningContexts();
@@ -106,7 +106,7 @@ private:
     ros::NodeHandle nh_;
 
     /// \brief The plugin loader for the planning context plugins
-    boost::shared_ptr<pluginlib::ClassLoader<OMPLPlanningContext> > ompl_planner_loader_;
+    std::shared_ptr<pluginlib::ClassLoader<OMPLPlanningContext> > ompl_planner_loader_;
 
     constraint_sampler_manager_loader::ConstraintSamplerManagerLoaderPtr constraint_sampler_manager_loader_;
     constraint_samplers::ConstraintSamplerManagerPtr constraint_sampler_manager_;
