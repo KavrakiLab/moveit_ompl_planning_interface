@@ -111,18 +111,18 @@ static ompl::base::PlannerPtr allocatePlanner(const ompl::base::SpaceInformation
 
 void GeometricPlanningContext::initializePlannerAllocators()
 {
-    registerPlannerAllocator("geometric::RRT", std::bind(&allocatePlanner<og::RRT>, _1, _2, _3));
-    registerPlannerAllocator("geometric::RRTConnect", std::bind(&allocatePlanner<og::RRTConnect>, _1, _2, _3));
-    registerPlannerAllocator("geometric::LazyRRT", std::bind(&allocatePlanner<og::LazyRRT>, _1, _2, _3));
-    registerPlannerAllocator("geometric::TRRT", std::bind(&allocatePlanner<og::TRRT>, _1, _2, _3));
-    registerPlannerAllocator("geometric::EST", std::bind(&allocatePlanner<og::EST>, _1, _2, _3));
-    registerPlannerAllocator("geometric::SBL", std::bind(&allocatePlanner<og::SBL>, _1, _2, _3));
-    registerPlannerAllocator("geometric::KPIECE", std::bind(&allocatePlanner<og::KPIECE1>, _1, _2, _3));
-    registerPlannerAllocator("geometric::BKPIECE", std::bind(&allocatePlanner<og::BKPIECE1>, _1, _2, _3));
-    registerPlannerAllocator("geometric::LBKPIECE", std::bind(&allocatePlanner<og::LBKPIECE1>, _1, _2, _3));
-    registerPlannerAllocator("geometric::RRTstar", std::bind(&allocatePlanner<og::RRTstar>, _1, _2, _3));
-    registerPlannerAllocator("geometric::PRM", std::bind(&allocatePlanner<og::PRM>, _1, _2, _3));
-    registerPlannerAllocator("geometric::PRMstar", std::bind(&allocatePlanner<og::PRMstar>, _1, _2, _3));
+    registerPlannerAllocator("geometric::RRT", boost::bind(&allocatePlanner<og::RRT>, _1, _2, _3));
+    registerPlannerAllocator("geometric::RRTConnect", boost::bind(&allocatePlanner<og::RRTConnect>, _1, _2, _3));
+    registerPlannerAllocator("geometric::LazyRRT", boost::bind(&allocatePlanner<og::LazyRRT>, _1, _2, _3));
+    registerPlannerAllocator("geometric::TRRT", boost::bind(&allocatePlanner<og::TRRT>, _1, _2, _3));
+    registerPlannerAllocator("geometric::EST", boost::bind(&allocatePlanner<og::EST>, _1, _2, _3));
+    registerPlannerAllocator("geometric::SBL", boost::bind(&allocatePlanner<og::SBL>, _1, _2, _3));
+    registerPlannerAllocator("geometric::KPIECE", boost::bind(&allocatePlanner<og::KPIECE1>, _1, _2, _3));
+    registerPlannerAllocator("geometric::BKPIECE", boost::bind(&allocatePlanner<og::BKPIECE1>, _1, _2, _3));
+    registerPlannerAllocator("geometric::LBKPIECE", boost::bind(&allocatePlanner<og::LBKPIECE1>, _1, _2, _3));
+    registerPlannerAllocator("geometric::RRTstar", boost::bind(&allocatePlanner<og::RRTstar>, _1, _2, _3));
+    registerPlannerAllocator("geometric::PRM", boost::bind(&allocatePlanner<og::PRM>, _1, _2, _3));
+    registerPlannerAllocator("geometric::PRMstar", boost::bind(&allocatePlanner<og::PRMstar>, _1, _2, _3));
 }
 
 void GeometricPlanningContext::registerPlannerAllocator(const std::string &planner_id, const PlannerAllocator &pa)
@@ -215,7 +215,7 @@ void GeometricPlanningContext::initialize(const std::string& ros_namespace, cons
     }
 
     // OMPL StateSampler
-    mbss_->setStateSamplerAllocator(std::bind(&GeometricPlanningContext::allocPathConstrainedSampler, this, _1));
+    mbss_->setStateSamplerAllocator(boost::bind(&GeometricPlanningContext::allocPathConstrainedSampler, this, _1));
 
     initialized_ = true;
 }

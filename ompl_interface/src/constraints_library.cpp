@@ -183,7 +183,7 @@ bool interpolateUsingStoredStates(const ConstraintApproximationStateStorage *sta
 ompl_interface::InterpolationFunction ompl_interface::ConstraintApproximation::getInterpolationFunction() const
 {
   if (explicit_motions_ && milestones_ > 0 && milestones_ < state_storage_->size())
-    return std::bind(&interpolateUsingStoredStates, state_storage_, _1, _2, _3, _4);
+    return boost::bind(&interpolateUsingStoredStates, state_storage_, _1, _2, _3, _4);
   return InterpolationFunction();
 }
 
@@ -216,7 +216,7 @@ ompl::base::StateSamplerAllocator ompl_interface::ConstraintApproximation::getSt
 {
   if (state_storage_->size() == 0)
     return ompl::base::StateSamplerAllocator();
-  return std::bind(&allocConstraintApproximationStateSampler, _1, space_signature_, state_storage_, milestones_);
+  return boost::bind(&allocConstraintApproximationStateSampler, _1, space_signature_, state_storage_, milestones_);
 }
 /*
 void ompl_interface::ConstraintApproximation::visualizeDistribution(const std::string &link_name, unsigned int count, visualization_msgs::MarkerArray &arr) const

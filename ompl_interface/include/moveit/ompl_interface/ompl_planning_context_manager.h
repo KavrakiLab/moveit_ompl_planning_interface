@@ -39,6 +39,7 @@
 
 #include <ros/ros.h>
 #include <pluginlib/class_loader.h>
+#include <boost/scoped_ptr.hpp>
 #include <dynamic_reconfigure/server.h>
 #include <moveit/planning_interface/planning_interface.h>
 #include <moveit/constraint_samplers/constraint_sampler_manager.h>
@@ -83,7 +84,7 @@ public:
 
 protected:
     /// \brief Retrieve an instance of a planning context given the configuration settings
-    std::shared_ptr<OMPLPlanningContext> getPlanningContext(const planning_interface::PlannerConfigurationSettings &config) const;
+    boost::shared_ptr<OMPLPlanningContext> getPlanningContext(const planning_interface::PlannerConfigurationSettings &config) const;
 
     /// \brief Read planning context information from the ROS param server
     void configurePlanningContexts();
@@ -106,7 +107,7 @@ private:
     ros::NodeHandle nh_;
 
     /// \brief The plugin loader for the planning context plugins
-    std::shared_ptr<pluginlib::ClassLoader<OMPLPlanningContext> > ompl_planner_loader_;
+    boost::shared_ptr<pluginlib::ClassLoader<OMPLPlanningContext> > ompl_planner_loader_;
 
     constraint_sampler_manager_loader::ConstraintSamplerManagerLoaderPtr constraint_sampler_manager_loader_;
     constraint_samplers::ConstraintSamplerManagerPtr constraint_sampler_manager_;

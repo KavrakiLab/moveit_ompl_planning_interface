@@ -43,7 +43,7 @@ ompl_interface::ConstrainedGoalSampler::ConstrainedGoalSampler(const OMPLPlannin
                                                                const kinematic_constraints::KinematicConstraintSetPtr &ks,
                                                                const constraint_samplers::ConstraintSamplerPtr &cs)
   : ompl::base::GoalLazySamples(pc->getOMPLSpaceInformation(),
-                        std::bind(&ConstrainedGoalSampler::sampleUsingConstraintSampler, this, _1, _2), false)
+                        boost::bind(&ConstrainedGoalSampler::sampleUsingConstraintSampler, this, _1, _2), false)
   , planning_context_(pc)
   , kinematic_constraint_set_(ks)
   , constraint_sampler_(cs)
@@ -115,7 +115,7 @@ bool ompl_interface::ConstrainedGoalSampler::sampleUsingConstraintSampler(const 
     if (constraint_sampler_)
     {
       // makes the constraint sampler also perform a validity callback
-      robot_state::GroupStateValidityCallbackFn gsvcf = std::bind(&ompl_interface::ConstrainedGoalSampler::stateValidityCallback,
+      robot_state::GroupStateValidityCallbackFn gsvcf = boost::bind(&ompl_interface::ConstrainedGoalSampler::stateValidityCallback,
                                                                     this,
                                                                     new_goal,
                                                                     _1,  // pointer to state
