@@ -133,7 +133,7 @@ planning_interface::PlanningContextPtr OMPLPlanningContextManager::getPlanningCo
         config = pc->second;
     }
 
-    boost::shared_ptr<OMPLPlanningContext> context = getPlanningContext(config);
+    std::shared_ptr<OMPLPlanningContext> context = getPlanningContext(config);
 
     if (context)
     {
@@ -189,16 +189,26 @@ bool OMPLPlanningContextManager::canServiceRequest(const planning_interface::Mot
 }
 
 
-boost::shared_ptr<OMPLPlanningContext> OMPLPlanningContextManager::getPlanningContext(const planning_interface::PlannerConfigurationSettings &config) const
+std::shared_ptr<OMPLPlanningContext> OMPLPlanningContextManager::getPlanningContext(const planning_interface::PlannerConfigurationSettings &config) const
 {
     // TODO: Cache contexts we have created before?
     auto config_it = config.config.find("plugin");
+
+    boost::shared_ptr<OMPLPlanningContext> ptr;
     if (config_it != config.config.end())
     {
-        return ompl_planner_loader_->createInstance(config_it->second);
+        ptr = ompl_planner_loader_->createInstance(config_it->second);
     }
-    ROS_WARN("No plugin specified for planner configuration '%s'.  Assuming default plugin.", config.name.c_str());
-    return ompl_planner_loader_->createInstance(DEFAULT_OMPL_PLANNING_PLUGIN);
+    else
+    {
+        ROS_WARN("No plugin specified for planner configuration '%s'.  Assuming default plugin.", config.name.c_str());
+        ptr = ompl_planner_loader_->createInstance(DEFAULT_OMPL_PLANNING_PLUGIN);
+    }
+
+    return std::shared_ptr<OMPLPlanningContext>(ptr.get(), [ptr](OMPLPlanningContext *) mutable
+                                               {
+                                                   ptr.reset();
+                                               });
 }
 
 void OMPLPlanningContextManager::configurePlanningContexts()
@@ -225,13 +235,13 @@ void OMPLPlanningContextManager::configurePlanningContexts()
 
             for (auto & config_name : config_names)
             {
-                if (config_name.getType() != XmlRpc::XmlRpcValue::TypeString)
+                if (config_name.second.getType() != XmlRpc::XmlRpcValue::TypeString)
                 {
                     ROS_ERROR("Expected a list of strings for the planner configurations of group '%s'", group_name.c_str());
                     continue;
                 }
 
-                std::string planner_config = static_cast<std::string>(config_name);
+                std::string planner_config = static_cast<std::string>(config_name.first);
                 XmlRpc::XmlRpcValue xml_config;
                 if (nh_.getParam("planner_configs/" + planner_config, xml_config))
                 {

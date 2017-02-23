@@ -254,7 +254,7 @@ void GeometricPlanningContext::allocateStateSpace(const ModelBasedStateSpaceSpec
             if (ik)
             {
                 PoseModelStateSpacePtr state_space_(new PoseModelStateSpace(state_space_spec));
-                mbss_ = boost::static_pointer_cast<ModelBasedStateSpace>(state_space_);
+                mbss_ = std::static_pointer_cast<ModelBasedStateSpace>(state_space_);
                 allocated = true;
             }
         }
@@ -264,7 +264,7 @@ void GeometricPlanningContext::allocateStateSpace(const ModelBasedStateSpaceSpec
     if (!allocated)
     {
         JointModelStateSpacePtr state_space_(new JointModelStateSpace(state_space_spec));
-        mbss_ = boost::static_pointer_cast<ModelBasedStateSpace>(state_space_);
+        mbss_ = std::static_pointer_cast<ModelBasedStateSpace>(state_space_);
     }
 }
 
