@@ -62,14 +62,14 @@ void ompl_interface::GoalSampleableRegionMux::startSampling()
 {
   for (auto & goal : goals_)
     if (goal->hasType(ompl::base::GOAL_LAZY_SAMPLES))
-      static_cast<ompl::base::GoalLazySamples*>(goal.get())->startSampling();
+      dynamic_cast<ompl::base::GoalLazySamples*>(goal.get())->startSampling();
 }
 
 void ompl_interface::GoalSampleableRegionMux::stopSampling()
 {
   for (auto & goal : goals_)
     if (goal->hasType(ompl::base::GOAL_LAZY_SAMPLES))
-      static_cast<ompl::base::GoalLazySamples*>(goal.get())->stopSampling();
+      dynamic_cast<ompl::base::GoalLazySamples*>(goal.get())->stopSampling();
 }
 
 void ompl_interface::GoalSampleableRegionMux::sampleGoal(ompl::base::State *st) const

@@ -337,20 +337,20 @@ void GeometricPlanningContext::startGoalSampling()
 {
   bool gls = simple_setup_->getGoal()->hasType(ompl::base::GOAL_LAZY_SAMPLES);
   if (gls)
-    static_cast<ompl::base::GoalLazySamples*>(simple_setup_->getGoal().get())->startSampling();
+    dynamic_cast<ompl::base::GoalLazySamples*>(simple_setup_->getGoal().get())->startSampling();
   else
     // we know this is a GoalSampleableMux by elimination
-    static_cast<GoalSampleableRegionMux*>(simple_setup_->getGoal().get())->startSampling();
+    dynamic_cast<GoalSampleableRegionMux*>(simple_setup_->getGoal().get())->startSampling();
 }
 
 void GeometricPlanningContext::stopGoalSampling()
 {
   bool gls = simple_setup_->getGoal()->hasType(ompl::base::GOAL_LAZY_SAMPLES);
   if (gls)
-    static_cast<ompl::base::GoalLazySamples*>(simple_setup_->getGoal().get())->stopSampling();
+    dynamic_cast<ompl::base::GoalLazySamples*>(simple_setup_->getGoal().get())->stopSampling();
   else
     // we know this is a GoalSampleableMux by elimination
-    static_cast<GoalSampleableRegionMux*>(simple_setup_->getGoal().get())->stopSampling();
+    dynamic_cast<GoalSampleableRegionMux*>(simple_setup_->getGoal().get())->stopSampling();
 }
 
 bool GeometricPlanningContext::solve(planning_interface::MotionPlanResponse& res)

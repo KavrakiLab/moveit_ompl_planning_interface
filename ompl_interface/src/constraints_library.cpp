@@ -206,7 +206,7 @@ ompl_interface::ConstraintApproximation::ConstraintApproximation(const std::stri
   group_(group), state_space_parameterization_(state_space_parameterization), explicit_motions_(explicit_motions), constraint_msg_(msg),
   ompldb_filename_(filename), state_storage_ptr_(storage), milestones_(milestones)
 {
-  state_storage_ = static_cast<ConstraintApproximationStateStorage*>(state_storage_ptr_.get());
+  state_storage_ = dynamic_cast<ConstraintApproximationStateStorage*>(state_storage_ptr_.get());
   state_storage_->getStateSpace()->computeSignature(space_signature_);
   if (milestones_ == 0)
     milestones_ = state_storage_->size();
