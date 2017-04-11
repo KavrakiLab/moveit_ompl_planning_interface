@@ -37,42 +37,40 @@
 #ifndef MOVEIT_OMPL_INTERFACE_DETAIL_CONSTRAINED_VALID_STATE_SAMPLER_
 #define MOVEIT_OMPL_INTERFACE_DETAIL_CONSTRAINED_VALID_STATE_SAMPLER_
 
+#include <moveit/constraint_samplers/constraint_sampler.h>
 #include <ompl/base/StateSampler.h>
 #include <ompl/base/ValidStateSampler.h>
-#include <moveit/constraint_samplers/constraint_sampler.h>
 
 namespace ompl_interface
 {
-
 class OMPLPlanningContext;
 
 /** @class ValidConstrainedSampler
- *  This class defines a sampler that tries to find a valid sample that satisfies the specified constraints */
+ *  This class defines a sampler that tries to find a valid sample that
+ * satisfies the specified constraints */
 class ValidConstrainedSampler : public ompl::base::ValidStateSampler
 {
 public:
+  ValidConstrainedSampler(
+      const OMPLPlanningContext* pc, const kinematic_constraints::KinematicConstraintSetPtr& ks,
+      const constraint_samplers::ConstraintSamplerPtr& cs = constraint_samplers::ConstraintSamplerPtr());
 
-  ValidConstrainedSampler(const OMPLPlanningContext *pc, const kinematic_constraints::KinematicConstraintSetPtr &ks,
-                          const constraint_samplers::ConstraintSamplerPtr &cs = constraint_samplers::ConstraintSamplerPtr());
-
-  virtual bool sample(ompl::base::State *state);
-  virtual bool project(ompl::base::State *state);
-  virtual bool sampleNear(ompl::base::State *state, const ompl::base::State *near, const double distance);
+  virtual bool sample(ompl::base::State* state);
+  virtual bool project(ompl::base::State* state);
+  virtual bool sampleNear(ompl::base::State* state, const ompl::base::State* near, const double distance);
 
 private:
-
-  const OMPLPlanningContext                        *planning_context_;
-  kinematic_constraints::KinematicConstraintSetPtr  kinematic_constraint_set_;
-  constraint_samplers::ConstraintSamplerPtr         constraint_sampler_;
-  ompl::base::StateSamplerPtr                       default_sampler_;
-  robot_state::RobotState                           work_state_;
-  double                                            inv_dim_;
-  ompl::RNG                                         rng_;
+  const OMPLPlanningContext* planning_context_;
+  kinematic_constraints::KinematicConstraintSetPtr kinematic_constraint_set_;
+  constraint_samplers::ConstraintSamplerPtr constraint_sampler_;
+  ompl::base::StateSamplerPtr default_sampler_;
+  robot_state::RobotState work_state_;
+  double inv_dim_;
+  ompl::RNG rng_;
 };
 
 typedef std::shared_ptr<ValidConstrainedSampler> ValidConstrainedSamplerPtr;
 typedef std::shared_ptr<const ValidConstrainedSampler> ValidConstrainedSamplerConstPtr;
-
 }
 
 #endif

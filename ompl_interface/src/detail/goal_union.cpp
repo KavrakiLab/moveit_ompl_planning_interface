@@ -39,42 +39,43 @@
 
 namespace
 {
-ompl::base::SpaceInformationPtr getGoalsSI(const std::vector<ompl::base::GoalPtr> &goals)
+ompl::base::SpaceInformationPtr getGoalsSI(const std::vector<ompl::base::GoalPtr>& goals)
 {
   if (goals.empty())
     return ompl::base::SpaceInformationPtr();
-  for (const auto & goal : goals)
+  for (const auto& goal : goals)
     if (!goal->hasType(ompl::base::GOAL_SAMPLEABLE_REGION))
       throw ompl::Exception("Multiplexed goals must be instances of GoalSampleableRegion");
-  for (std::size_t i = 1 ; i < goals.size() ; ++i)
+  for (std::size_t i = 1; i < goals.size(); ++i)
     if (goals[i]->getSpaceInformation() != goals[0]->getSpaceInformation())
-      throw ompl::Exception("The instance of SpaceInformation must be the same among the goals to be considered");
+      throw ompl::Exception("The instance of SpaceInformation must be the same "
+                            "among the goals to be considered");
   return goals[0]->getSpaceInformation();
 }
 }
 
-ompl_interface::GoalSampleableRegionMux::GoalSampleableRegionMux(const std::vector<ompl::base::GoalPtr> &goals) :
-  ompl::base::GoalSampleableRegion(getGoalsSI(goals)), goals_(goals), gindex_(0)
+ompl_interface::GoalSampleableRegionMux::GoalSampleableRegionMux(const std::vector<ompl::base::GoalPtr>& goals)
+  : ompl::base::GoalSampleableRegion(getGoalsSI(goals)), goals_(goals), gindex_(0)
 {
 }
 
 void ompl_interface::GoalSampleableRegionMux::startSampling()
 {
-  for (auto & goal : goals_)
+  for (auto& goal : goals_)
     if (goal->hasType(ompl::base::GOAL_LAZY_SAMPLES))
       dynamic_cast<ompl::base::GoalLazySamples*>(goal.get())->startSampling();
 }
 
 void ompl_interface::GoalSampleableRegionMux::stopSampling()
 {
-  for (auto & goal : goals_)
+  for (auto& goal : goals_)
     if (goal->hasType(ompl::base::GOAL_LAZY_SAMPLES))
       dynamic_cast<ompl::base::GoalLazySamples*>(goal.get())->stopSampling();
 }
 
-void ompl_interface::GoalSampleableRegionMux::sampleGoal(ompl::base::State *st) const
+void ompl_interface::GoalSampleableRegionMux::sampleGoal(ompl::base::State* st) const
 {
-  for (std::size_t i = 0 ; i < goals_.size() ; ++i)
+  for (std::size_t i = 0; i < goals_.size(); ++i)
   {
     if (goals_[gindex_]->as<ompl::base::GoalSampleableRegion>()->maxSampleCount() > 0)
     {
@@ -89,14 +90,14 @@ void ompl_interface::GoalSampleableRegionMux::sampleGoal(ompl::base::State *st) 
 unsigned int ompl_interface::GoalSampleableRegionMux::maxSampleCount() const
 {
   unsigned int sc = 0;
-  for (const auto & goal : goals_)
+  for (const auto& goal : goals_)
     sc += goal->as<GoalSampleableRegion>()->maxSampleCount();
   return sc;
 }
 
 bool ompl_interface::GoalSampleableRegionMux::canSample() const
 {
-  for (const auto & goal : goals_)
+  for (const auto& goal : goals_)
     if (goal->as<ompl::base::GoalSampleableRegion>()->canSample())
       return true;
   return false;
@@ -104,24 +105,24 @@ bool ompl_interface::GoalSampleableRegionMux::canSample() const
 
 bool ompl_interface::GoalSampleableRegionMux::couldSample() const
 {
-  for (const auto & goal : goals_)
+  for (const auto& goal : goals_)
     if (goal->as<ompl::base::GoalSampleableRegion>()->couldSample())
       return true;
   return false;
 }
 
-bool ompl_interface::GoalSampleableRegionMux::isSatisfied(const ompl::base::State *st, double *distance) const
+bool ompl_interface::GoalSampleableRegionMux::isSatisfied(const ompl::base::State* st, double* distance) const
 {
-  for (const auto & goal : goals_)
+  for (const auto& goal : goals_)
     if (goal->isSatisfied(st, distance))
       return true;
   return false;
 }
 
-double ompl_interface::GoalSampleableRegionMux::distanceGoal(const ompl::base::State *st) const
+double ompl_interface::GoalSampleableRegionMux::distanceGoal(const ompl::base::State* st) const
 {
   double min_d = std::numeric_limits<double>::infinity();
-  for (const auto & goal : goals_)
+  for (const auto& goal : goals_)
   {
     double d = goal->as<ompl::base::GoalRegion>()->distanceGoal(st);
     if (d < min_d)
@@ -130,10 +131,10 @@ double ompl_interface::GoalSampleableRegionMux::distanceGoal(const ompl::base::S
   return min_d;
 }
 
-void ompl_interface::GoalSampleableRegionMux::print(std::ostream &out) const
+void ompl_interface::GoalSampleableRegionMux::print(std::ostream& out) const
 {
   out << "MultiGoal [" << std::endl;
-  for (const auto & goal : goals_)
+  for (const auto& goal : goals_)
     goal->print(out);
   out << "]" << std::endl;
 }

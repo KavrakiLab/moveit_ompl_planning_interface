@@ -37,7 +37,8 @@
 #include "moveit/ompl_interface/detail/constrained_sampler.h"
 #include <moveit/profiler/profiler.h>
 
-ompl_interface::ConstrainedSampler::ConstrainedSampler(const OMPLPlanningContext *pc, const constraint_samplers::ConstraintSamplerPtr &cs)
+ompl_interface::ConstrainedSampler::ConstrainedSampler(const OMPLPlanningContext* pc,
+                                                       const constraint_samplers::ConstraintSamplerPtr& cs)
   : ompl::base::StateSampler(pc->getOMPLStateSpace().get())
   , planning_context_(pc)
   , default_(space_->allocDefaultStateSampler())
@@ -57,11 +58,12 @@ double ompl_interface::ConstrainedSampler::getConstrainedSamplingRate() const
     return (double)constrained_success_ / (double)(constrained_success_ + constrained_failure_);
 }
 
-bool ompl_interface::ConstrainedSampler::sampleC(ompl::base::State *state)
+bool ompl_interface::ConstrainedSampler::sampleC(ompl::base::State* state)
 {
   //  moveit::Profiler::ScopedBlock sblock("sampleWithConstraints");
 
-  //unsigned int max_attempts = planning_context_->getMaximumStateSamplingAttempts();
+  // unsigned int max_attempts =
+  // planning_context_->getMaximumStateSamplingAttempts();
   unsigned int max_attempts = 4;
 
   if (constraint_sampler_->sample(work_state_, planning_context_->getCompleteInitialRobotState(), max_attempts))
@@ -77,13 +79,14 @@ bool ompl_interface::ConstrainedSampler::sampleC(ompl::base::State *state)
   return false;
 }
 
-void ompl_interface::ConstrainedSampler::sampleUniform(ompl::base::State *state)
+void ompl_interface::ConstrainedSampler::sampleUniform(ompl::base::State* state)
 {
   if (!sampleC(state) && !sampleC(state) && !sampleC(state))
     default_->sampleUniform(state);
 }
 
-void ompl_interface::ConstrainedSampler::sampleUniformNear(ompl::base::State *state, const ompl::base::State *near, const double distance)
+void ompl_interface::ConstrainedSampler::sampleUniformNear(ompl::base::State* state, const ompl::base::State* near,
+                                                           const double distance)
 {
   if (sampleC(state) || sampleC(state) || sampleC(state))
   {
@@ -98,7 +101,8 @@ void ompl_interface::ConstrainedSampler::sampleUniformNear(ompl::base::State *st
     default_->sampleUniformNear(state, near, distance);
 }
 
-void ompl_interface::ConstrainedSampler::sampleGaussian(ompl::base::State *state, const ompl::base::State *mean, const double stdDev)
+void ompl_interface::ConstrainedSampler::sampleGaussian(ompl::base::State* state, const ompl::base::State* mean,
+                                                        const double stdDev)
 {
   if (sampleC(state) || sampleC(state) || sampleC(state))
   {

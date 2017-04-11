@@ -38,9 +38,9 @@
 #include <moveit/ompl_interface/ompl_planning_context.h>
 #include <moveit/profiler/profiler.h>
 
-ompl_interface::ValidConstrainedSampler::ValidConstrainedSampler(const OMPLPlanningContext *pc,
-                                                                 const kinematic_constraints::KinematicConstraintSetPtr &ks,
-                                                                 const constraint_samplers::ConstraintSamplerPtr &cs)
+ompl_interface::ValidConstrainedSampler::ValidConstrainedSampler(
+    const OMPLPlanningContext* pc, const kinematic_constraints::KinematicConstraintSetPtr& ks,
+    const constraint_samplers::ConstraintSamplerPtr& cs)
   : ompl::base::ValidStateSampler(pc->getOMPLSpaceInformation().get())
   , planning_context_(pc)
   , kinematic_constraint_set_(ks)
@@ -53,13 +53,14 @@ ompl_interface::ValidConstrainedSampler::ValidConstrainedSampler(const OMPLPlann
   logDebug("Constructed a ValidConstrainedSampler instance at address %p", this);
 }
 
-bool ompl_interface::ValidConstrainedSampler::project(ompl::base::State *state)
+bool ompl_interface::ValidConstrainedSampler::project(ompl::base::State* state)
 {
   if (constraint_sampler_)
   {
     planning_context_->getOMPLStateSpace()->copyToRobotState(work_state_, state);
     unsigned int max_state_sampling_attempts = 4;
-    //if (constraint_sampler_->project(work_state_, planning_context_->getMaximumStateSamplingAttempts()))
+    // if (constraint_sampler_->project(work_state_,
+    // planning_context_->getMaximumStateSamplingAttempts()))
     if (constraint_sampler_->project(work_state_, max_state_sampling_attempts))
     {
       if (kinematic_constraint_set_->decide(work_state_).satisfied)
@@ -72,14 +73,17 @@ bool ompl_interface::ValidConstrainedSampler::project(ompl::base::State *state)
   return false;
 }
 
-bool ompl_interface::ValidConstrainedSampler::sample(ompl::base::State *state)
+bool ompl_interface::ValidConstrainedSampler::sample(ompl::base::State* state)
 {
   //  moveit::Profiler::ScopedBlock pblock("ValidConstrainedSampler::sample");
   if (constraint_sampler_)
   {
     unsigned int max_state_sampling_attempts = 4;
-    if (constraint_sampler_->sample(work_state_, planning_context_->getCompleteInitialRobotState(), max_state_sampling_attempts))
-    //if (constraint_sampler_->sample(work_state_, planning_context_->getCompleteInitialRobotState(), planning_context_->getMaximumStateSamplingAttempts()))
+    if (constraint_sampler_->sample(work_state_, planning_context_->getCompleteInitialRobotState(),
+                                    max_state_sampling_attempts))
+    // if (constraint_sampler_->sample(work_state_,
+    // planning_context_->getCompleteInitialRobotState(),
+    // planning_context_->getMaximumStateSamplingAttempts()))
     {
       if (kinematic_constraint_set_->decide(work_state_).satisfied)
       {
@@ -99,7 +103,8 @@ bool ompl_interface::ValidConstrainedSampler::sample(ompl::base::State *state)
   return false;
 }
 
-bool ompl_interface::ValidConstrainedSampler::sampleNear(ompl::base::State *state, const ompl::base::State *near, const double distance)
+bool ompl_interface::ValidConstrainedSampler::sampleNear(ompl::base::State* state, const ompl::base::State* near,
+                                                         const double distance)
 {
   if (!sample(state))
     return false;

@@ -37,12 +37,11 @@
 #ifndef MOVEIT_OMPL_INTERFACE_DETAIL_PROJECTION_EVALUATORS_
 #define MOVEIT_OMPL_INTERFACE_DETAIL_PROJECTION_EVALUATORS_
 
-#include <ompl/base/ProjectionEvaluator.h>
 #include "moveit/ompl_interface/detail/threadsafe_state_storage.h"
+#include <ompl/base/ProjectionEvaluator.h>
 
 namespace ompl_interface
 {
-
 class OMPLPlanningContext;
 
 /** @class ProjectionEvaluatorLinkPose
@@ -50,18 +49,16 @@ class OMPLPlanningContext;
 class ProjectionEvaluatorLinkPose : public ompl::base::ProjectionEvaluator
 {
 public:
-
-  ProjectionEvaluatorLinkPose(const OMPLPlanningContext *pc, const std::string &link);
+  ProjectionEvaluatorLinkPose(const OMPLPlanningContext* pc, const std::string& link);
 
   virtual unsigned int getDimension() const;
   virtual void defaultCellSizes();
-  virtual void project(const ompl::base::State *state, ompl::base::EuclideanProjection &projection) const;
+  virtual void project(const ompl::base::State* state, ompl::base::EuclideanProjection& projection) const;
 
 private:
-
-  const OMPLPlanningContext *planning_context_;
-  const robot_model::LinkModel    *link_;
-  TSStateStorage                   tss_;
+  const OMPLPlanningContext* planning_context_;
+  const robot_model::LinkModel* link_;
+  TSStateStorage tss_;
 };
 
 /** @class ProjectionEvaluatorJointValue
@@ -69,16 +66,15 @@ private:
 class ProjectionEvaluatorJointValue : public ompl::base::ProjectionEvaluator
 {
 public:
-  ProjectionEvaluatorJointValue(const OMPLPlanningContext *pc, const std::vector<unsigned int> &variables);
+  ProjectionEvaluatorJointValue(const OMPLPlanningContext* pc, const std::vector<unsigned int>& variables);
 
   virtual unsigned int getDimension() const;
   virtual void defaultCellSizes();
-  virtual void project(const ompl::base::State *state, ompl::base::EuclideanProjection &projection) const;
+  virtual void project(const ompl::base::State* state, ompl::base::EuclideanProjection& projection) const;
 
 private:
-
-  const OMPLPlanningContext *planning_context_;
-  std::vector<unsigned int>        variables_;
+  const OMPLPlanningContext* planning_context_;
+  std::vector<unsigned int> variables_;
 };
 }
 

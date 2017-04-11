@@ -36,26 +36,27 @@
 
 #include <moveit/ompl_interface/detail/threadsafe_state_storage.h>
 
-ompl_interface::TSStateStorage::TSStateStorage(const robot_model::RobotModelPtr &kmodel) : start_state_(kmodel)
+ompl_interface::TSStateStorage::TSStateStorage(const robot_model::RobotModelPtr& kmodel) : start_state_(kmodel)
 {
   start_state_.setToDefaultValues();
 }
 
-ompl_interface::TSStateStorage::TSStateStorage(const robot_state::RobotState &start_state) : start_state_(start_state)
+ompl_interface::TSStateStorage::TSStateStorage(const robot_state::RobotState& start_state) : start_state_(start_state)
 {
 }
 
 ompl_interface::TSStateStorage::~TSStateStorage()
 {
-  for (auto & thread_state : thread_states_)
+  for (auto& thread_state : thread_states_)
     delete thread_state.second;
 }
 
 robot_state::RobotState* ompl_interface::TSStateStorage::getStateStorage() const
 {
-  robot_state::RobotState *st = nullptr;
-  boost::mutex::scoped_lock slock(lock_);/// \todo use Thread Local Storage?
-  std::map<boost::thread::id, robot_state::RobotState*>::const_iterator it = thread_states_.find(boost::this_thread::get_id());
+  robot_state::RobotState* st = nullptr;
+  boost::mutex::scoped_lock slock(lock_);  /// \todo use Thread Local Storage?
+  std::map<boost::thread::id, robot_state::RobotState*>::const_iterator it =
+      thread_states_.find(boost::this_thread::get_id());
   if (it == thread_states_.end())
   {
     st = new robot_state::RobotState(start_state_);

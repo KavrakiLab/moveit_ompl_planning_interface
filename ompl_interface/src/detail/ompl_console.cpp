@@ -35,74 +35,81 @@
 /* Author: Ioan Sucan */
 
 #include <ros/common.h>
-#if ROS_VERSION_MINIMUM(1,11,0) // ROS Indigo or later
+#if ROS_VERSION_MINIMUM(1, 11, 0)  // ROS Indigo or later
 
 #define OMPL_CONSOLE_LOGGER __rosconsole_define_location__loc.logger_
 #define OMPL_CONSOLE_LEVEL __rosconsole_define_location__loc.level_
 #define OMPL_CONSOLE_ENABLED __rosconsole_define_location__enabled
 
-#else // ROS Hydro or earlier
+#else  // ROS Hydro or earlier
 
 #define OMPL_CONSOLE_LOGGER loc.logger_
 #define OMPL_CONSOLE_LEVEL loc.level_
 #define OMPL_CONSOLE_ENABLED enabled
 
- #endif
+#endif
 
-#include <ros/console.h>
 #include <ompl/util/Console.h>
+#include <ros/console.h>
 
 namespace ompl_interface
 {
 class OutputHandlerROS : public ompl::msg::OutputHandler
 {
 public:
-
   OutputHandlerROS() : OutputHandler()
   {
   }
 
-  void log(const std::string &text, ompl::msg::LogLevel level, const char *filename, int line) override
+  void log(const std::string& text, ompl::msg::LogLevel level, const char* filename, int line) override
   {
     switch (level)
     {
-    case ompl::msg::LOG_INFO:
+      case ompl::msg::LOG_INFO:
       {
-        ROSCONSOLE_DEFINE_LOCATION(true, ::ros::console::levels::Info, std::string(ROSCONSOLE_ROOT_LOGGER_NAME) + ".ompl");
+        ROSCONSOLE_DEFINE_LOCATION(true, ::ros::console::levels::Info, std::string(ROSCONSOLE_ROOT_LOGGER_NAME) + ".omp"
+                                                                                                                  "l");
         if (ROS_UNLIKELY(OMPL_CONSOLE_ENABLED))
         {
-          ::ros::console::print(nullptr, OMPL_CONSOLE_LOGGER, OMPL_CONSOLE_LEVEL, filename, line, "", "%s", text.c_str());
+          ::ros::console::print(nullptr, OMPL_CONSOLE_LOGGER, OMPL_CONSOLE_LEVEL, filename, line, "", "%s",
+                                text.c_str());
         }
       }
       break;
-    case ompl::msg::LOG_WARN:
+      case ompl::msg::LOG_WARN:
       {
-        ROSCONSOLE_DEFINE_LOCATION(true, ::ros::console::levels::Warn, std::string(ROSCONSOLE_ROOT_LOGGER_NAME) + ".ompl");
+        ROSCONSOLE_DEFINE_LOCATION(true, ::ros::console::levels::Warn, std::string(ROSCONSOLE_ROOT_LOGGER_NAME) + ".omp"
+                                                                                                                  "l");
         if (ROS_UNLIKELY(OMPL_CONSOLE_ENABLED))
         {
-          ::ros::console::print(nullptr, OMPL_CONSOLE_LOGGER, OMPL_CONSOLE_LEVEL, filename, line, "", "%s", text.c_str());
+          ::ros::console::print(nullptr, OMPL_CONSOLE_LOGGER, OMPL_CONSOLE_LEVEL, filename, line, "", "%s",
+                                text.c_str());
         }
       }
       break;
-    case ompl::msg::LOG_ERROR:
+      case ompl::msg::LOG_ERROR:
       {
-        ROSCONSOLE_DEFINE_LOCATION(true, ::ros::console::levels::Error, std::string(ROSCONSOLE_ROOT_LOGGER_NAME) + ".ompl");
+        ROSCONSOLE_DEFINE_LOCATION(true, ::ros::console::levels::Error,
+                                   std::string(ROSCONSOLE_ROOT_LOGGER_NAME) + ".ompl");
         if (ROS_UNLIKELY(OMPL_CONSOLE_ENABLED))
         {
-          ::ros::console::print(nullptr, OMPL_CONSOLE_LOGGER, OMPL_CONSOLE_LEVEL, filename, line, "", "%s", text.c_str());
+          ::ros::console::print(nullptr, OMPL_CONSOLE_LOGGER, OMPL_CONSOLE_LEVEL, filename, line, "", "%s",
+                                text.c_str());
         }
       }
       break;
-    default:
-      // debug
-      {
-        ROSCONSOLE_DEFINE_LOCATION(true, ::ros::console::levels::Debug, std::string(ROSCONSOLE_ROOT_LOGGER_NAME) + ".ompl");
-        if (ROS_UNLIKELY(OMPL_CONSOLE_ENABLED))
+      default:
+        // debug
         {
-          ::ros::console::print(nullptr, OMPL_CONSOLE_LOGGER, OMPL_CONSOLE_LEVEL, filename, line, "", "%s", text.c_str());
+          ROSCONSOLE_DEFINE_LOCATION(true, ::ros::console::levels::Debug,
+                                     std::string(ROSCONSOLE_ROOT_LOGGER_NAME) + ".ompl");
+          if (ROS_UNLIKELY(OMPL_CONSOLE_ENABLED))
+          {
+            ::ros::console::print(nullptr, OMPL_CONSOLE_LOGGER, OMPL_CONSOLE_LEVEL, filename, line, "", "%s",
+                                  text.c_str());
+          }
         }
-      }
-      break;
+        break;
     }
   }
 };

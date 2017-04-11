@@ -37,16 +37,15 @@
 #ifndef MOVEIT_OMPL_INTERFACE_DETAIL_CONSTRAINED_GOAL_SAMPLER_
 #define MOVEIT_OMPL_INTERFACE_DETAIL_CONSTRAINED_GOAL_SAMPLER_
 
-#include <ompl/base/goals/GoalLazySamples.h>
-#include <moveit/kinematic_constraints/kinematic_constraint.h>
 #include <moveit/constraint_samplers/constraint_sampler.h>
+#include <moveit/kinematic_constraints/kinematic_constraint.h>
+#include <ompl/base/goals/GoalLazySamples.h>
 
-#include <moveit/robot_state/robot_state.h>
 #include <moveit/robot_model/joint_model_group.h>
+#include <moveit/robot_state/robot_state.h>
 
 namespace ompl_interface
 {
-
 class OMPLPlanningContext;
 
 /** @class ConstrainedGoalSampler
@@ -54,25 +53,25 @@ class OMPLPlanningContext;
 class ConstrainedGoalSampler : public ompl::base::GoalLazySamples
 {
 public:
-
-  ConstrainedGoalSampler(const OMPLPlanningContext *pc, const kinematic_constraints::KinematicConstraintSetPtr &ks,
-                         const constraint_samplers::ConstraintSamplerPtr &cs = constraint_samplers::ConstraintSamplerPtr());
+  ConstrainedGoalSampler(
+      const OMPLPlanningContext* pc, const kinematic_constraints::KinematicConstraintSetPtr& ks,
+      const constraint_samplers::ConstraintSamplerPtr& cs = constraint_samplers::ConstraintSamplerPtr());
 
 private:
-
-  bool sampleUsingConstraintSampler(const ompl::base::GoalLazySamples *gls, ompl::base::State *new_goal);
+  bool sampleUsingConstraintSampler(const ompl::base::GoalLazySamples* gls, ompl::base::State* new_goal);
   bool stateValidityCallback(ompl::base::State* new_goal, robot_state::RobotState const* state,
-                              const robot_model::JointModelGroup*, const double*, bool verbose=false) const;
-  bool checkStateValidity(ompl::base::State* new_goal, const robot_state::RobotState& state, bool verbose=false) const;
+                             const robot_model::JointModelGroup*, const double*, bool verbose = false) const;
+  bool checkStateValidity(ompl::base::State* new_goal, const robot_state::RobotState& state,
+                          bool verbose = false) const;
 
-  const OMPLPlanningContext                       *planning_context_;
+  const OMPLPlanningContext* planning_context_;
   kinematic_constraints::KinematicConstraintSetPtr kinematic_constraint_set_;
-  constraint_samplers::ConstraintSamplerPtr        constraint_sampler_;
-  ompl::base::StateSamplerPtr                      default_sampler_;
-  robot_state::RobotState                          work_state_;
-  unsigned int                                     invalid_sampled_constraints_;
-  bool                                             warned_invalid_samples_;
-  unsigned int                                     verbose_display_;
+  constraint_samplers::ConstraintSamplerPtr constraint_sampler_;
+  ompl::base::StateSamplerPtr default_sampler_;
+  robot_state::RobotState work_state_;
+  unsigned int invalid_sampled_constraints_;
+  bool warned_invalid_samples_;
+  unsigned int verbose_display_;
 };
 }
 

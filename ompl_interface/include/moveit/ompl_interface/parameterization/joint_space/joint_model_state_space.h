@@ -41,19 +41,15 @@
 
 namespace ompl_interface
 {
-
 OMPL_CLASS_FORWARD(JointModelStateSpace);
 
 class JointModelStateSpace : public ModelBasedStateSpace
 {
 public:
-
   static const std::string PARAMETERIZATION_TYPE;
 
-  JointModelStateSpace(const ModelBasedStateSpaceSpecification &spec);
-
+  JointModelStateSpace(const ModelBasedStateSpaceSpecification& spec);
 };
-
 }
 
 #endif
