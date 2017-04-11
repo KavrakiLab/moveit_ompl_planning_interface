@@ -45,13 +45,13 @@ ompl_interface::PoseModelStateSpace::PoseModelStateSpace(const ModelBasedStateSp
   jump_factor_ = 3; // \todo make this a param
 
   if (spec.joint_model_group_->getGroupKinematics().first)
-    poses_.push_back(PoseComponent(spec.joint_model_group_, spec.joint_model_group_->getGroupKinematics().first));
+    poses_.emplace_back(spec.joint_model_group_, spec.joint_model_group_->getGroupKinematics().first);
   else
     if (!spec.joint_model_group_->getGroupKinematics().second.empty())
     {
       const robot_model::JointModelGroup::KinematicsSolverMap &m = spec.joint_model_group_->getGroupKinematics().second;
       for (const auto & it : m)
-        poses_.push_back(PoseComponent(it.first, it.second));
+        poses_.emplace_back(it.first, it.second);
     }
   if (poses_.empty())
     logError("No kinematics solvers specified. Unable to construct a PoseModelStateSpace");

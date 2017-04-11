@@ -420,7 +420,7 @@ bool GeometricPlanningContext::solve(planning_interface::MotionPlanDetailedRespo
         // Getting the raw solution
         ompl::geometric::PathGeometric &pg = simple_setup_->getSolutionPath();
         res.processing_time_.push_back(plan_time);
-        res.description_.push_back("plan");
+        res.description_.emplace_back("plan");
 
         res.trajectory_.resize(res.trajectory_.size() + 1);
         res.trajectory_.back().reset(new robot_trajectory::RobotTrajectory(getRobotModel(), getGroupName()));
@@ -439,7 +439,7 @@ bool GeometricPlanningContext::solve(planning_interface::MotionPlanDetailedRespo
             double simplify_time = simplifySolution(timeout - plan_time);
 
             res.processing_time_.push_back(simplify_time);
-            res.description_.push_back("simplify");
+            res.description_.emplace_back("simplify");
 
             pg = simple_setup_->getSolutionPath();
             res.trajectory_.resize(res.trajectory_.size() + 1);
@@ -463,7 +463,7 @@ bool GeometricPlanningContext::solve(planning_interface::MotionPlanDetailedRespo
             double interpolate_time = interpolateSolution(pg, waypoint_count);
 
             res.processing_time_.push_back(interpolate_time);
-            res.description_.push_back("interpolate");
+            res.description_.emplace_back("interpolate");
 
             ROS_DEBUG("%s: Returning successful solution with %lu states", getName().c_str(),
                        pg.getStateCount());
