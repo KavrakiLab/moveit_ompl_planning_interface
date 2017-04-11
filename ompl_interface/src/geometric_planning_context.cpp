@@ -383,7 +383,12 @@ bool GeometricPlanningContext::solve(planning_interface::MotionPlanResponse& res
     // Simplifying solution
     if (simplify_ && (timeout - plan_time) > 0)
     {
-      plan_time += simplifySolution(timeout - plan_time);
+      double lasttime;
+      do
+      {
+        lasttime = plan_time;
+        plan_time += simplifySolution(timeout - plan_time);
+      } while ((timeout - plan_time) > 0 && plan_time - lasttime > 1e-3);
     }
 
     ompl::geometric::PathGeometric& pg = simple_setup_->getSolutionPath();
@@ -608,6 +613,7 @@ double GeometricPlanningContext::interpolateSolution(ompl::geometric::PathGeomet
 {
   ompl::time::point start = ompl::time::now();
   path.interpolate(waypoint_count);
+
   return ompl::time::seconds(ompl::time::now() - start);
 }
 
