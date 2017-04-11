@@ -267,7 +267,7 @@ void OMPLPlanningContextManager::configurePlanningContexts()
                                     pc.config[it.first] = boost::lexical_cast<std::string>(static_cast<double>(it.second));
                                     break;
                                 case XmlRpc::XmlRpcValue::TypeInt:
-                                    pc.config[it.first] = boost::lexical_cast<std::string>(static_cast<int>(it.second));
+                                    pc.config[it.first] = std::to_string(static_cast<int>(it.second));
                                     break;
                                 case XmlRpc::XmlRpcValue::TypeBoolean:
                                     pc.config[it.first] = boost::lexical_cast<std::string>(static_cast<bool>(it.second));
@@ -318,7 +318,7 @@ void OMPLPlanningContextManager::getGroupSpecificParameters(const std::string& g
                 {
                     int value_i;
                     if (nh_.getParam(group_name + "/" + k, value_d))
-                        specific_group_params[k] = boost::lexical_cast<std::string>(value_i);
+                        specific_group_params[k] = std::to_string(value_i);
                     else
                     {
                         bool value_b;
