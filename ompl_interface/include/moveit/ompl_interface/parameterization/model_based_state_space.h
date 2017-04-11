@@ -47,10 +47,10 @@ namespace ompl_interface
 {
 MOVEIT_CLASS_FORWARD(ModelBasedStateSpace);
 
-typedef boost::function<bool(const ompl::base::State* from, const ompl::base::State* to, const double t,
+typedef std::function<bool(const ompl::base::State* from, const ompl::base::State* to, const double t,
                              ompl::base::State* state)>
     InterpolationFunction;
-typedef boost::function<double(const ompl::base::State* state1, const ompl::base::State* state2)> DistanceFunction;
+typedef std::function<double(const ompl::base::State* state1, const ompl::base::State* state2)> DistanceFunction;
 
 struct ModelBasedStateSpaceSpecification
 {

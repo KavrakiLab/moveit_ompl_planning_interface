@@ -32,10 +32,9 @@
 *  POSSIBILITY OF SUCH DAMAGE.
 *********************************************************************/
 
-/* Author: Ioan Sucan */
+/* Author: Ioan Scan */
 
 #include "moveit/ompl_interface/parameterization/model_based_state_space.h"
-#include <boost/bind.hpp>
 
 ompl_interface::ModelBasedStateSpace::ModelBasedStateSpace(const ModelBasedStateSpaceSpecification& spec)
   : ompl::base::StateSpace(), spec_(spec)
@@ -72,8 +71,8 @@ ompl_interface::ModelBasedStateSpace::ModelBasedStateSpace(const ModelBasedState
   setTagSnapToSegment(0.95);
 
   /// expose parameters
-  params_.declareParam<double>("tag_snap_to_segment", boost::bind(&ModelBasedStateSpace::setTagSnapToSegment, this, _1),
-                               boost::bind(&ModelBasedStateSpace::getTagSnapToSegment, this));
+  params_.declareParam<double>("tag_snap_to_segment", std::bind(&ModelBasedStateSpace::setTagSnapToSegment, this, std::placeholders::_1),
+                               std::bind(&ModelBasedStateSpace::getTagSnapToSegment, this));
 }
 
 ompl_interface::ModelBasedStateSpace::~ModelBasedStateSpace() = default;
