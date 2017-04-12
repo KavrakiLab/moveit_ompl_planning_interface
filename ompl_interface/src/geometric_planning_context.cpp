@@ -345,14 +345,18 @@ bool GeometricPlanningContext::solve(planning_interface::MotionPlanResponse& res
   if (result)
   {
     // Simplifying solution
-    if (simplify_ && (timeout - plan_time) > 0)
+    if (simplify_)
     {
-      double lasttime;
-      do
+      plan_time += simplifySolution(timeout);
+      if ((timeout - plan_time) > 0)
       {
-        lasttime = plan_time;
-        plan_time += simplifySolution(timeout - plan_time);
-      } while ((timeout - plan_time) > 0 && plan_time - lasttime > 1e-3);
+        double lasttime;
+        do
+        {
+          lasttime = plan_time;
+          plan_time += simplifySolution(timeout - plan_time);
+        } while ((timeout - plan_time) > 0 && plan_time - lasttime > 1e-3);
+      }
     }
 
     ompl::geometric::PathGeometric& pg = simple_setup_->getSolutionPath();
@@ -415,23 +419,34 @@ bool GeometricPlanningContext::solve(planning_interface::MotionPlanDetailedRespo
       res.trajectory_.back()->addSuffixWayPoint(ks, 0.0);
     }
 
-    // Simplifying solution
-    if (simplify_ && (timeout - plan_time) > 0)
+    if (simplify_)
     {
-      double simplify_time = simplifySolution(timeout - plan_time);
+        double simplify_time = plan_time;
 
-      res.processing_time_.push_back(simplify_time);
-      res.description_.emplace_back("simplify");
+        plan_time += simplifySolution(timeout);
+        if ((timeout - plan_time) > 0)
+        {
+            double lasttime;
+            do
+            {
+                lasttime = plan_time;
+                plan_time += simplifySolution(timeout - plan_time);
+            } while ((timeout - plan_time) > 0 && plan_time - lasttime > 1e-3);
+        }
 
-      pg = simple_setup_->getSolutionPath();
-      res.trajectory_.resize(res.trajectory_.size() + 1);
-      res.trajectory_.back().reset(new robot_trajectory::RobotTrajectory(getRobotModel(), getGroupName()));
+        res.processing_time_.push_back(plan_time - simplify_time);
+        res.description_.emplace_back("simplify");
 
-      for (std::size_t i = 0; i < pg.getStateCount(); ++i)
-      {
-        mbss_->copyToRobotState(ks, pg.getState(i));
-        res.trajectory_.back()->addSuffixWayPoint(ks, 0.0);
-      }
+        pg = simple_setup_->getSolutionPath();
+        res.trajectory_.resize(res.trajectory_.size() + 1);
+        res.trajectory_.back().reset(new robot_trajectory::RobotTrajectory(getRobotModel(), getGroupName()));
+
+        for (std::size_t i = 0; i < pg.getStateCount(); ++i)
+        {
+            mbss_->copyToRobotState(ks, pg.getState(i));
+            res.trajectory_.back()->addSuffixWayPoint(ks, 0.0);
+        }
+
     }
 
     // Interpolating the final solution
