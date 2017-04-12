@@ -40,8 +40,6 @@
 #include "moveit/ompl_interface/detail/goal_union.h"
 #include "moveit/ompl_interface/detail/projection_evaluators.h"
 #include "moveit/ompl_interface/detail/state_validity_checker.h"
-#include "moveit/ompl_interface/parameterization/joint_space/joint_model_state_space.h"
-#include "moveit/ompl_interface/parameterization/work_space/pose_model_state_space.h"
 
 #include <boost/math/constants/constants.hpp>
 #include <eigen_conversions/eigen_msg.h>
@@ -228,48 +226,14 @@ void GeometricPlanningContext::allocateStateSpace(const ModelBasedStateSpaceSpec
   // have a means to
   // compute IK solutions.  If so, allocate a pose model (workspace) state space
   // representation
-  if ((!request_.path_constraints.position_constraints.empty() ||
-       !request_.path_constraints.orientation_constraints.empty()) &&
-      request_.path_constraints.joint_constraints.empty() && request_.path_constraints.visibility_constraints.empty())
-  {
-    const robot_model::JointModelGroup* jmg = state_space_spec.joint_model_group_;
-    if (jmg)
-    {
-      const std::pair<robot_model::JointModelGroup::KinematicsSolver,
-                      robot_model::JointModelGroup::KinematicsSolverMap>& slv = jmg->getGroupKinematics();
-      bool ik = false;
-      // check that we have a direct means to compute IK
-      if (slv.first)
-        ik = jmg->getVariableCount() == slv.first.bijection_.size();
-      else if (!slv.second.empty())
-      {
-        // or an IK solver for each of the subgroups
-        unsigned int vc = 0;
-        unsigned int bc = 0;
-        for (const auto& jt : slv.second)
-        {
-          vc += jt.first->getVariableCount();
-          bc += jt.second.bijection_.size();
-        }
-        if (vc == jmg->getVariableCount() && vc == bc)
-          ik = true;
-      }
-
-      if (ik)
-      {
-        PoseModelStateSpacePtr state_space_(new PoseModelStateSpace(state_space_spec));
-        mbss_ = std::static_pointer_cast<ModelBasedStateSpace>(state_space_);
-        allocated = true;
-      }
-    }
-  }
+  const bool havePositionConstraints = !request_.path_constraints.position_constraints.empty();
+  const bool haveOrientationConstraints = !request_.path_constraints.orientation_constraints.empty();
+  const bool haveJointConstraints = !request_.path_constraints.joint_constraints.empty();
+  const bool haveVisibilityConstraints = !request_.path_constraints.visibility_constraints.empty();
 
   // The default is a representation based on the joint angles of the group
-  if (!allocated)
-  {
-    JointModelStateSpacePtr state_space_(new JointModelStateSpace(state_space_spec));
-    mbss_ = std::static_pointer_cast<ModelBasedStateSpace>(state_space_);
-  }
+  ModelBasedStateSpacePtr state_space_(new ModelBasedStateSpace(state_space_spec));
+  mbss_ = state_space_;
 }
 
 ompl::base::StateSamplerPtr
@@ -547,7 +511,7 @@ bool GeometricPlanningContext::solve(double timeout, unsigned int count, double&
           ompl::base::timedPlannerTerminationCondition(timeout - ompl::time::seconds(ompl::time::now() - start));
       registerTerminationCondition(ptc);
       // Solve in parallel.  Hybridize the solution paths.
-      result = pp.solve(ptc, 1, count, true) == ompl::base::PlannerStatus::EXACT_SOLUTION;
+      result = pp.solve(ptc, count, count, true) == ompl::base::PlannerStatus::EXACT_SOLUTION;
       total_time = ompl::time::seconds(ompl::time::now() - start);
       unregisterTerminationCondition();
     }
@@ -572,7 +536,7 @@ bool GeometricPlanningContext::solve(double timeout, unsigned int count, double&
             pp.addPlanner(ompl::tools::SelfConfig::getDefaultPlanner(simple_setup_->getGoal()));
         }
 
-        result &= pp.solve(ptc, 1, count, true) == ompl::base::PlannerStatus::EXACT_SOLUTION;
+        result &= pp.solve(ptc, count, count, true) == ompl::base::PlannerStatus::EXACT_SOLUTION;
       }
 
       // Do the remainder
@@ -591,7 +555,7 @@ bool GeometricPlanningContext::solve(double timeout, unsigned int count, double&
             pp.addPlanner(ompl::tools::SelfConfig::getDefaultPlanner(simple_setup_->getGoal()));
         }
 
-        result &= pp.solve(ptc, 1, count, true) == ompl::base::PlannerStatus::EXACT_SOLUTION;
+        result &= pp.solve(ptc, count, count, true) == ompl::base::PlannerStatus::EXACT_SOLUTION;
       }
       total_time = ompl::time::seconds(ompl::time::now() - start);
       unregisterTerminationCondition();

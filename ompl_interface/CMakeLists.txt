@@ -5,8 +5,6 @@ add_library(${MOVEIT_LIB_NAME}
   src/constraints_library.cpp
   src/geometric_planning_context.cpp
   src/parameterization/model_based_state_space.cpp
-  src/parameterization/joint_space/joint_model_state_space.cpp
-  src/parameterization/work_space/pose_model_state_space.cpp
   src/detail/state_validity_checker.cpp
   src/detail/projection_evaluators.cpp
   src/detail/goal_union.cpp
