@@ -2,7 +2,6 @@ set(MOVEIT_LIB_NAME moveit_ompl_planning_interface) # added "planning" to avoid 
 
 add_library(${MOVEIT_LIB_NAME}
   src/ompl_planning_context_manager.cpp
-  src/constraints_library.cpp
   src/geometric_planning_context.cpp
   src/parameterization/model_based_state_space.cpp
   src/detail/state_validity_checker.cpp
