@@ -42,9 +42,28 @@
 //#include "moveit/ompl_interface/constraints_library.h"
 #include <boost/thread/mutex.hpp>
 #include <ompl/geometric/SimpleSetup.h>
+#include <ompl/base/spaces/ProjectedStateSpace.h>
 
 namespace ompl_interface
 {
+class EmptyConstraint : public ompl::base::Constraint
+{
+public:
+  EmptyConstraint(const unsigned int n) : ompl::base::Constraint(n, n)
+  {
+  }
+
+  void function(const Eigen::VectorXd& x, Eigen::Ref<Eigen::VectorXd> out) const
+  {
+    out.setZero();
+  }
+
+  void jacobian(const Eigen::VectorXd& x, Eigen::Ref<Eigen::MatrixXd> out) const
+  {
+    out.setZero();
+  }
+};
+
 /// \brief Definition of a geometric planning context.  This context plans in
 /// the space
 /// of joint angles for a given group.  This context is NOT thread safe.
@@ -85,12 +104,24 @@ public:
 
   virtual void copyToRobotState(robot_state::RobotState& rstate, const ompl::base::State* state) const override
   {
-    getModelBasedStateSpace()->copyToRobotState(rstate, state);
+    if (havePathConstraints())
+    {
+        const ompl::base::State* sstate = state->as<ompl::base::WrapperStateSpace::StateType>()->getState();
+        getModelBasedStateSpace()->copyToRobotState(rstate, sstate);
+    }
+    else
+        getModelBasedStateSpace()->copyToRobotState(rstate, state);
   }
 
   virtual void copyToOMPLState(ompl::base::State* state, const robot_state::RobotState& rstate) const override
   {
-    getModelBasedStateSpace()->copyToOMPLState(state, rstate);
+    if (havePathConstraints())
+    {
+        ompl::base::State* sstate = state->as<ompl::base::WrapperStateSpace::StateType>()->getState();
+        getModelBasedStateSpace()->copyToOMPLState(sstate, rstate);
+    }
+    else
+        getModelBasedStateSpace()->copyToOMPLState(state, rstate);
   }
 
   virtual const ompl::base::SpaceInformationPtr& getOMPLSpaceInformation() const;
@@ -197,6 +228,16 @@ protected:
   /// \brief Register a projection evaluator for the OMPL state space given the
   /// string encoding
   virtual void setProjectionEvaluator(const std::string& peval);
+
+  bool havePathConstraints() const
+  {
+    const bool havePositionConstraints = !request_.path_constraints.position_constraints.empty();
+    const bool haveOrientationConstraints = !request_.path_constraints.orientation_constraints.empty();
+    const bool haveJointConstraints = !request_.path_constraints.joint_constraints.empty();
+    const bool haveVisibilityConstraints = !request_.path_constraints.visibility_constraints.empty();
+
+    return havePositionConstraints || haveOrientationConstraints || haveJointConstraints || haveVisibilityConstraints;
+  }
 
   /// \brief Pointer to the OMPL SimpleSetup object
   ompl::geometric::SimpleSetupPtr simple_setup_;

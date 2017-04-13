@@ -203,20 +203,19 @@ void GeometricPlanningContext::initialize(const std::string& ros_namespace, cons
 
 void GeometricPlanningContext::allocateStateSpace(const ModelBasedStateSpaceSpecification& state_space_spec)
 {
-  bool allocated = false;
+  if (havePathConstraints())
+  {
+    ModelBasedStateSpacePtr state_space_(new ModelBasedStateSpace(state_space_spec));
+    ompl::base::ConstraintPtr constraint(new ompl_interface::EmptyConstraint(state_space_->getDimension()));
+    ompl::base::StateSpacePtr constrained_space(new ompl::base::ProjectedStateSpace(state_space_, constraint));
 
-  // If there are (only) position and/or orientation constraints, make sure we
-  // have a means to
-  // compute IK solutions.  If so, allocate a pose model (workspace) state space
-  // representation
-  const bool havePositionConstraints = !request_.path_constraints.position_constraints.empty();
-  const bool haveOrientationConstraints = !request_.path_constraints.orientation_constraints.empty();
-  const bool haveJointConstraints = !request_.path_constraints.joint_constraints.empty();
-  const bool haveVisibilityConstraints = !request_.path_constraints.visibility_constraints.empty();
-
-  // The default is a representation based on the joint angles of the group
-  ModelBasedStateSpacePtr state_space_(new ModelBasedStateSpace(state_space_spec));
-  mbss_ = state_space_;
+    mbss_ = constrained_space;
+  }
+  else
+  {
+    ModelBasedStateSpacePtr state_space_(new ModelBasedStateSpace(state_space_spec));
+    mbss_ = state_space_;
+  }
 }
 
 ompl::base::StateSamplerPtr
@@ -384,32 +383,31 @@ bool GeometricPlanningContext::solve(planning_interface::MotionPlanDetailedRespo
 
     if (simplify_)
     {
-        double simplify_time = plan_time;
+      double simplify_time = plan_time;
 
-        plan_time += simplifySolution(timeout);
-        if ((timeout - plan_time) > 0)
+      plan_time += simplifySolution(timeout);
+      if ((timeout - plan_time) > 0)
+      {
+        double lasttime;
+        do
         {
-            double lasttime;
-            do
-            {
-                lasttime = plan_time;
-                plan_time += simplifySolution(timeout - plan_time);
-            } while ((timeout - plan_time) > 0 && plan_time - lasttime > 1e-3);
-        }
+          lasttime = plan_time;
+          plan_time += simplifySolution(timeout - plan_time);
+        } while ((timeout - plan_time) > 0 && plan_time - lasttime > 1e-3);
+      }
 
-        res.processing_time_.push_back(plan_time - simplify_time);
-        res.description_.emplace_back("simplify");
+      res.processing_time_.push_back(plan_time - simplify_time);
+      res.description_.emplace_back("simplify");
 
-        pg = simple_setup_->getSolutionPath();
-        res.trajectory_.resize(res.trajectory_.size() + 1);
-        res.trajectory_.back().reset(new robot_trajectory::RobotTrajectory(getRobotModel(), getGroupName()));
+      pg = simple_setup_->getSolutionPath();
+      res.trajectory_.resize(res.trajectory_.size() + 1);
+      res.trajectory_.back().reset(new robot_trajectory::RobotTrajectory(getRobotModel(), getGroupName()));
 
-        for (std::size_t i = 0; i < pg.getStateCount(); ++i)
-        {
-            copyToRobotState(ks, pg.getState(i));
-            res.trajectory_.back()->addSuffixWayPoint(ks, 0.0);
-        }
-
+      for (std::size_t i = 0; i < pg.getStateCount(); ++i)
+      {
+        copyToRobotState(ks, pg.getState(i));
+        res.trajectory_.back()->addSuffixWayPoint(ks, 0.0);
+      }
     }
 
     // Interpolating the final solution
@@ -584,14 +582,20 @@ const ompl::base::StateSpacePtr& GeometricPlanningContext::getOMPLStateSpace() c
   return mbss_;
 }
 
-ModelBasedStateSpace *GeometricPlanningContext::getModelBasedStateSpace()
+ModelBasedStateSpace* GeometricPlanningContext::getModelBasedStateSpace()
 {
-    return mbss_->as<ModelBasedStateSpace>();
+    if (havePathConstraints())
+        return mbss_->as<ompl::base::WrapperStateSpace>()->getSpace()->as<ModelBasedStateSpace>();
+    else
+        return mbss_->as<ModelBasedStateSpace>();
 }
 
-const ModelBasedStateSpace *GeometricPlanningContext::getModelBasedStateSpace() const
+const ModelBasedStateSpace* GeometricPlanningContext::getModelBasedStateSpace() const
 {
-    return mbss_->as<ModelBasedStateSpace>();
+    if (havePathConstraints())
+        return mbss_->as<ompl::base::WrapperStateSpace>()->getSpace()->as<ModelBasedStateSpace>();
+    else
+        return mbss_->as<ModelBasedStateSpace>();
 }
 
 const ompl::base::SpaceInformationPtr& GeometricPlanningContext::getOMPLSpaceInformation() const
