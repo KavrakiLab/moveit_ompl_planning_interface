@@ -7,10 +7,8 @@ add_library(${MOVEIT_LIB_NAME}
   src/detail/state_validity_checker.cpp
   src/detail/projection_evaluators.cpp
   src/detail/goal_union.cpp
-  src/detail/constrained_sampler.cpp
   src/detail/constrained_goal_sampler.cpp
   src/detail/ompl_console.cpp
-  src/detail/constrained_valid_state_sampler.cpp
   src/detail/threadsafe_state_storage.cpp
 )
 

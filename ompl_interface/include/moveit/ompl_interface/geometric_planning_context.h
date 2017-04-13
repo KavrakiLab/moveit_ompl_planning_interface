@@ -62,6 +62,21 @@ public:
   {
     out.setZero();
   }
+
+  bool project(ompl::base::State* state) const
+  {
+    return true;
+  }
+
+  double distance(const ompl::base::State* state) const
+  {
+    return 0.0;
+  }
+
+  bool isSatisfied(const ompl::base::State* state) const
+  {
+    return true;
+  }
 };
 
 /// \brief Definition of a geometric planning context.  This context plans in
@@ -171,13 +186,6 @@ protected:
   /// \e mbss_ member.
   virtual void allocateStateSpace(const ModelBasedStateSpaceSpecification& state_space_spec);
 
-  /// \brief Allocate a (possibly constrained) state sampler.  If there are no
-  /// path constraints, the
-  /// sampler is the default from OMPL.  Otherwise, a custom sampler is created
-  /// to sample states from
-  /// the constraints specified in the motion plan request.
-  virtual ompl::base::StateSamplerPtr allocPathConstrainedSampler(const ompl::base::StateSpace* ss) const;
-
   /// \brief A method that is invoked immediately before every call to solve()
   virtual void preSolve();
 
@@ -231,6 +239,7 @@ protected:
 
   bool havePathConstraints() const
   {
+      return false;
     const bool havePositionConstraints = !request_.path_constraints.position_constraints.empty();
     const bool haveOrientationConstraints = !request_.path_constraints.orientation_constraints.empty();
     const bool haveJointConstraints = !request_.path_constraints.joint_constraints.empty();

@@ -36,7 +36,6 @@
 
 #include "moveit/ompl_interface/geometric_planning_context.h"
 #include "moveit/ompl_interface/detail/constrained_goal_sampler.h"
-#include "moveit/ompl_interface/detail/constrained_sampler.h"
 #include "moveit/ompl_interface/detail/goal_union.h"
 #include "moveit/ompl_interface/detail/projection_evaluators.h"
 #include "moveit/ompl_interface/detail/state_validity_checker.h"
@@ -159,11 +158,7 @@ void GeometricPlanningContext::initialize(const std::string& ros_namespace, cons
 
   // Initialize path constraints, if any
 
-  const bool havePosCnst = !request_.path_constraints.position_constraints.empty();
-  const bool haveOrnCnst = !request_.path_constraints.orientation_constraints.empty();
-  const bool haveJntCnst = !request_.path_constraints.joint_constraints.empty();
-  const bool haveVisCnst = !request_.path_constraints.visibility_constraints.empty();
-  if (havePosCnst || haveOrnCnst || haveJntCnst || haveVisCnst)
+  if (havePathConstraints())
   {
     path_constraints_.reset(new kinematic_constraints::KinematicConstraintSet(getRobotModel()));
     path_constraints_->add(request_.path_constraints, getPlanningScene()->getTransforms());
@@ -177,6 +172,9 @@ void GeometricPlanningContext::initialize(const std::string& ros_namespace, cons
 
   // OMPL SimpleSetup
   simple_setup_.reset(new ompl::geometric::SimpleSetup(mbss_));
+
+  if (havePathConstraints())
+      mbss_->as<ompl::base::ConstrainedStateSpace>()->setSpaceInformation(simple_setup_->getSpaceInformation());
 
   // OMPL ProjectionEvaluator
   it = spec_.config.find("projection_evaluator");
@@ -196,7 +194,14 @@ void GeometricPlanningContext::initialize(const std::string& ros_namespace, cons
   }
 
   // OMPL StateSampler
-  mbss_->setStateSamplerAllocator(boost::bind(&GeometricPlanningContext::allocPathConstrainedSampler, this, _1));
+  simple_setup_->getSpaceInformation()->setValidStateSamplerAllocator(
+      [&](const ompl::base::SpaceInformation* si) -> ompl::base::ValidStateSamplerPtr {
+          if (havePathConstraints())
+              return ompl::base::ValidStateSamplerPtr(
+                  new ompl::base::ConstrainedValidStateSampler(si));
+
+          return si->allocValidStateSampler();
+      });
 
   initialized_ = true;
 }
@@ -216,31 +221,6 @@ void GeometricPlanningContext::allocateStateSpace(const ModelBasedStateSpaceSpec
     ModelBasedStateSpacePtr state_space_(new ModelBasedStateSpace(state_space_spec));
     mbss_ = state_space_;
   }
-}
-
-ompl::base::StateSamplerPtr
-GeometricPlanningContext::allocPathConstrainedSampler(const ompl::base::StateSpace* ss) const
-{
-  if (mbss_.get() != ss)
-  {
-    ROS_ERROR("%s: Attempted to allocate a state sampler for an unknown state space", name_.c_str());
-    return ompl::base::StateSamplerPtr();
-  }
-
-  ROS_DEBUG("%s: Allocating a new state sampler (attempts to use path constraints)", name_.c_str());
-
-  if (path_constraints_)
-  {
-    constraint_samplers::ConstraintSamplerPtr cs = constraint_sampler_manager_->selectSampler(
-        getPlanningScene(), getGroupName(), path_constraints_->getAllConstraints());
-    if (cs)
-    {
-      ROS_INFO("%s: Allocating specialized state sampler for state space", name_.c_str());
-      return ompl::base::StateSamplerPtr(new ConstrainedSampler(this, cs));
-    }
-  }
-  ROS_DEBUG("%s: Allocating default state sampler for state space", name_.c_str());
-  return ss->allocDefaultStateSampler();
 }
 
 void GeometricPlanningContext::clear()
