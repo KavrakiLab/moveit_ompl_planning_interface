@@ -36,6 +36,7 @@
 
 #include "moveit/ompl_interface/detail/state_validity_checker.h"
 #include "moveit/ompl_interface/ompl_planning_context.h"
+#include <ompl/base/spaces/ConstrainedStateSpace.h>
 #include <moveit/profiler/profiler.h>
 #include <ros/ros.h>
 
@@ -70,14 +71,12 @@ void ompl_interface::StateValidityChecker::setVerbose(bool flag)
 
 bool ompl_interface::StateValidityChecker::isValid(const ompl::base::State* state, bool verbose) const
 {
-  //  moveit::Profiler::ScopedBlock sblock("isValid");
   return planning_context_->useStateValidityCache() ? isValidWithCache(state, verbose) :
                                                       isValidWithoutCache(state, verbose);
 }
 
 bool ompl_interface::StateValidityChecker::isValid(const ompl::base::State* state, double& dist, bool verbose) const
 {
-  //  moveit::Profiler::ScopedBlock sblock("isValid");
   return planning_context_->useStateValidityCache() ? isValidWithCache(state, dist, verbose) :
                                                       isValidWithoutCache(state, dist, verbose);
 }
@@ -182,14 +181,18 @@ bool ompl_interface::StateValidityChecker::isValidWithoutCache(const ompl::base:
 
 bool ompl_interface::StateValidityChecker::isValidWithCache(const ompl::base::State* state, bool verbose) const
 {
-  if (state->as<ModelBasedStateSpace::StateType>()->isValidityKnown())
-    return state->as<ModelBasedStateSpace::StateType>()->isMarkedValid();
+    const ompl::base::State* mbstate = state;
+    if (planning_context_->havePathConstraints())
+        mbstate = state->as<ompl::base::ConstrainedStateSpace::StateType>()->getState();
+
+  if (mbstate->as<ModelBasedStateSpace::StateType>()->isValidityKnown())
+    return mbstate->as<ModelBasedStateSpace::StateType>()->isMarkedValid();
 
   if (!si_->satisfiesBounds(state))
   {
     if (verbose)
       logInform("State outside bounds");
-    const_cast<ompl::base::State*>(state)->as<ModelBasedStateSpace::StateType>()->markInvalid();
+    const_cast<ompl::base::State*>(mbstate)->as<ModelBasedStateSpace::StateType>()->markInvalid();
     return false;
   }
 
@@ -200,14 +203,14 @@ bool ompl_interface::StateValidityChecker::isValidWithCache(const ompl::base::St
   const kinematic_constraints::KinematicConstraintSetPtr& kset = planning_context_->getPathConstraints();
   if (kset && !kset->decide(*kstate, verbose).satisfied)
   {
-    const_cast<ompl::base::State*>(state)->as<ModelBasedStateSpace::StateType>()->markInvalid();
+    const_cast<ompl::base::State*>(mbstate)->as<ModelBasedStateSpace::StateType>()->markInvalid();
     return false;
   }
 
   // check feasibility
   if (!planning_context_->getPlanningScene()->isStateFeasible(*kstate, verbose))
   {
-    const_cast<ompl::base::State*>(state)->as<ModelBasedStateSpace::StateType>()->markInvalid();
+    const_cast<ompl::base::State*>(mbstate)->as<ModelBasedStateSpace::StateType>()->markInvalid();
     return false;
   }
 
@@ -217,12 +220,12 @@ bool ompl_interface::StateValidityChecker::isValidWithCache(const ompl::base::St
       verbose ? collision_request_simple_verbose_ : collision_request_simple_, res, *kstate);
   if (res.collision == false)
   {
-    const_cast<ompl::base::State*>(state)->as<ModelBasedStateSpace::StateType>()->markValid();
+    const_cast<ompl::base::State*>(mbstate)->as<ModelBasedStateSpace::StateType>()->markValid();
     return true;
   }
   else
   {
-    const_cast<ompl::base::State*>(state)->as<ModelBasedStateSpace::StateType>()->markInvalid();
+    const_cast<ompl::base::State*>(mbstate)->as<ModelBasedStateSpace::StateType>()->markInvalid();
     return false;
   }
 }
@@ -230,18 +233,22 @@ bool ompl_interface::StateValidityChecker::isValidWithCache(const ompl::base::St
 bool ompl_interface::StateValidityChecker::isValidWithCache(const ompl::base::State* state, double& dist,
                                                             bool verbose) const
 {
-  if (state->as<ModelBasedStateSpace::StateType>()->isValidityKnown() &&
-      state->as<ModelBasedStateSpace::StateType>()->isGoalDistanceKnown())
+  const ompl::base::State* mbstate = state;
+  if (planning_context_->havePathConstraints())
+    mbstate = state->as<ompl::base::ConstrainedStateSpace::StateType>()->getState();
+
+  if (mbstate->as<ModelBasedStateSpace::StateType>()->isValidityKnown() &&
+      mbstate->as<ModelBasedStateSpace::StateType>()->isGoalDistanceKnown())
   {
-    dist = state->as<ModelBasedStateSpace::StateType>()->distance;
-    return state->as<ModelBasedStateSpace::StateType>()->isMarkedValid();
+    dist = mbstate->as<ModelBasedStateSpace::StateType>()->distance;
+    return mbstate->as<ModelBasedStateSpace::StateType>()->isMarkedValid();
   }
 
   if (!si_->satisfiesBounds(state))
   {
     if (verbose)
       logInform("State outside bounds");
-    const_cast<ompl::base::State*>(state)->as<ModelBasedStateSpace::StateType>()->markInvalid(0.0);
+    const_cast<ompl::base::State*>(mbstate)->as<ModelBasedStateSpace::StateType>()->markInvalid(0.0);
     return false;
   }
 
@@ -256,7 +263,7 @@ bool ompl_interface::StateValidityChecker::isValidWithCache(const ompl::base::St
     if (!cer.satisfied)
     {
       dist = cer.distance;
-      const_cast<ompl::base::State*>(state)->as<ModelBasedStateSpace::StateType>()->markInvalid(dist);
+      const_cast<ompl::base::State*>(mbstate)->as<ModelBasedStateSpace::StateType>()->markInvalid(dist);
       return false;
     }
   }

@@ -124,6 +124,8 @@ public:
 
   virtual void copyToOMPLState(ompl::base::State* state, const robot_state::RobotState& rstate) const = 0;
 
+  virtual bool havePathConstraints() const = 0;
+
   /// \brief Return a pointer to the OMPL space information object
   virtual const ompl::base::SpaceInformationPtr& getOMPLSpaceInformation() const = 0;
 

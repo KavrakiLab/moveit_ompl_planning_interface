@@ -121,7 +121,7 @@ public:
   {
     if (havePathConstraints())
     {
-        const ompl::base::State* sstate = state->as<ompl::base::WrapperStateSpace::StateType>()->getState();
+        const ompl::base::State* sstate = state->as<ompl::base::ConstrainedStateSpace::StateType>()->getState();
         getModelBasedStateSpace()->copyToRobotState(rstate, sstate);
     }
     else
@@ -132,7 +132,7 @@ public:
   {
     if (havePathConstraints())
     {
-        ompl::base::State* sstate = state->as<ompl::base::WrapperStateSpace::StateType>()->getState();
+        ompl::base::State* sstate = state->as<ompl::base::ConstrainedStateSpace::StateType>()->getState();
         getModelBasedStateSpace()->copyToOMPLState(sstate, rstate);
     }
     else
@@ -237,9 +237,9 @@ protected:
   /// string encoding
   virtual void setProjectionEvaluator(const std::string& peval);
 
-  bool havePathConstraints() const
+  virtual bool havePathConstraints() const
   {
-      return false;
+      return true;
     const bool havePositionConstraints = !request_.path_constraints.position_constraints.empty();
     const bool haveOrientationConstraints = !request_.path_constraints.orientation_constraints.empty();
     const bool haveJointConstraints = !request_.path_constraints.joint_constraints.empty();

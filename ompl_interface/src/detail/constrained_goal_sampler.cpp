@@ -81,11 +81,6 @@ bool ompl_interface::ConstrainedGoalSampler::stateValidityCallback(ompl::base::S
 bool ompl_interface::ConstrainedGoalSampler::sampleUsingConstraintSampler(const ompl::base::GoalLazySamples* gls,
                                                                           ompl::base::State* new_goal)
 {
-  //  moveit::Profiler::ScopedBlock
-  //  sblock("ConstrainedGoalSampler::sampleUsingConstraintSampler");
-
-  // unsigned int max_attempts =
-  // planning_context_->getMaximumGoalSamplingAttempts();
   unsigned int max_attempts = 1000;
   unsigned int attempts_so_far = gls->samplingAttemptsCount();
 
@@ -94,7 +89,6 @@ bool ompl_interface::ConstrainedGoalSampler::sampleUsingConstraintSampler(const 
     return false;
 
   // terminate after a maximum number of samples
-  // if (gls->getStateCount() >= planning_context_->getMaximumGoalSamples())
   unsigned int max_goal_samples = 50;
   if (gls->getStateCount() >= max_goal_samples)
     return false;
@@ -126,9 +120,7 @@ bool ompl_interface::ConstrainedGoalSampler::sampleUsingConstraintSampler(const 
       constraint_sampler_->setGroupStateValidityCallback(gsvcf);
 
       unsigned int max_state_sampling_attempts = 4;
-      // if (constraint_sampler_->project(work_state_,
-      // planning_context_->getMaximumStateSamplingAttempts()))
-      if (constraint_sampler_->project(work_state_, max_state_sampling_attempts))
+      if (constraint_sampler_->sample(work_state_, max_state_sampling_attempts))
       {
         work_state_.update();
         if (kinematic_constraint_set_->decide(work_state_, verbose).satisfied)
@@ -151,7 +143,6 @@ bool ompl_interface::ConstrainedGoalSampler::sampleUsingConstraintSampler(const 
     }
     else
     {
-      default_sampler_->sampleUniform(new_goal);
       if (dynamic_cast<const StateValidityChecker*>(si_->getStateValidityChecker().get())->isValid(new_goal, verbose))
       {
         planning_context_->copyToRobotState(work_state_, new_goal);
