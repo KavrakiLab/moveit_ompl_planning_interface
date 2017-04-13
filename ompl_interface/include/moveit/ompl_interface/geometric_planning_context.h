@@ -78,7 +78,20 @@ public:
   /// \brief Stop planning
   virtual bool terminate();
 
-  virtual const ModelBasedStateSpacePtr& getOMPLStateSpace() const;
+  virtual const ompl::base::StateSpacePtr& getOMPLStateSpace() const override;
+
+  virtual ModelBasedStateSpace* getModelBasedStateSpace();
+  virtual const ModelBasedStateSpace* getModelBasedStateSpace() const override;
+
+  virtual void copyToRobotState(robot_state::RobotState& rstate, const ompl::base::State* state) const override
+  {
+    getModelBasedStateSpace()->copyToRobotState(rstate, state);
+  }
+
+  virtual void copyToOMPLState(ompl::base::State* state, const robot_state::RobotState& rstate) const override
+  {
+    getModelBasedStateSpace()->copyToOMPLState(state, rstate);
+  }
 
   virtual const ompl::base::SpaceInformationPtr& getOMPLSpaceInformation() const;
 
@@ -100,9 +113,6 @@ public:
   /// \brief Return the set of constraints that must be satisfied along the
   /// entire path
   virtual const kinematic_constraints::KinematicConstraintSetPtr& getPathConstraints() const;
-
-  // TODO: Remove this.
-  // ConstraintsLibraryPtr getConstraintsLibrary() const;
 
 protected:
   /// \brief Merge constraints c1 and c2, storing the result in output.
@@ -192,7 +202,7 @@ protected:
   ompl::geometric::SimpleSetupPtr simple_setup_;
 
   /// \brief Pointer to the (derived) OMPL StateSpace object
-  ModelBasedStateSpacePtr mbss_;
+  ompl::base::StateSpacePtr mbss_;
 
   /// \brief Robot state containing the initial position of all joints
   robot_state::RobotState* complete_initial_robot_state_;
@@ -206,11 +216,6 @@ protected:
 
   /// \brief The constraint sampler factory.
   constraint_samplers::ConstraintSamplerManagerPtr constraint_sampler_manager_;
-
-  // \brief A pointer to the constraints library.  Used for precomputed state
-  // sampling.
-  // TODO: Remove this.
-  // ConstraintsLibraryPtr constraints_library_;
 
   /// \brief The specification parameters for this context
   PlanningContextSpecification spec_;

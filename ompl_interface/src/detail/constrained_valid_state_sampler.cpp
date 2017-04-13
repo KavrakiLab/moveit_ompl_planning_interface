@@ -57,7 +57,7 @@ bool ompl_interface::ValidConstrainedSampler::project(ompl::base::State* state)
 {
   if (constraint_sampler_)
   {
-    planning_context_->getOMPLStateSpace()->copyToRobotState(work_state_, state);
+    planning_context_->copyToRobotState(work_state_, state);
     unsigned int max_state_sampling_attempts = 4;
     // if (constraint_sampler_->project(work_state_,
     // planning_context_->getMaximumStateSamplingAttempts()))
@@ -65,7 +65,7 @@ bool ompl_interface::ValidConstrainedSampler::project(ompl::base::State* state)
     {
       if (kinematic_constraint_set_->decide(work_state_).satisfied)
       {
-        planning_context_->getOMPLStateSpace()->copyToOMPLState(state, work_state_);
+        planning_context_->copyToOMPLState(state, work_state_);
         return true;
       }
     }
@@ -87,7 +87,7 @@ bool ompl_interface::ValidConstrainedSampler::sample(ompl::base::State* state)
     {
       if (kinematic_constraint_set_->decide(work_state_).satisfied)
       {
-        planning_context_->getOMPLStateSpace()->copyToOMPLState(state, work_state_);
+        planning_context_->copyToOMPLState(state, work_state_);
         return true;
       }
     }
@@ -95,7 +95,7 @@ bool ompl_interface::ValidConstrainedSampler::sample(ompl::base::State* state)
   else
   {
     default_sampler_->sampleUniform(state);
-    planning_context_->getOMPLStateSpace()->copyToRobotState(work_state_, state);
+    planning_context_->copyToRobotState(work_state_, state);
     if (kinematic_constraint_set_->decide(work_state_).satisfied)
       return true;
   }
@@ -113,7 +113,7 @@ bool ompl_interface::ValidConstrainedSampler::sampleNear(ompl::base::State* stat
   {
     double dist = pow(rng_.uniform01(), inv_dim_) * distance;
     si_->getStateSpace()->interpolate(near, state, dist / total_d, state);
-    planning_context_->getOMPLStateSpace()->copyToRobotState(work_state_, state);
+    planning_context_->copyToRobotState(work_state_, state);
     if (!kinematic_constraint_set_->decide(work_state_).satisfied)
       return false;
   }

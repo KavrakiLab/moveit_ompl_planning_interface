@@ -166,10 +166,7 @@ double ompl_interface::ModelBasedStateSpace::getMeasure() const
 double ompl_interface::ModelBasedStateSpace::distance(const ompl::base::State* state1,
                                                       const ompl::base::State* state2) const
 {
-  if (distance_function_)
-    return distance_function_(state1, state2);
-  else
-    return spec_.joint_model_group_->distance(state1->as<StateType>()->values, state2->as<StateType>()->values);
+  return spec_.joint_model_group_->distance(state1->as<StateType>()->values, state2->as<StateType>()->values);
 }
 
 bool ompl_interface::ModelBasedStateSpace::equalStates(const ompl::base::State* state1,
@@ -199,20 +196,17 @@ void ompl_interface::ModelBasedStateSpace::interpolate(const ompl::base::State* 
   // clear any cached info (such as validity known or not)
   state->as<StateType>()->clearKnownInformation();
 
-  if (!interpolation_function_ || !interpolation_function_(from, to, t, state))
-  {
-    // perform the actual interpolation
-    spec_.joint_model_group_->interpolate(from->as<StateType>()->values, to->as<StateType>()->values, t,
-                                          state->as<StateType>()->values);
+  // perform the actual interpolation
+  spec_.joint_model_group_->interpolate(from->as<StateType>()->values, to->as<StateType>()->values, t,
+                                        state->as<StateType>()->values);
 
-    // compute tag
-    if (from->as<StateType>()->tag >= 0 && t < 1.0 - tag_snap_to_segment_)
-      state->as<StateType>()->tag = from->as<StateType>()->tag;
-    else if (to->as<StateType>()->tag >= 0 && t > tag_snap_to_segment_)
-      state->as<StateType>()->tag = to->as<StateType>()->tag;
-    else
-      state->as<StateType>()->tag = -1;
-  }
+  // compute tag
+  if (from->as<StateType>()->tag >= 0 && t < 1.0 - tag_snap_to_segment_)
+    state->as<StateType>()->tag = from->as<StateType>()->tag;
+  else if (to->as<StateType>()->tag >= 0 && t > tag_snap_to_segment_)
+    state->as<StateType>()->tag = to->as<StateType>()->tag;
+  else
+    state->as<StateType>()->tag = -1;
 }
 
 double* ompl_interface::ModelBasedStateSpace::getValueAddressAtIndex(ompl::base::State* state,

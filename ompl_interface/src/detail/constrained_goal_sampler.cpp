@@ -62,7 +62,7 @@ bool ompl_interface::ConstrainedGoalSampler::checkStateValidity(ompl::base::Stat
                                                                 const robot_state::RobotState& state,
                                                                 bool verbose) const
 {
-  planning_context_->getOMPLStateSpace()->copyToOMPLState(new_goal, state);
+  planning_context_->copyToOMPLState(new_goal, state);
   return dynamic_cast<const StateValidityChecker*>(si_->getStateValidityChecker().get())->isValid(new_goal, verbose);
 }
 
@@ -154,7 +154,7 @@ bool ompl_interface::ConstrainedGoalSampler::sampleUsingConstraintSampler(const 
       default_sampler_->sampleUniform(new_goal);
       if (dynamic_cast<const StateValidityChecker*>(si_->getStateValidityChecker().get())->isValid(new_goal, verbose))
       {
-        planning_context_->getOMPLStateSpace()->copyToRobotState(work_state_, new_goal);
+        planning_context_->copyToRobotState(work_state_, new_goal);
         if (kinematic_constraint_set_->decide(work_state_, verbose).satisfied)
           return true;
       }

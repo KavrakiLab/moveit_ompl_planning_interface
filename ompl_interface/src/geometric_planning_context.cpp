@@ -128,18 +128,12 @@ void GeometricPlanningContext::registerPlannerAllocator(const std::string& plann
   planner_allocators_[planner_id] = pa;
 }
 
-// ConstraintsLibraryPtr GeometricPlanningContext::getConstraintsLibrary() const
-// {
-//     return constraints_library_;
-// }
-
 void GeometricPlanningContext::initialize(const std::string& ros_namespace, const PlanningContextSpecification& spec)
 {
-  nh_ = ros::NodeHandle(ros_namespace);
   spec_ = spec;
 
-  simplify_ = spec.simplify_solution;
   interpolate_ = spec.interpolate_solution;
+  simplify_ = spec.simplify_solution;
 
   // Erase the type and plugin fields from the configuration items
   auto it = spec_.config.find("type");
@@ -164,29 +158,18 @@ void GeometricPlanningContext::initialize(const std::string& ros_namespace, cons
   ROS_INFO("Initializing GeometricPlanningContext for '%s'", spec_.planner.c_str());
 
   // Initialize path constraints, if any
-  if (!request_.path_constraints.position_constraints.empty() ||
-      !request_.path_constraints.orientation_constraints.empty() ||
-      !request_.path_constraints.visibility_constraints.empty() || !request_.path_constraints.joint_constraints.empty())
+
+  const bool havePosCnst = !request_.path_constraints.position_constraints.empty();
+  const bool haveOrnCnst = !request_.path_constraints.orientation_constraints.empty();
+  const bool haveJntCnst = !request_.path_constraints.joint_constraints.empty();
+  const bool haveVisCnst = !request_.path_constraints.visibility_constraints.empty();
+  if (havePosCnst || haveOrnCnst || haveJntCnst || haveVisCnst)
   {
     path_constraints_.reset(new kinematic_constraints::KinematicConstraintSet(getRobotModel()));
     path_constraints_->add(request_.path_constraints, getPlanningScene()->getTransforms());
   }
   else
-  {
     path_constraints_.reset();
-  }
-
-  // Library of constraints
-  // constraints_library_.reset(new ConstraintsLibrary(this,
-  // constraint_sampler_manager_));
-  // std::string cpath;
-  // if (nh_.getParam("constraint_approximations_path", cpath))
-  // {
-  //     constraints_library_->loadConstraintApproximations(cpath);
-  //     std::stringstream ss;
-  //     constraints_library_->printConstraintApproximations(ss);
-  //     ROS_INFO_STREAM(ss.str());
-  // }
 
   // OMPL StateSpace
   ModelBasedStateSpaceSpecification state_space_spec(spec_.model, spec_.group);
@@ -247,28 +230,8 @@ GeometricPlanningContext::allocPathConstrainedSampler(const ompl::base::StateSpa
 
   ROS_DEBUG("%s: Allocating a new state sampler (attempts to use path constraints)", name_.c_str());
 
-  // if (path_constraints_ && constraints_library_)
   if (path_constraints_)
   {
-    // const ConstraintApproximationPtr &ca =
-    // constraints_library_->getConstraintApproximation(request_.path_constraints);
-    // if (ca)
-    // {
-    //     ompl::base::StateSamplerAllocator c_ssa =
-    //     ca->getStateSamplerAllocator(request_.path_constraints);
-    //     if (c_ssa)
-    //     {
-    //         ompl::base::StateSamplerPtr res = c_ssa(ss);
-    //         if (res)
-    //         {
-    //             ROS_INFO("%s: Using precomputed state sampler (approximated
-    //             constraint space) for constraint '%s'",
-    //             name_.c_str(), request_.path_constraints.name.c_str());
-    //             return res;
-    //         }
-    //     }
-    // }
-
     constraint_samplers::ConstraintSamplerPtr cs = constraint_sampler_manager_->selectSampler(
         getPlanningScene(), getGroupName(), path_constraints_->getAllConstraints());
     if (cs)
@@ -380,7 +343,7 @@ bool GeometricPlanningContext::solve(planning_interface::MotionPlanResponse& res
     robot_state::RobotState ks = *complete_initial_robot_state_;
     for (std::size_t i = 0; i < pg.getStateCount(); ++i)
     {
-      mbss_->copyToRobotState(ks, pg.getState(i));
+      copyToRobotState(ks, pg.getState(i));
       res.trajectory_->addSuffixWayPoint(ks, 0.0);
     }
 
@@ -415,7 +378,7 @@ bool GeometricPlanningContext::solve(planning_interface::MotionPlanDetailedRespo
     robot_state::RobotState ks = *complete_initial_robot_state_;
     for (std::size_t i = 0; i < pg.getStateCount(); ++i)
     {
-      mbss_->copyToRobotState(ks, pg.getState(i));
+      copyToRobotState(ks, pg.getState(i));
       res.trajectory_.back()->addSuffixWayPoint(ks, 0.0);
     }
 
@@ -443,7 +406,7 @@ bool GeometricPlanningContext::solve(planning_interface::MotionPlanDetailedRespo
 
         for (std::size_t i = 0; i < pg.getStateCount(); ++i)
         {
-            mbss_->copyToRobotState(ks, pg.getState(i));
+            copyToRobotState(ks, pg.getState(i));
             res.trajectory_.back()->addSuffixWayPoint(ks, 0.0);
         }
 
@@ -472,7 +435,7 @@ bool GeometricPlanningContext::solve(planning_interface::MotionPlanDetailedRespo
 
       for (std::size_t i = 0; i < pg.getStateCount(); ++i)
       {
-        mbss_->copyToRobotState(ks, pg.getState(i));
+        copyToRobotState(ks, pg.getState(i));
         res.trajectory_.back()->addSuffixWayPoint(ks, 0.0);
       }
     }
@@ -616,9 +579,19 @@ bool GeometricPlanningContext::terminate()
   return true;
 }
 
-const ModelBasedStateSpacePtr& GeometricPlanningContext::getOMPLStateSpace() const
+const ompl::base::StateSpacePtr& GeometricPlanningContext::getOMPLStateSpace() const
 {
   return mbss_;
+}
+
+ModelBasedStateSpace *GeometricPlanningContext::getModelBasedStateSpace()
+{
+    return mbss_->as<ModelBasedStateSpace>();
+}
+
+const ModelBasedStateSpace *GeometricPlanningContext::getModelBasedStateSpace() const
+{
+    return mbss_->as<ModelBasedStateSpace>();
 }
 
 const ompl::base::SpaceInformationPtr& GeometricPlanningContext::getOMPLSpaceInformation() const
@@ -648,7 +621,7 @@ void GeometricPlanningContext::setCompleteInitialRobotState(const robot_state::R
 
   // Start state
   ompl::base::ScopedState<> start_state(mbss_);
-  mbss_->copyToOMPLState(start_state.get(), *complete_initial_robot_state_);
+  copyToOMPLState(start_state.get(), *complete_initial_robot_state_);
   simple_setup_->setStartState(start_state);
 
   // State validity checker

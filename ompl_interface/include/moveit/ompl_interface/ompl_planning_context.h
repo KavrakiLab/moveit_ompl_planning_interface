@@ -115,7 +115,14 @@ public:
   virtual void clear() = 0;
 
   /// \brief Return a pointer to the OMPL state space
-  virtual const ModelBasedStateSpacePtr& getOMPLStateSpace() const = 0;
+  virtual const ompl::base::StateSpacePtr& getOMPLStateSpace() const = 0;
+
+  virtual ModelBasedStateSpace* getModelBasedStateSpace() = 0;
+  virtual const ModelBasedStateSpace* getModelBasedStateSpace() const = 0;
+
+  virtual void copyToRobotState(robot_state::RobotState& rstate, const ompl::base::State* state) const = 0;
+
+  virtual void copyToOMPLState(ompl::base::State* state, const robot_state::RobotState& rstate) const = 0;
 
   /// \brief Return a pointer to the OMPL space information object
   virtual const ompl::base::SpaceInformationPtr& getOMPLSpaceInformation() const = 0;

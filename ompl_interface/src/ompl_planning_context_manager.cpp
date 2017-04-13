@@ -176,7 +176,7 @@ planning_interface::PlanningContextPtr OMPLPlanningContextManager::getPlanningCo
               wparams.min_corner.x, wparams.max_corner.x, wparams.min_corner.y, wparams.max_corner.y,
               wparams.min_corner.z, wparams.max_corner.z);
 
-    context->getOMPLStateSpace()->setPlanningVolume(wparams.min_corner.x, wparams.max_corner.x, wparams.min_corner.y,
+    context->getModelBasedStateSpace()->setPlanningVolume(wparams.min_corner.x, wparams.max_corner.x, wparams.min_corner.y,
                                                     wparams.max_corner.y, wparams.min_corner.z, wparams.max_corner.z);
 
     // Set the start and goal states for this query

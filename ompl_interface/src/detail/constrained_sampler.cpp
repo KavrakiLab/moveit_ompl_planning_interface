@@ -68,7 +68,7 @@ bool ompl_interface::ConstrainedSampler::sampleC(ompl::base::State* state)
 
   if (constraint_sampler_->sample(work_state_, planning_context_->getCompleteInitialRobotState(), max_attempts))
   {
-    planning_context_->getOMPLStateSpace()->copyToOMPLState(state, work_state_);
+    planning_context_->copyToOMPLState(state, work_state_);
     if (space_->satisfiesBounds(state))
     {
       ++constrained_success_;
