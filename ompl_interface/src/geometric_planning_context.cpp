@@ -211,7 +211,8 @@ void GeometricPlanningContext::allocateStateSpace(const ModelBasedStateSpaceSpec
   if (havePathConstraints())
   {
     ModelBasedStateSpacePtr state_space_(new ModelBasedStateSpace(state_space_spec));
-    ompl::base::ConstraintPtr constraint(new ompl_interface::EmptyConstraint(state_space_->getDimension()));
+    ompl::base::ConstraintPtr constraint(
+        new ompl_interface::OrientationConstraint(complete_initial_robot_state_, this, state_space_->getDimension()));
     ompl::base::StateSpacePtr constrained_space(new ompl::base::ProjectedStateSpace(state_space_, constraint));
 
     mbss_ = constrained_space;

@@ -38,11 +38,13 @@
 #define MOVEIT_OMPL_INTERFACE_GEOMETRIC_PLANNING_CONTEXT_
 
 #include "moveit/ompl_interface/ompl_planning_context.h"
+#include "moveit/ompl_interface/detail/threadsafe_state_storage.h"
 #include <ros/ros.h>
 //#include "moveit/ompl_interface/constraints_library.h"
 #include <boost/thread/mutex.hpp>
 #include <ompl/geometric/SimpleSetup.h>
 #include <ompl/base/spaces/ProjectedStateSpace.h>
+#include <ompl/base/spaces/AtlasStateSpace.h>
 
 namespace ompl_interface
 {
@@ -77,6 +79,38 @@ public:
   {
     return true;
   }
+};
+
+class OrientationConstraint : public ompl::base::Constraint
+{
+public:
+  OrientationConstraint(robot_state::RobotState* rstate, OMPLPlanningContext* context, unsigned int n)
+    : ompl::base::Constraint(n, n - 1), tss_(context->getCompleteInitialRobotState()), context_(context)
+  {
+      setTolerance(0.01);
+      t_ = rstate->getGlobalLinkTransform("ee_link");
+  }
+
+  void function(const Eigen::VectorXd& x, Eigen::Ref<Eigen::VectorXd> out) const
+  {
+    robot_state::RobotState* kstate = tss_.getStateStorage();
+    kstate->setJointGroupPositions(
+        context_->getModelBasedStateSpace()->getJointModelGroup(), x.data());
+
+    Eigen::Affine3d t = kstate->getGlobalLinkTransform("ee_link");
+
+    Eigen::Vector3d t_a = t_.rotation().eulerAngles(0, 1, 2);
+    Eigen::Vector3d ta = t.rotation().eulerAngles(0, 1, 2);
+
+    out[0] = t_.translation()[0] - t.translation()[0];
+    // out[1] = t_a[1] - ta[1];
+    // out[2] = t_a[2] - ta[2];
+  }
+
+private:
+  TSStateStorage tss_;
+  Eigen::Affine3d t_;
+  const OMPLPlanningContext* context_;
 };
 
 /// \brief Definition of a geometric planning context.  This context plans in
@@ -239,7 +273,7 @@ protected:
 
   virtual bool havePathConstraints() const
   {
-      return true;
+    return true;
     const bool havePositionConstraints = !request_.path_constraints.position_constraints.empty();
     const bool haveOrientationConstraints = !request_.path_constraints.orientation_constraints.empty();
     const bool haveJointConstraints = !request_.path_constraints.joint_constraints.empty();
