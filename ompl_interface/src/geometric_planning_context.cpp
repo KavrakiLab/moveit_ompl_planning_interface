@@ -97,7 +97,7 @@ std::string GeometricPlanningContext::getDescription()
 }
 
 template <typename T>
-static ompl::base::PlannerPtr allocatePlanner(const ompl::base::SpaceInformationPtr& si, const std::string& new_name,
+static ompl::base::PlannerPtr ompl_interface::allocatePlanner(const ompl::base::SpaceInformationPtr& si, const std::string& new_name,
                                               const std::map<std::string, std::string>& params)
 {
   ompl::base::PlannerPtr planner(new T(si));
@@ -643,7 +643,7 @@ bool GeometricPlanningContext::setGoalConstraints(const std::vector<moveit_msgs:
   goal_constraints_.clear();
   for (const auto& goal_constraint : goal_constraints)
   {
-    // NOTE: This only "intelligently" merges joint constraints.  All other
+    // NOTE: This only "intelligently" merges joint constraints .  All other
     // constraint types are simply concatenated.
     // moveit_msgs::Constraints constr =
     // kinematic_constraints::mergeConstraints(goal_constraints[i],
@@ -736,8 +736,7 @@ ompl::base::PlannerPtr GeometricPlanningContext::configurePlanner(const std::str
 
   // No planner configured by this name
   ROS_WARN("No planner allocator found with name '%s'", planner_name.c_str());
-  for (std::map<std::string, PlannerAllocator>::const_iterator it = planner_allocators_.begin();
-       it != planner_allocators_.end(); ++it)
+  for (auto it = planner_allocators_.begin(); it != planner_allocators_.end(); ++it)
     ROS_WARN("  %s", it->first.c_str());
   return ompl::base::PlannerPtr();
 }
