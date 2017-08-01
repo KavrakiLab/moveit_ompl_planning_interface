@@ -49,7 +49,7 @@
 #include <moveit/planning_scene/planning_scene.h>
 #include <moveit/robot_state/robot_state.h>
 
-#include <pluginlib/class_loader.h>
+#include <pluginlib/class_list_macros.h>
 
 #include <ompl/tools/config/SelfConfig.h>
 #include <ompl/tools/multiplan/ParallelPlan.h>
@@ -182,7 +182,8 @@ bool TrajOptPlanningContext::solve(double timeout, unsigned int count, double& t
 
   bool result = false;
   total_time = 0.0;
-  if (count <= 1)
+  // Always use one solver, it's deterministic!
+  //if (count <= 1)
   {
     ompl::base::PlannerTerminationCondition ptc =
         ompl::base::timedPlannerTerminationCondition(timeout - ompl::time::seconds(ompl::time::now() - start));
@@ -191,7 +192,7 @@ bool TrajOptPlanningContext::solve(double timeout, unsigned int count, double& t
     total_time = simple_setup_->getLastPlanComputationTime();
     unregisterTerminationCondition();
   }
-  else  // attempt to solve in parallel
+  /*else  // attempt to solve in parallel
   {
     ROS_DEBUG("Solving problem in parallel with up to %u threads", spec_.max_num_threads);
     ompl::tools::ParallelPlan pp(simple_setup_->getProblemDefinition());
@@ -262,10 +263,12 @@ bool TrajOptPlanningContext::solve(double timeout, unsigned int count, double& t
       unregisterTerminationCondition();
     }
   }
+  */
 
   postSolve();
 
   return result;
 }
 
-CLASS_LOADER_REGISTER_CLASS(ompl_interface::TrajOptPlanningContext, ompl_interface::GeometricPlanningContext);
+PLUGINLIB_EXPORT_CLASS(ompl_interface::TrajOptPlanningContext, ompl_interface::GeometricPlanningContext)
+PLUGINLIB_EXPORT_CLASS(ompl_interface::TrajOptPlanningContext, ompl_interface::OMPLPlanningContext)

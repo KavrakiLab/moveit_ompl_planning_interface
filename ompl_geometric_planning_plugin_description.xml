@@ -4,4 +4,15 @@
         A planning context for computing kinematic paths in joint space.
     </description>
   </class>
+
+  <class name="ompl_interface/TrajOptPlanningContext" type="ompl_interface::TrajOptPlanningContext" base_class_type="ompl_interface::GeometricPlanningContext">
+    <description>
+        A planning context using the trajopt planner, with sequential convex optimization.
+    </description>
+  </class>
+  <class name="ompl_interface/TrajOptPlanningContext" type="ompl_interface::TrajOptPlanningContext" base_class_type="ompl_interface::OMPLPlanningContext">
+    <description>
+        a planning context using the trajopt planner, with sequential convex optimization.
+    </description>
+  </class>
 </library>

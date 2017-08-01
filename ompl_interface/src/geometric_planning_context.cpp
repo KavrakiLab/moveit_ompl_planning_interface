@@ -44,7 +44,7 @@
 #include <boost/math/constants/constants.hpp>
 #include <eigen_conversions/eigen_msg.h>
 #include <moveit/kinematic_constraints/utils.h>
-#include <pluginlib/class_loader.h>
+#include <pluginlib/class_list_macros.h>
 
 #include <ompl/tools/config/SelfConfig.h>
 #include <ompl/tools/multiplan/ParallelPlan.h>
@@ -941,4 +941,4 @@ bool GeometricPlanningContext::mergeConstraints(const moveit_msgs::Constraints& 
   return true;
 }
 
-CLASS_LOADER_REGISTER_CLASS(ompl_interface::GeometricPlanningContext, ompl_interface::OMPLPlanningContext);
+PLUGINLIB_EXPORT_CLASS(ompl_interface::GeometricPlanningContext, ompl_interface::OMPLPlanningContext)

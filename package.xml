@@ -38,7 +38,6 @@
   <export>
     <moveit_core plugin="${prefix}/moveit_ompl_interface_plugin_description.xml"/>
     <moveit_ompl_planning_interface plugin="${prefix}/ompl_geometric_planning_plugin_description.xml"/>
-    <moveit_ompl_planning_interface plugin="${prefix}/ompl_trajopt_planning_plugin_description.xml"/>
   </export>
 
 </package>
