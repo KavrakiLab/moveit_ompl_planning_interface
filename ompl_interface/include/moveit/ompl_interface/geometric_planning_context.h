@@ -48,7 +48,14 @@ namespace ompl_interface
 
 template <typename T>
 static ompl::base::PlannerPtr allocatePlanner(const ompl::base::SpaceInformationPtr& si, const std::string& new_name,
-                                              const std::map<std::string, std::string>& params);
+                                              const std::map<std::string, std::string>& params)
+{
+    ompl::base::PlannerPtr planner(new T(si));
+    if (!new_name.empty())
+        planner->setName(new_name);
+    planner->params().setParams(params, true);
+    return planner;
+}
 /// \brief Definition of a geometric planning context.  This context plans in
 /// the space of joint angles for a given group.  This context is NOT thread
 /// safe.

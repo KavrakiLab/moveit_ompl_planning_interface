@@ -96,17 +96,6 @@ std::string GeometricPlanningContext::getDescription()
   return "OMPL Geometric Planning";
 }
 
-template <typename T>
-static ompl::base::PlannerPtr ompl_interface::allocatePlanner(const ompl::base::SpaceInformationPtr& si, const std::string& new_name,
-                                              const std::map<std::string, std::string>& params)
-{
-  ompl::base::PlannerPtr planner(new T(si));
-  if (!new_name.empty())
-    planner->setName(new_name);
-  planner->params().setParams(params, true);
-  return planner;
-}
-
 void GeometricPlanningContext::initializePlannerAllocators()
 {
   registerPlannerAllocator("geometric::RRT", boost::bind(&allocatePlanner<og::RRT>, _1, _2, _3));

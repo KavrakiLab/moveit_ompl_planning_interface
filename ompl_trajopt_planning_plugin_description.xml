@@ -1,0 +1,7 @@
+<library path="libmoveit_ompl_planning_interface">
+  <class name="ompl_interface/TrajOptPlanningContext" type="ompl_interface::TrajOptPlanningContext" base_class_type="ompl_interface::GeometricPlanningContext">
+    <description>
+        A planning context using the TrajOpt planner, with sequential convex optimization.
+    </description>
+  </class>
+</library>

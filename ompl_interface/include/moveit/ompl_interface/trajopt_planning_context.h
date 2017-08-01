@@ -32,20 +32,47 @@
 *  POSSIBILITY OF SUCH DAMAGE.
 *********************************************************************/
 
-/* Author: Ryan Luna */
+/* Author: Bryce Willey */
 
 #ifndef MOVEIT_OMPL_INTERFACE_TRAJOPT_PLANNING_CONTEXT_
 #define MOVEIT_OMPL_INTERFACE_TRAJOPT_PLANNING_CONTEXT_
 
-#include "moveit/ompl_interface/ompl_planning_context.h"
 #include <ros/ros.h>
-//#include "moveit/ompl_interface/constraints_library.h"
+#include "moveit/ompl_interface/ompl_planning_context.h"
+#include "moveit/ompl_interface/geometric_planning_context.h"
 #include <boost/thread/mutex.hpp>
 #include <ompl/geometric/SimpleSetup.h>
 
 namespace ompl_interface
 {
-/// \brief Definition of a geometric planning context.  This context plans in
+
+class MoveItApiWrapper
+{
+public:
+    MoveItApiWrapper(robot_state::RobotStatePtr kinematic_state,
+                    const moveit::core::JointModelGroup * jointModelGroup,
+                    const planning_scene::PlanningSceneConstPtr planningScene) :
+            kinematic_state_(kinematic_state), joint_model_group_(jointModelGroup),
+            planning_scene_(planningScene)
+    {}
+
+    Eigen::MatrixXd jacobianAtPoint(std::vector<double> configuration,
+                               Eigen::Vector3d point,
+                               std::string link_name);
+
+    bool extraCollisionInformation(std::vector<double> configuration,
+                                   double& signedDist,
+                                   Eigen::Vector3d& point,
+                                   std::string& link_name,
+                                   Eigen::Vector3d& normal);
+
+private:
+    robot_state::RobotStatePtr kinematic_state_;
+    const moveit::core::JointModelGroup *joint_model_group_;
+    const planning_scene::PlanningSceneConstPtr planning_scene_;
+};
+
+/// \brief Definition of a TrajOpt planning context.  This context plans in
 /// the space of joint angles for a given group.  This context is NOT thread
 /// safe.
 class TrajOptPlanningContext : public GeometricPlanningContext
@@ -55,9 +82,10 @@ public:
   virtual ~TrajOptPlanningContext() {}
   virtual std::string getDescription();
 
+  // TODO: this might call GeometricPlanningContext's constructor? IDK how exactly it works.
   virtual void initialize(
       const std::string& ros_namespace,
-      const PlanningContextSpecification& spec) override;
+      PlanningContextSpecification& spec);
 
 protected:
   /// \brief The solve method that actually does all of the solving

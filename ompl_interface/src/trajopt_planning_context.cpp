@@ -53,6 +53,9 @@
 
 #include <ompl/tools/config/SelfConfig.h>
 #include <ompl/tools/multiplan/ParallelPlan.h>
+#include <ompl/base/objectives/CollisionEvaluator.h>
+#include <ompl/base/objectives/ObstacleConstraint.h>
+#include <ompl/base/objectives/JointDistanceObjective.h>
 
 #include <ompl/geometric/planners/est/EST.h>
 #include <ompl/geometric/planners/kpiece/BKPIECE1.h>
@@ -78,6 +81,8 @@ TrajOptPlanningContext::TrajOptPlanningContext() : GeometricPlanningContext()
 {
   // Don't smooth the solution path, TrajOpt should already return a smoothed path.
   simplify_ = false;
+
+  registerPlannerAllocator("geometric::TrajOpt", boost::bind(&ompl_interface::allocatePlanner<og::TrajOpt>, _1, _2, _3));
 }
 
 std::string TrajOptPlanningContext::getDescription()
@@ -85,53 +90,42 @@ std::string TrajOptPlanningContext::getDescription()
   return "OMPL+TrajOpt Geometric Planning";
 }
 
-void TrajOptPlanningContext::initializePlannerAllocators()
-{
-  GeometricPlanningContext::initializePlannerAllocators();
-  registerPlannerAllocator("geometric::TrajOpt", boost::bind(&allocatePlanner<og::TrajOpt>, _1, _2, _3));
-}
-
-Eigen::MatrixXd jacobianAtPoint(
-        robot_state::RobotStatePtr kinematic_state,
-        const moveit::core::JointModelGroup *joint_model_group,
+Eigen::MatrixXd MoveItApiWrapper::jacobianAtPoint(
         std::vector<double> configuration,
         Eigen::Vector3d point,
         std::string link_name)
 {
   Eigen::MatrixXd jacobian;
-  kinematic_state->setJointGroupPosition(joint_model_group, configuration);
-  kinematic_state->getJacobian(joint_model_group, kinematic_state->getLinkModel(link_name),
+  kinematic_state_->setJointGroupPositions(joint_model_group_, configuration);
+  kinematic_state_->getJacobian(joint_model_group_, kinematic_state_->getLinkModel(link_name),
     point, jacobian);
   return jacobian;
 }
 
-bool extraCollisionInformation(
-        robot_state::RobotStatePtr kinematic_state,
-        const robot_state::JointModelGroup *joint_model_group,
-        planning_scene::PlanningScenePtr planningScene,
+bool MoveItApiWrapper::extraCollisionInformation(
         std::vector<double> configuration,
         double& signedDist,
         Eigen::Vector3d& point,
         std::string& link_name,
         Eigen::Vector3d& normal)
 {
-  bool inCollision = planningScene->isStateColliding(kinematic_state, joint_model_group.getName());
+  bool inCollision = planning_scene_->isStateColliding(*kinematic_state_, joint_model_group_->getName());
   if (inCollision) {
     // Get more in depth information.
     collision_detection::CollisionRequest request;
-    request.group_name = joint_model_group.getName();
+    request.group_name = joint_model_group_->getName();
     request.distance = true;
     request.contacts = true;
     collision_detection::CollisionResult result;
-    planningScene->checkCollision(request, result, kinematic_state);
+    planning_scene_->checkCollision(request, result, *kinematic_state_);
     if (!result.collision) {
       // WTF! Why is this part not in collision, but the other is?
       ROS_WARN("Call to MoveIt collision detector is different for same position??");
     }
-    collision_detection::Contact contact = result.contacts.begin()->second();
+    collision_detection::Contact contact = result.contacts.begin()->second[0];
     point = contact.pos;
     normal = contact.normal;
-    signedDistance = std::min(result.distance, contact.depth);
+    signedDist = std::min(result.distance, contact.depth);
     if (contact.body_type_1 == collision_detection::BodyTypes::ROBOT_LINK) {
       link_name = contact.body_name_1;
     } else if (contact.body_type_2 == collision_detection::BodyTypes::ROBOT_LINK) {
@@ -144,7 +138,7 @@ bool extraCollisionInformation(
   return inCollision;
 }
 
-void TrajOptPlanningContext::initialize(const std::string& ros_namespace, const PlanningContextSpecification& spec)
+void TrajOptPlanningContext::initialize(const std::string& ros_namespace, PlanningContextSpecification& spec)
 {
   // Don't simplify the solution, and always use the TrajOpt Planner.
   spec.simplify_solution = false;
@@ -152,27 +146,31 @@ void TrajOptPlanningContext::initialize(const std::string& ros_namespace, const 
   GeometricPlanningContext::initialize(ros_namespace, spec);
   // TODO: setup the optimization objectives here.
   const ompl::base::SpaceInformationPtr &si = simple_setup_->getSpaceInformation();
-  base::MultiConvexifiableOptimizationPtr bare_bones = std::make_shared<ompl::base::MultiConvexifiableOptimization>(si);
-  bare_bones->addObjective(std::make_shared<ompl::JointDistanceObjective>(si));
+  ompl::base::MultiConvexifiableOptimizationPtr bare_bones = std::make_shared<ompl::base::MultiConvexifiableOptimization>(si);
+  bare_bones->addObjective(std::make_shared<ompl::base::JointDistanceObjective>(si));
 
   // Collision objective. Need a callback for Jacobians, a callback for collision info, and statespace.
   robot_state::RobotStatePtr kinematic_state(new robot_state::RobotState(getRobotModel()));
   const robot_state::JointModelGroup *joint_model_group = getJointModelGroup();
-  planning_scene::PlanningScenePtr planning_scene = getPlanningScene();
+  const planning_scene::PlanningSceneConstPtr planning_scene = getPlanningScene();
+  MoveItApiWrapper wrapper(kinematic_state, joint_model_group, planning_scene);
 
-  ompl::base::JacobianFn jacobian =
-          std::bind(jacobianAtPoint, kinematic_state, joint_model_group);
-  ompl::base::WorkspaceCollisionFn collisions =
-          std::bind(extraCollisionInformation, kinematic_state, joint_model_group, planning_scene);
+  ompl::base::JacobianFn jacobian = [&wrapper](std::vector<double> configuration, Eigen::Vector3d point, std::string link_name) {
+      return wrapper.jacobianAtPoint(configuration, point, link_name);
+  };
+
+  ompl::base::WorkspaceCollisionFn collisions = [&wrapper](std::vector<double> configuration, double& signedDist, Eigen::Vector3d& point, std::string& link_name, Eigen::Vector3d& normal) {
+      return wrapper.extraCollisionInformation(configuration, signedDist, point, link_name, normal);
+  };
   auto it = spec_.config.find("safety_distance");
   double safety_distance = 0.0;
   if (it != spec_.config.end()) {
-    safety_distance = atof(it->second);
+    safety_distance = atof(it->second.c_str());
   }
   if (safety_distance == 0.0) { // isn't in config, or config is wrong.
     safety_distance = 0.3; // default.
   }
-  bare_bones->addObjective(std::make_shared<ompl::ObstacleConstraint>(si, safety_distance));
+  bare_bones->addObjective(std::make_shared<ompl::base::ObstacleConstraint>(si, safety_distance));
   simple_setup_->setOptimizationObjective(bare_bones);
 }
 
