@@ -72,6 +72,7 @@
 #include <ompl/geometric/planners/sbl/SBL.h>
 #include <ompl/geometric/planners/sbl/pSBL.h>
 #include <ompl/geometric/planners/trajopt/TrajOpt.h>
+#include <iostream>
 
 namespace og = ompl::geometric;
 
@@ -95,20 +96,25 @@ Eigen::MatrixXd MoveItApiWrapper::jacobianAtPoint(
         Eigen::Vector3d point,
         std::string link_name)
 {
+  auto start_time = std::chrono::high_resolution_clock::now();
   Eigen::MatrixXd jacobian;
   kinematic_state_->setJointGroupPositions(joint_model_group_, configuration);
   kinematic_state_->getJacobian(joint_model_group_, kinematic_state_->getLinkModel(link_name),
     point, jacobian);
+  auto end_time = std::chrono::high_resolution_clock::now();
+  jaco_ms = jaco_ms + (end_time - start_time);
   return jacobian;
 }
 
 bool MoveItApiWrapper::extraCollisionInformation(
         std::vector<double> configuration,
-        double& signedDist,
-        Eigen::Vector3d& point,
-        std::string& link_name,
-        Eigen::Vector3d& normal)
+        std::vector<double>& signedDists,
+        std::vector<Eigen::Vector3d>& points,
+        std::vector<std::string>& link_names,
+        std::vector<Eigen::Vector3d>& normals)
 {
+  auto start_time = std::chrono::high_resolution_clock::now();
+  kinematic_state_->setJointGroupPositions(joint_model_group_, configuration);
   bool inCollision = planning_scene_->isStateColliding(*kinematic_state_, joint_model_group_->getName());
   if (inCollision) {
     // Get more in depth information.
@@ -122,28 +128,71 @@ bool MoveItApiWrapper::extraCollisionInformation(
       // WTF! Why is this part not in collision, but the other is?
       ROS_WARN("Call to MoveIt collision detector is different for same position??");
     }
-    collision_detection::Contact contact = result.contacts.begin()->second[0];
-    point = contact.pos;
-    normal = contact.normal;
-    signedDist = std::min(result.distance, contact.depth);
-    if (contact.body_type_1 == collision_detection::BodyTypes::ROBOT_LINK) {
-      link_name = contact.body_name_1;
-    } else if (contact.body_type_2 == collision_detection::BodyTypes::ROBOT_LINK) {
-      link_name = contact.body_name_2;
-    } else {
-      ROS_WARN("Collisions between two attached or world objects?");
+    const std::vector<std::string> names = joint_model_group_->getLinkModelNames();
+    std::cout << "Result: collision: " << result.collision << ", distance: " << result.distance << std::endl;
+    std::cout << "Configuration: ";
+    for (auto val : configuration) {
+        std::cout << val << ", ";
+    }
+    std::cout << std::endl;
+    for (auto entry : result.contacts) {
+      collision_detection::Contact contact = entry.second[0];
+      for (int i = 0; i < entry.second.size(); i++) {
+        if (std::abs(entry.second[i].depth) > std::abs(contact.depth)) {
+            contact = entry.second[i];
+        }
+      }
+      points.push_back(contact.pos);
+      normals.push_back(contact.normal);
+      printf("contact %s+%s: depth: %f\n", contact.body_name_1.c_str(), contact.body_name_2.c_str(), contact.depth);;
+      if (result.distance > 0.0) {
+          signedDists.push_back(result.distance);
+      } else {
+          signedDists.push_back(contact.depth);
+      }
+      // If is in the joint model group, then use it. Otherwise, get the closest link to that body,
+      // use forward kinematics from the closest link in the group to get the vector to that point, use
+      // that for the new point vector.
+      if (contact.body_type_1 == collision_detection::BodyTypes::ROBOT_LINK &&
+          std::find(names.begin(), names.end(), contact.body_name_1) != names.end()) {
+        link_names.push_back(contact.body_name_1);
+        break;
+      } else if (contact.body_type_2 == collision_detection::BodyTypes::ROBOT_LINK &&
+          std::find(names.begin(), names.end(), contact.body_name_2) != names.end()) {
+        link_names.push_back(contact.body_name_2);
+        break;
+      } else {
+        ROS_WARN("Collisions between two attached or world objects?");
+      }
     }
   }
+  auto end_time = std::chrono::high_resolution_clock::now();
+  coll_ms = coll_ms + (end_time - start_time);
   // TODO get signedDistance if it's very close?
   return inCollision;
 }
 
-void TrajOptPlanningContext::initialize(const std::string& ros_namespace, PlanningContextSpecification& spec)
+void TrajOptPlanningContext::initialize(const std::string& ros_namespace, const PlanningContextSpecification& spec)
 {
-  // Don't simplify the solution, and always use the TrajOpt Planner.
-  spec.simplify_solution = false;
-  spec.config["type"] = "geometric::TrajOpt";
-  GeometricPlanningContext::initialize(ros_namespace, spec);
+  printf("Calling initilize!!!\n");
+  fflush(stdout);
+  // long and annoying copy to a mutable object.
+  PlanningContextSpecification specMod;
+  specMod.name = spec.name;
+  specMod.group = spec.group;
+  specMod.planner = spec.planner;
+  specMod.config = spec.config;
+  // Always use the TrajOpt planner.
+  specMod.config["type"] = "geometric::TrajOpt";
+  specMod.simplify_solution = false;
+  specMod.interpolate_solution = spec.interpolate_solution;
+  specMod.min_waypoint_count = spec.min_waypoint_count;
+  specMod.max_waypoint_distance = spec.max_waypoint_distance;
+  specMod.max_num_threads = 1;
+  specMod.model = spec.model;
+  specMod.constraint_sampler_mgr = spec.constraint_sampler_mgr;
+
+  GeometricPlanningContext::initialize(ros_namespace, specMod);
   // TODO: setup the optimization objectives here.
   const ompl::base::SpaceInformationPtr &si = simple_setup_->getSpaceInformation();
   ompl::base::MultiConvexifiableOptimizationPtr bare_bones = std::make_shared<ompl::base::MultiConvexifiableOptimization>(si);
@@ -153,14 +202,14 @@ void TrajOptPlanningContext::initialize(const std::string& ros_namespace, Planni
   robot_state::RobotStatePtr kinematic_state(new robot_state::RobotState(getRobotModel()));
   const robot_state::JointModelGroup *joint_model_group = getJointModelGroup();
   const planning_scene::PlanningSceneConstPtr planning_scene = getPlanningScene();
-  MoveItApiWrapper wrapper(kinematic_state, joint_model_group, planning_scene);
+  wrapper = new ompl_interface::MoveItApiWrapper(kinematic_state, joint_model_group, planning_scene);
 
-  ompl::base::JacobianFn jacobian = [&wrapper](std::vector<double> configuration, Eigen::Vector3d point, std::string link_name) {
-      return wrapper.jacobianAtPoint(configuration, point, link_name);
+  ompl::base::JacobianFn jacobian = [this](std::vector<double> configuration, Eigen::Vector3d point, std::string link_name) {
+      return wrapper->jacobianAtPoint(configuration, point, link_name);
   };
 
-  ompl::base::WorkspaceCollisionFn collisions = [&wrapper](std::vector<double> configuration, double& signedDist, Eigen::Vector3d& point, std::string& link_name, Eigen::Vector3d& normal) {
-      return wrapper.extraCollisionInformation(configuration, signedDist, point, link_name, normal);
+  ompl::base::WorkspaceCollisionFn collisions = [this](std::vector<double> configuration, std::vector<double>& signedDist, std::vector<Eigen::Vector3d>& point, std::vector<std::string>& link_name, std::vector<Eigen::Vector3d>& normal) {
+      return wrapper->extraCollisionInformation(configuration, signedDist, point, link_name, normal);
   };
   auto it = spec_.config.find("safety_distance");
   double safety_distance = 0.0;
@@ -170,14 +219,15 @@ void TrajOptPlanningContext::initialize(const std::string& ros_namespace, Planni
   if (safety_distance == 0.0) { // isn't in config, or config is wrong.
     safety_distance = 0.3; // default.
   }
-  bare_bones->addObjective(std::make_shared<ompl::base::ObstacleConstraint>(si, safety_distance));
+  bare_bones->addObjective(std::make_shared<ompl::base::ObstacleConstraint>(si, safety_distance, collisions, jacobian));
+  printf("BareBones Objective is %p\n", bare_bones);
   simple_setup_->setOptimizationObjective(bare_bones);
 }
 
 bool TrajOptPlanningContext::solve(double timeout, unsigned int count, double& total_time)
 {
+  printf("At solve time, pdf's objective is %p\n", simple_setup_->getPlanner()->getProblemDefinition()->getOptimizationObjective());
   ompl::time::point start = ompl::time::now();
-
   preSolve();
 
   bool result = false;
@@ -191,6 +241,10 @@ bool TrajOptPlanningContext::solve(double timeout, unsigned int count, double& t
     result = simple_setup_->solve(ptc) == ompl::base::PlannerStatus::EXACT_SOLUTION;
     total_time = simple_setup_->getLastPlanComputationTime();
     unregisterTerminationCondition();
+    std::cout << "Time spent in callbacks: " << std::endl <<
+                 "Jacobians: " << wrapper->getJacoMs().count() << std::endl <<
+                 "\tCollision: " << wrapper->getCollMs().count() << std::endl <<
+                 "\tBoth:      " << wrapper->getBothMs().count() << std::endl;
   }
   /*else  // attempt to solve in parallel
   {

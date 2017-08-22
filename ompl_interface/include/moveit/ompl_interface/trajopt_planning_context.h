@@ -42,6 +42,7 @@
 #include "moveit/ompl_interface/geometric_planning_context.h"
 #include <boost/thread/mutex.hpp>
 #include <ompl/geometric/SimpleSetup.h>
+#include <chrono>
 
 namespace ompl_interface
 {
@@ -53,7 +54,7 @@ public:
                     const moveit::core::JointModelGroup * jointModelGroup,
                     const planning_scene::PlanningSceneConstPtr planningScene) :
             kinematic_state_(kinematic_state), joint_model_group_(jointModelGroup),
-            planning_scene_(planningScene)
+            planning_scene_(planningScene), jaco_ms(0.0), coll_ms(0.0)
     {}
 
     Eigen::MatrixXd jacobianAtPoint(std::vector<double> configuration,
@@ -61,15 +62,30 @@ public:
                                std::string link_name);
 
     bool extraCollisionInformation(std::vector<double> configuration,
-                                   double& signedDist,
-                                   Eigen::Vector3d& point,
-                                   std::string& link_name,
-                                   Eigen::Vector3d& normal);
+                                   std::vector<double>& signedDist,
+                                   std::vector<Eigen::Vector3d>& point,
+                                   std::vector<std::string>& link_name,
+                                   std::vector<Eigen::Vector3d>& normal);
+
+    std::chrono::duration<double, std::nano> getJacoMs() {
+        return jaco_ms;
+    }
+
+    std::chrono::duration<double, std::nano> getCollMs() {
+        return coll_ms;
+    }
+
+    std::chrono::duration<double, std::nano> getBothMs() {
+        return jaco_ms + coll_ms;
+    }
 
 private:
     robot_state::RobotStatePtr kinematic_state_;
     const moveit::core::JointModelGroup *joint_model_group_;
     const planning_scene::PlanningSceneConstPtr planning_scene_;
+
+    std::chrono::duration<double, std::nano> jaco_ms;
+    std::chrono::duration<double, std::nano> coll_ms;
 };
 
 /// \brief Definition of a TrajOpt planning context.  This context plans in
@@ -85,13 +101,15 @@ public:
   // TODO: this might call GeometricPlanningContext's constructor? IDK how exactly it works.
   virtual void initialize(
       const std::string& ros_namespace,
-      PlanningContextSpecification& spec);
+      const PlanningContextSpecification& spec);
 
 protected:
   /// \brief The solve method that actually does all of the solving
   /// Solve the problem \e count times or until \e timeout seconds elapse.
   /// The total time taken by this call is returned in \e total_time.
   virtual bool solve(double timeout, unsigned int count, double& total_time) override;
+
+  MoveItApiWrapper *wrapper;
 };
 }
 
