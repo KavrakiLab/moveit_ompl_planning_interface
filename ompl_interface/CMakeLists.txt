@@ -14,6 +14,11 @@ add_library(${MOVEIT_LIB_NAME}
   src/detail/threadsafe_state_storage.cpp
 )
 
+target_include_directories(${MOVEIT_LIB_NAME} SYSTEM
+                    PUBLIC include
+                    PRIVATE ${Boost_INCLUDE_DIRS}
+                    PRIVATE ${catkin_INCLUDE_DIRS})
+
 #find_package(OpenMP)
 
 target_link_libraries(${MOVEIT_LIB_NAME} ${OMPL_LIBRARIES} ${catkin_LIBRARIES} ${Boost_LIBRARIES})

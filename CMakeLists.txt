@@ -40,11 +40,6 @@ catkin_package(
     eigen_conversions
 )
 
-include_directories(SYSTEM
-                    ompl_interface/include
-                    ${Boost_INCLUDE_DIRS}
-                    ${catkin_INCLUDE_DIRS})
-
 link_directories(${Boost_LIBRARY_DIRS})
 link_directories(${catkin_LIBRARY_DIRS})
 
