@@ -52,9 +52,10 @@ class MoveItApiWrapper
 public:
     MoveItApiWrapper(robot_state::RobotStatePtr kinematic_state,
                     const moveit::core::JointModelGroup * jointModelGroup,
-                    const planning_scene::PlanningSceneConstPtr planningScene) :
+                    const planning_scene::PlanningSceneConstPtr planningScene,
+                    double safeDist) :
             kinematic_state_(kinematic_state), joint_model_group_(jointModelGroup),
-            planning_scene_(planningScene), jaco_ms(0.0), coll_ms(0.0)
+            planning_scene_(planningScene), jaco_ms(0.0), coll_ms(0.0), safeDist_(safeDist)
     {}
 
     Eigen::MatrixXd jacobianAtPoint(std::vector<double> configuration,
@@ -83,6 +84,7 @@ private:
     robot_state::RobotStatePtr kinematic_state_;
     const moveit::core::JointModelGroup *joint_model_group_;
     const planning_scene::PlanningSceneConstPtr planning_scene_;
+    double safeDist_;
 
     std::chrono::duration<double, std::nano> jaco_ms;
     std::chrono::duration<double, std::nano> coll_ms;
