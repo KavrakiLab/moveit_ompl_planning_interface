@@ -57,7 +57,7 @@ public:
 
   /// \brief Initialize the planner manager for the given robot.
   /// All ROS functionalities are namespaced by \e ns
-  virtual bool initialize(const robot_model::RobotModelConstPtr& model, const std::string& ns);
+  virtual bool initialize(const robot_model::RobotModelConstPtr& model, const std::string& ns) override;
 
   /// A short string that identifies the planning interface
   virtual std::string getDescription() const;

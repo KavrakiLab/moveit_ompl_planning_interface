@@ -52,6 +52,7 @@ OMPLPlanningContextManager::OMPLPlanningContextManager() : planning_interface::P
 /// Assumed that any ROS functionalities are namespaced by ns
 bool OMPLPlanningContextManager::initialize(const robot_model::RobotModelConstPtr& model, const std::string& ns)
 {
+  ROS_WARN("GOING INTO INITIALIZE: NOT AN ERROR, just print");
   kmodel_ = model;
   ns_ = ns;
 
@@ -64,17 +65,21 @@ bool OMPLPlanningContextManager::initialize(const robot_model::RobotModelConstPt
       boost::bind(&OMPLPlanningContextManager::dynamicReconfigureCallback, this, _1, _2));
 
   // Initialize planning context plugin loader
+  ROS_WARN("About to try to reset planner loader");
   try
   {
     ompl_planner_loader_.reset(new pluginlib::ClassLoader<OMPLPlanningContext>("moveit_ompl_planning_interface",
                                                                                "ompl_interface::OMPLPlanningContext"));
+    ROS_WARN("reset the planner loader okay.");
   }
   catch (pluginlib::PluginlibException& ex)
   {
+    ROS_ERROR("Exception while creating planning plugin loader.");
     ROS_FATAL_STREAM("Exception while creating planning plugin loader " << ex.what());
     return false;
   }
 
+  ROS_WARN("Calling configure planning contexts");
   // read in planner configurations and group information from param server
   configurePlanningContexts();
 
@@ -222,11 +227,13 @@ OMPLPlanningContextManager::getPlanningContext(const planning_interface::Planner
 void OMPLPlanningContextManager::configurePlanningContexts()
 {
   const std::vector<std::string>& group_names = kmodel_->getJointModelGroupNames();
+  ROS_WARN("In configurePlanningContexts, with %zu group names", group_names.size());
   planning_interface::PlannerConfigurationMap pconfig;
 
   // Looking for each group in the planner configurations
   for (const auto& group_name : group_names)
   {
+    ROS_WARN("Group name: %s", group_name.c_str());
     // get parameters specific for the robot planning group
     std::map<std::string, std::string> specific_group_params;
     getGroupSpecificParameters(group_name, specific_group_params);
@@ -252,13 +259,14 @@ void OMPLPlanningContextManager::configurePlanningContexts()
         }
 
         std::string planner_config = static_cast<std::string>(config_names[j]);
+        ROS_INFO("Adding Planning Contexts, planner config is %s", planner_config.c_str());
         XmlRpc::XmlRpcValue xml_config;
         if (nh_.getParam("planner_configs/" + planner_config, xml_config))
         {
           if (xml_config.getType() == XmlRpc::XmlRpcValue::TypeStruct)
           {
             planning_interface::PlannerConfigurationSettings pc;
-            pc.name = planner_config;
+            pc.name = group_name + "[" + planner_config + "]";
             pc.group = group_name;
             // inherit parameters from the group (which can be overriden)
             pc.config = specific_group_params;
@@ -282,7 +290,9 @@ void OMPLPlanningContextManager::configurePlanningContexts()
                   break;
               }
             }
-            pconfig[group_name + "[" + planner_config + "]"] = pc;
+            std::string actual_name = group_name + "[" + planner_config + "]";
+            ROS_WARN("Adding Planning Context actually: %s", actual_name.c_str());
+            pconfig[actual_name] = pc;
           }
         }
       }
