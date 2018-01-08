@@ -56,6 +56,7 @@
 #include <ompl/base/objectives/CollisionEvaluator.h>
 #include <ompl/base/objectives/ObstacleConstraint.h>
 #include <ompl/base/objectives/JointDistanceObjective.h>
+#include <ompl/util/Console.h>
 
 #include <ompl/geometric/planners/trajopt/TrajOpt.h>
 #include <iostream>
@@ -193,8 +194,6 @@ bool MoveItApiWrapper::extraCollisionInformation(
 
 void TrajOptPlanningContext::initialize(const std::string& ros_namespace, const PlanningContextSpecification& spec)
 {
-  printf("Calling initilize!!!\n");
-  fflush(stdout);
   // long and annoying copy to a mutable object.
   PlanningContextSpecification specMod;
   specMod.name = spec.name;
