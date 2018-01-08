@@ -78,26 +78,29 @@ std::string TrajOptPlanningContext::getDescription()
 }
 
 Eigen::MatrixXd MoveItApiWrapper::jacobianAtPoint(
-        std::vector<double> configuration,
-        Eigen::Vector3d point,
-        std::string link_name)
+        ompl::base::CollisionInfo info, int which)
 {
-  auto start_time = std::chrono::high_resolution_clock::now();
   Eigen::MatrixXd jacobian;
-  kinematic_state_->setJointGroupPositions(joint_model_group_, configuration);
-  kinematic_state_->getJacobian(joint_model_group_, kinematic_state_->getLinkModel(link_name),
-    point, jacobian);
-  auto end_time = std::chrono::high_resolution_clock::now();
-  jaco_ms = jaco_ms + (end_time - start_time);
-  return jacobian;
+  kinematic_state_->setJointGroupPositions(joint_model_group_, info.x);
+  kinematic_state_->getJacobian(joint_model_group_, kinematic_state_->getLinkModel(info.link_names[which]),
+    info.points[which], jacobian);
+  if (jacobian.rows() > 3) {
+      Eigen::MatrixXd j_smaller(3, jacobian.cols());
+      for (int r = 0; r < 3; r++) {
+          for (int c = 0; c < jacobian.cols(); c++) {
+              j_smaller(r, c) = jacobian(r, c);
+          }
+      }
+      std::cerr  << j_smaller << std::endl;
+      return j_smaller;
+  } else {
+      return jacobian;
+  }
 }
 
 bool MoveItApiWrapper::extraCollisionInformation(
         std::vector<double> configuration,
-        std::vector<double>& signedDists,
-        std::vector<Eigen::Vector3d>& points,
-        std::vector<std::string>& link_names,
-        std::vector<Eigen::Vector3d>& normals)
+        std::vector<ompl::base::CollisionInfo>& collisionStructs)
 {
   auto start_time = std::chrono::high_resolution_clock::now();
   kinematic_state_->setJointGroupPositions(joint_model_group_, configuration);
@@ -106,60 +109,80 @@ bool MoveItApiWrapper::extraCollisionInformation(
 
     // Get more in depth information.
     collision_detection::CollisionRequest request;
+    collision_detection::CollisionResult result;
     request.group_name = joint_model_group_->getName();
     request.distance = true;
     request.contacts = true;
-    collision_detection::CollisionResult result;
     planning_scene_->checkCollision(request, result, *kinematic_state_);
     if (!result.collision) {
       // WTF! Why is this part not in collision, but the other is?
       ROS_WARN("Call to MoveIt collision detector is different for same position??");
     }
-    const std::vector<std::string> group_names = joint_model_group_->getLinkModelNames();
-    //ROS_INFO("Result: collision: %s, distance: %f", (result.collision) ? "true" : "false", result.distance);
-    //std::cout << "Configuration: ";
-    //for (auto val : configuration) {
-    //    std::cout << val << ", ";
-    //}
-    //std::cout << std::endl;
+    const std::vector<std::string> group_names = joint_model_group_->getUpdatedLinkModelNames();
     for (auto entry : result.contacts) {
+      ompl::base::CollisionInfo collisionStruct;
+      collisionStruct.x = configuration;
       collision_detection::Contact contact = entry.second[0];
       for (int i = 0; i < entry.second.size(); i++) {
         if (std::abs(entry.second[i].depth) > std::abs(contact.depth)) {
             contact = entry.second[i];
         }
       }
-      ROS_INFO("contact %s+%s: depth: %f", contact.body_name_1.c_str(), contact.body_name_2.c_str(), contact.depth);
       if (result.distance > 0.0) {
-          signedDists.push_back(result.distance);
+          collisionStruct.signedDist = result.distance;
       } else {
-          signedDists.push_back(contact.depth);
+          collisionStruct.signedDist = -contact.depth;
       }
+      ROS_INFO("contact %s+%s: signedDist: %f\nnormal: %f, %f, %f", 
+               contact.body_name_1.c_str(), 
+               contact.body_name_2.c_str(), 
+               collisionStruct.signedDist,
+               contact.normal[0], contact.normal[1], contact.normal[2]);
+      
       // If it's in the joint model group, then use it. Otherwise, get the closest link to that body,
       // use forward kinematics from the closest link in the group to get the vector to that point, use
       // that for the new point vector.
-      if (contact.body_type_1 == collision_detection::BodyTypes::ROBOT_LINK) {
-        if (std::find(group_names.begin(), group_names.end(), contact.body_name_1) != group_names.end()) {
-          link_names.push_back(contact.body_name_1);
-          normals.push_back(-contact.normal);
-        } else { // not in joint model group, get closest link to this body.
-            // TODO: finish
-          //kinematic_state_->getLinkModel(contact.body_name_1);
-          ROS_WARN("NOT IN JOINT GROUP!");
-        }
-      } else if (contact.body_type_2 == collision_detection::BodyTypes::ROBOT_LINK &&
-          std::find(group_names.begin(), group_names.end(), contact.body_name_2) != group_names.end()) {
-        link_names.push_back(contact.body_name_2);
-        normals.push_back(contact.normal);
-        break;
-      } else {
-        ROS_WARN("Collisions between two attached or world objects?");
+      if (contact.body_type_1 == collision_detection::BodyTypes::ROBOT_LINK &&
+          contact.body_type_2 == collision_detection::BodyTypes::ROBOT_LINK)
+      {
+          // TODO: maybe we don't need this extra case?
+          // Self-collision: push back body 1 and 2.
+          //ROS_INFO("Self-collision: ");
+          collisionStruct.link_names.push_back(contact.body_name_1);
+          collisionStruct.link_names.push_back(contact.body_name_2);
+
+          // And the two points related to those two links
+          // Change the contacts to be relative to the link.
+          Eigen::Affine3d trans = kinematic_state_->getGlobalLinkTransform(contact.body_name_1);
+          collisionStruct.points.push_back(trans.inverse() * contact.pos);
+          trans = kinematic_state_->getGlobalLinkTransform(contact.body_name_2);
+          collisionStruct.points.push_back(trans.inverse() * contact.pos);
+
+          collisionStruct.normal = contact.normal; // TODO is this the right direction?
       }
-      // Change the contacts to be relative to the link.
-      Eigen::Affine3d trans = kinematic_state_->getGlobalLinkTransform(link_names.back());
-      printf("point before trans: %f, %f, %f\n", contact.pos[0], contact.pos[1], contact.pos[2]);
-      points.push_back(trans.inverse() * contact.pos);
-      printf("Collided point: %f, %f, %f\n", points.back()[0], points.back()[1], points.back()[2]);
+      else if (contact.body_type_1 == collision_detection::BodyTypes::ROBOT_LINK)
+      {
+        //ROS_INFO("Single-collision:");
+        collisionStruct.link_names.push_back(contact.body_name_1);
+        collisionStruct.normal = -contact.normal;
+        Eigen::Affine3d trans = kinematic_state_->getGlobalLinkTransform(contact.body_name_1);
+        collisionStruct.points.push_back(trans.inverse() * contact.pos);
+      }
+      else if (contact.body_type_2 == collision_detection::BodyTypes::ROBOT_LINK)
+      {
+        //ROS_INFO("Single-collision: ");
+        collisionStruct.link_names.push_back(contact.body_name_2);
+        collisionStruct.normal = contact.normal;
+        Eigen::Affine3d trans = kinematic_state_->getGlobalLinkTransform(contact.body_name_2);
+        collisionStruct.points.push_back(trans.inverse() * contact.pos);
+      }
+      else
+      {
+        ROS_WARN("Collisions between two attached or world objects?");
+        continue;
+      }
+      //ROS_INFO("Normal: %f, %f, %f", collisionStruct.normal[0], collisionStruct.normal[1], collisionStruct.normal[2]);
+      collisionStructs.push_back(collisionStruct);
     }
   }
   auto end_time = std::chrono::high_resolution_clock::now();
@@ -208,22 +231,35 @@ void TrajOptPlanningContext::initialize(const std::string& ros_namespace, const 
   }
   wrapper = new ompl_interface::MoveItApiWrapper(kinematic_state, joint_model_group, planning_scene, safety_distance);
 
-  ompl::base::JacobianFn jacobian = [this](std::vector<double> configuration, Eigen::Vector3d point, std::string link_name) {
-      return wrapper->jacobianAtPoint(configuration, point, link_name);
+  ompl::base::JacobianFn jacobian = [this](ompl::base::CollisionInfo collisionStruct, int which) {
+      return wrapper->jacobianAtPoint(collisionStruct, which);
   };
 
-  ompl::base::WorkspaceCollisionFn collisions = [this](std::vector<double> configuration, std::vector<double>& signedDist, std::vector<Eigen::Vector3d>& point, std::vector<std::string>& link_name, std::vector<Eigen::Vector3d>& normal) {
-      return wrapper->extraCollisionInformation(configuration, signedDist, point, link_name, normal);
+  ompl::base::WorkspaceCollisionFn collisions = [this](std::vector<double> configuration,
+                                                       std::vector<ompl::base::CollisionInfo>& collisionStructs) {
+      return wrapper->extraCollisionInformation(configuration, collisionStructs);
   };
   bare_bones->addObjective(std::make_shared<ompl::base::ObstacleConstraint>(si, safety_distance, collisions, jacobian));
-  printf("BareBones Objective is %p\n", bare_bones);
   simple_setup_->setOptimizationObjective(bare_bones);
+
+  auto planner = simple_setup_->getPlanner()->as<ompl::geometric::TrajOpt>();
+  it = spec_.config.find("waypoints");
+  if (it != spec_.config.end())
+  {
+    planner->setTimeStepCount(atoi(it->second.c_str()));
+  }
+  else
+  {
+    planner->setTimeStepCount(10);
+  }
 }
 
 bool TrajOptPlanningContext::solve(double timeout, unsigned int count, double& total_time)
 {
-  ROS_INFO("Check again Column? %s", getPlanningScene()->getObjectType("column").db.c_str());
-  printf("At solve time, pdf's objective is %p\n", simple_setup_->getPlanner()->getProblemDefinition()->getOptimizationObjective());
+  ompl::msg::setLogLevel(ompl::msg::LOG_DEV1);
+  if (ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME, ros::console::levels::Debug)) {
+      ros::console::notifyLoggerLevelsChanged();
+  }
   ompl::time::point start = ompl::time::now();
   preSolve();
 

@@ -42,6 +42,7 @@
 #include "moveit/ompl_interface/geometric_planning_context.h"
 #include <boost/thread/mutex.hpp>
 #include <ompl/geometric/SimpleSetup.h>
+#include <ompl/base/objectives/CollisionEvaluator.h>
 #include <chrono>
 
 namespace ompl_interface
@@ -58,15 +59,10 @@ public:
             planning_scene_(planningScene), jaco_ms(0.0), coll_ms(0.0), safeDist_(safeDist)
     {}
 
-    Eigen::MatrixXd jacobianAtPoint(std::vector<double> configuration,
-                               Eigen::Vector3d point,
-                               std::string link_name);
+    Eigen::MatrixXd jacobianAtPoint(ompl::base::CollisionInfo info, int which);
 
     bool extraCollisionInformation(std::vector<double> configuration,
-                                   std::vector<double>& signedDist,
-                                   std::vector<Eigen::Vector3d>& point,
-                                   std::vector<std::string>& link_name,
-                                   std::vector<Eigen::Vector3d>& normal);
+                                   std::vector<ompl::base::CollisionInfo>& collisionStructs);
 
     std::chrono::duration<double, std::nano> getJacoMs() {
         return jaco_ms;
