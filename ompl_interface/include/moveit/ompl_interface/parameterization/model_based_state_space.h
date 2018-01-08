@@ -41,7 +41,8 @@
 #include <moveit/kinematic_constraints/kinematic_constraint.h>
 #include <moveit/robot_model/robot_model.h>
 #include <moveit/robot_state/robot_state.h>
-#include <ompl/base/StateSpace.h>
+#include <ompl/base/spaces/RealVectorStateSpace.h>
+#include <ompl/base/StateSpaceTypes.h>
 
 namespace ompl_interface
 {
@@ -62,7 +63,7 @@ struct ModelBasedStateSpaceSpecification
 };
 
 /// Definition of an OMPL state space composed of the joints of a robot
-class ModelBasedStateSpace : public ompl::base::StateSpace
+class ModelBasedStateSpace : public ompl::base::RealVectorStateSpace
 {
 public:
   class StateType : public ompl::base::State
