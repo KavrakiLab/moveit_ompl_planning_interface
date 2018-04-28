@@ -49,22 +49,38 @@
 #include <ompl/tools/config/SelfConfig.h>
 #include <ompl/tools/multiplan/ParallelPlan.h>
 
+#include <ompl/geometric/planners/sbl/SBL.h>
+
 #include <ompl/geometric/planners/est/EST.h>
+#include <ompl/geometric/planners/est/BiEST.h>
+#include <ompl/geometric/planners/est/ProjEST.h>
+
 #include <ompl/geometric/planners/kpiece/BKPIECE1.h>
 #include <ompl/geometric/planners/kpiece/KPIECE1.h>
 #include <ompl/geometric/planners/kpiece/LBKPIECE1.h>
-#include <ompl/geometric/planners/prm/PRM.h>
-#include <ompl/geometric/planners/prm/PRMstar.h>
-#include <ompl/geometric/planners/rrt/LazyRRT.h>
+
 #include <ompl/geometric/planners/rrt/RRT.h>
 #include <ompl/geometric/planners/rrt/RRTConnect.h>
 #include <ompl/geometric/planners/rrt/RRTstar.h>
+#include <ompl/geometric/planners/rrt/LazyRRT.h>
 #include <ompl/geometric/planners/rrt/TRRT.h>
-#include <ompl/geometric/planners/rrt/pRRT.h>
-#include <ompl/geometric/planners/sbl/SBL.h>
-#include <ompl/geometric/planners/sbl/pSBL.h>
-#include <ompl/geometric/planners/bitstar/BITstar.h>
+#include <ompl/geometric/planners/rrt/BiTRRT.h>
+#include <ompl/geometric/planners/rrt/LBTRRT.h>
+
+#include <ompl/geometric/planners/prm/PRM.h>
+#include <ompl/geometric/planners/prm/PRMstar.h>
+#include <ompl/geometric/planners/prm/LazyPRM.h>
+#include <ompl/geometric/planners/prm/LazyPRMstar.h>
+
+#include <ompl/geometric/planners/prm/SPARS.h>
+#include <ompl/geometric/planners/prm/SPARStwo.h>
+
+#include <ompl/geometric/planners/pdst/PDST.h>
+#include <ompl/geometric/planners/stride/STRIDE.h>
+
 #include <ompl/geometric/planners/fmt/FMT.h>
+#include <ompl/geometric/planners/fmt/BFMT.h>
+#include <ompl/geometric/planners/bitstar/BITstar.h>
 
 namespace og = ompl::geometric;
 
@@ -100,20 +116,38 @@ std::string GeometricPlanningContext::getDescription()
 
 void GeometricPlanningContext::initializePlannerAllocators()
 {
-  registerPlannerAllocator("geometric::RRT", boost::bind(&allocatePlanner<og::RRT>, _1, _2, _3));
-  registerPlannerAllocator("geometric::RRTConnect", boost::bind(&allocatePlanner<og::RRTConnect>, _1, _2, _3));
-  registerPlannerAllocator("geometric::LazyRRT", boost::bind(&allocatePlanner<og::LazyRRT>, _1, _2, _3));
-  registerPlannerAllocator("geometric::TRRT", boost::bind(&allocatePlanner<og::TRRT>, _1, _2, _3));
-  registerPlannerAllocator("geometric::EST", boost::bind(&allocatePlanner<og::EST>, _1, _2, _3));
   registerPlannerAllocator("geometric::SBL", boost::bind(&allocatePlanner<og::SBL>, _1, _2, _3));
+
+  registerPlannerAllocator("geometric::EST", boost::bind(&allocatePlanner<og::EST>, _1, _2, _3));
+  registerPlannerAllocator("geometric::BiEST", boost::bind(&allocatePlanner<og::BiEST>, _1, _2, _3));
+  registerPlannerAllocator("geometric::ProjEST", boost::bind(&allocatePlanner<og::ProjEST>, _1, _2, _3));
+
   registerPlannerAllocator("geometric::KPIECE", boost::bind(&allocatePlanner<og::KPIECE1>, _1, _2, _3));
   registerPlannerAllocator("geometric::BKPIECE", boost::bind(&allocatePlanner<og::BKPIECE1>, _1, _2, _3));
   registerPlannerAllocator("geometric::LBKPIECE", boost::bind(&allocatePlanner<og::LBKPIECE1>, _1, _2, _3));
+
+  registerPlannerAllocator("geometric::RRT", boost::bind(&allocatePlanner<og::RRT>, _1, _2, _3));
+  registerPlannerAllocator("geometric::RRTConnect", boost::bind(&allocatePlanner<og::RRTConnect>, _1, _2, _3));
   registerPlannerAllocator("geometric::RRTstar", boost::bind(&allocatePlanner<og::RRTstar>, _1, _2, _3));
+  registerPlannerAllocator("geometric::LazyRRT", boost::bind(&allocatePlanner<og::LazyRRT>, _1, _2, _3));
+  registerPlannerAllocator("geometric::TRRT", boost::bind(&allocatePlanner<og::TRRT>, _1, _2, _3));
+  registerPlannerAllocator("geometric::BiTRRT", boost::bind(&allocatePlanner<og::BiTRRT>, _1, _2, _3));
+  registerPlannerAllocator("geometric::LBTRRT", boost::bind(&allocatePlanner<og::LBTRRT>, _1, _2, _3));
+
   registerPlannerAllocator("geometric::PRM", boost::bind(&allocatePlanner<og::PRM>, _1, _2, _3));
   registerPlannerAllocator("geometric::PRMstar", boost::bind(&allocatePlanner<og::PRMstar>, _1, _2, _3));
-  registerPlannerAllocator("geometric::BITstar", boost::bind(&allocatePlanner<og::BITstar>, _1, _2, _3));
+  registerPlannerAllocator("geometric::LazyPRM", boost::bind(&allocatePlanner<og::LazyPRM>, _1, _2, _3));
+  registerPlannerAllocator("geometric::LazyPRMstar", boost::bind(&allocatePlanner<og::LazyPRMstar>, _1, _2, _3));
+
+  registerPlannerAllocator("geometric::SPARS", boost::bind(&allocatePlanner<og::SPARS>, _1, _2, _3));
+  registerPlannerAllocator("geometric::SPARStwo", boost::bind(&allocatePlanner<og::SPARStwo>, _1, _2, _3));
+
+  registerPlannerAllocator("geometric::PDST", boost::bind(&allocatePlanner<og::PDST>, _1, _2, _3));
+  registerPlannerAllocator("geometric::STRIDE", boost::bind(&allocatePlanner<og::STRIDE>, _1, _2, _3));
+
   registerPlannerAllocator("geometric::FMT", boost::bind(&allocatePlanner<og::FMT>, _1, _2, _3));
+  registerPlannerAllocator("geometric::BFMT", boost::bind(&allocatePlanner<og::BFMT>, _1, _2, _3));
+  registerPlannerAllocator("geometric::BITstar", boost::bind(&allocatePlanner<og::BITstar>, _1, _2, _3));
 }
 
 void GeometricPlanningContext::registerPlannerAllocator(const std::string& planner_id, const PlannerAllocator& pa)
@@ -377,32 +411,31 @@ bool GeometricPlanningContext::solve(planning_interface::MotionPlanDetailedRespo
 
     if (simplify_)
     {
-        double simplify_time = plan_time;
+      double simplify_time = plan_time;
 
-        plan_time += simplifySolution(timeout);
-        if ((timeout - plan_time) > 0)
+      plan_time += simplifySolution(timeout);
+      if ((timeout - plan_time) > 0)
+      {
+        double lasttime;
+        do
         {
-            double lasttime;
-            do
-            {
-                lasttime = plan_time;
-                plan_time += simplifySolution(timeout - plan_time);
-            } while ((timeout - plan_time) > 0 && plan_time - lasttime > 1e-3);
-        }
+          lasttime = plan_time;
+          plan_time += simplifySolution(timeout - plan_time);
+        } while ((timeout - plan_time) > 0 && plan_time - lasttime > 1e-3);
+      }
 
-        res.processing_time_.push_back(plan_time - simplify_time);
-        res.description_.emplace_back("simplify");
+      res.processing_time_.push_back(plan_time - simplify_time);
+      res.description_.emplace_back("simplify");
 
-        pg = simple_setup_->getSolutionPath();
-        res.trajectory_.resize(res.trajectory_.size() + 1);
-        res.trajectory_.back().reset(new robot_trajectory::RobotTrajectory(getRobotModel(), getGroupName()));
+      pg = simple_setup_->getSolutionPath();
+      res.trajectory_.resize(res.trajectory_.size() + 1);
+      res.trajectory_.back().reset(new robot_trajectory::RobotTrajectory(getRobotModel(), getGroupName()));
 
-        for (std::size_t i = 0; i < pg.getStateCount(); ++i)
-        {
-            copyToRobotState(ks, pg.getState(i));
-            res.trajectory_.back()->addSuffixWayPoint(ks, 0.0);
-        }
-
+      for (std::size_t i = 0; i < pg.getStateCount(); ++i)
+      {
+        copyToRobotState(ks, pg.getState(i));
+        res.trajectory_.back()->addSuffixWayPoint(ks, 0.0);
+      }
     }
 
     // Interpolating the final solution
@@ -577,14 +610,14 @@ const ompl::base::StateSpacePtr& GeometricPlanningContext::getOMPLStateSpace() c
   return mbss_;
 }
 
-ModelBasedStateSpace *GeometricPlanningContext::getModelBasedStateSpace()
+ModelBasedStateSpace* GeometricPlanningContext::getModelBasedStateSpace()
 {
-    return mbss_->as<ModelBasedStateSpace>();
+  return mbss_->as<ModelBasedStateSpace>();
 }
 
-const ModelBasedStateSpace *GeometricPlanningContext::getModelBasedStateSpace() const
+const ModelBasedStateSpace* GeometricPlanningContext::getModelBasedStateSpace() const
 {
-    return mbss_->as<ModelBasedStateSpace>();
+  return mbss_->as<ModelBasedStateSpace>();
 }
 
 const ompl::base::SpaceInformationPtr& GeometricPlanningContext::getOMPLSpaceInformation() const
