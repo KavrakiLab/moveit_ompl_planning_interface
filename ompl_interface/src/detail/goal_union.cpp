@@ -57,6 +57,7 @@ ompl::base::SpaceInformationPtr getGoalsSI(const std::vector<ompl::base::GoalPtr
 ompl_interface::GoalSampleableRegionMux::GoalSampleableRegionMux(const std::vector<ompl::base::GoalPtr>& goals)
   : ompl::base::GoalSampleableRegion(getGoalsSI(goals)), goals_(goals), gindex_(0)
 {
+    type_ = ompl::base::GOAL_SAMPLEABLE_REGION;
 }
 
 void ompl_interface::GoalSampleableRegionMux::startSampling()

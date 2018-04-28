@@ -45,9 +45,20 @@
 
 namespace ompl_interface
 {
+
+template <typename T>
+static ompl::base::PlannerPtr allocatePlanner(const ompl::base::SpaceInformationPtr& si, const std::string& new_name,
+                                              const std::map<std::string, std::string>& params)
+{
+    ompl::base::PlannerPtr planner(new T(si));
+    if (!new_name.empty())
+        planner->setName(new_name);
+    planner->params().setParams(params, true);
+    return planner;
+}
 /// \brief Definition of a geometric planning context.  This context plans in
-/// the space
-/// of joint angles for a given group.  This context is NOT thread safe.
+/// the space of joint angles for a given group.  This context is NOT thread
+/// safe.
 class GeometricPlanningContext : public OMPLPlanningContext
 {
 public:
@@ -59,20 +70,18 @@ public:
 
   virtual void initialize(const std::string& ros_namespace, const PlanningContextSpecification& spec);
 
-  /// \brief Clear all data structures used by the planner
+  /// \brief Clear all data structures used by the planner.
   virtual void clear();
 
   /// \brief Solve the motion planning problem and store the result in \e res.
   /// This function should not clear data structures before computing. The
-  /// constructor
-  /// and clear() do that.
+  /// constructor and clear() do that.
   virtual bool solve(planning_interface::MotionPlanResponse& res);
 
   /// \brief Solve the motion planning problem and store the detailed result in
   /// \e res.
   /// This function should not clear data structures before computing. The
-  /// constructor
-  /// and clear() do that.
+  /// constructor and clear() do that.
   virtual bool solve(planning_interface::MotionPlanDetailedResponse& res);
 
   /// \brief Stop planning
@@ -105,8 +114,7 @@ public:
   /// \brief Set the set of constraints that encapsulate the set of valid goal
   /// states
   /// These constraints are merged with any path constraints that are specified
-  /// in the
-  /// motion plan request.
+  /// in the motion plan request.
   virtual bool setGoalConstraints(const std::vector<moveit_msgs::Constraints>& goal_constraints,
                                   moveit_msgs::MoveItErrorCodes* error);
 
@@ -136,15 +144,13 @@ protected:
       PlannerAllocator;
 
   /// \brief Allocate the StateSpace for the given specification.  This will
-  /// initialize the
-  /// \e mbss_ member.
+  /// initialize the \e mbss_ member.
   virtual void allocateStateSpace(const ModelBasedStateSpaceSpecification& state_space_spec);
 
   /// \brief Allocate a (possibly constrained) state sampler.  If there are no
-  /// path constraints, the
-  /// sampler is the default from OMPL.  Otherwise, a custom sampler is created
-  /// to sample states from
-  /// the constraints specified in the motion plan request.
+  /// path constraints, the sampler is the default from OMPL.  Otherwise, a
+  /// custom sampler is created to sample states from the constraints specified
+  /// in the motion plan request.
   virtual ompl::base::StateSamplerPtr allocPathConstrainedSampler(const ompl::base::StateSpace* ss) const;
 
   /// \brief A method that is invoked immediately before every call to solve()

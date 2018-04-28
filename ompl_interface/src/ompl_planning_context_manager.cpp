@@ -258,7 +258,7 @@ void OMPLPlanningContextManager::configurePlanningContexts()
           if (xml_config.getType() == XmlRpc::XmlRpcValue::TypeStruct)
           {
             planning_interface::PlannerConfigurationSettings pc;
-            pc.name = planner_config;
+            pc.name = group_name + "[" + planner_config + "]";
             pc.group = group_name;
             // inherit parameters from the group (which can be overriden)
             pc.config = specific_group_params;
@@ -282,7 +282,8 @@ void OMPLPlanningContextManager::configurePlanningContexts()
                   break;
               }
             }
-            pconfig[group_name + "[" + planner_config + "]"] = pc;
+            std::string actual_name = group_name + "[" + planner_config + "]";
+            pconfig[actual_name] = pc;
           }
         }
       }

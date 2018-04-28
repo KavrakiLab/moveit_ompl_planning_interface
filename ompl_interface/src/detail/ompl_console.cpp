@@ -99,17 +99,17 @@ public:
       }
       break;
       default:
-        // debug
+        // ompl debug, dev1, dev2 -> ros debug
+      {
+        ROSCONSOLE_DEFINE_LOCATION(true, ::ros::console::levels::Debug,
+                                   std::string(ROSCONSOLE_ROOT_LOGGER_NAME) + ".ompl");
+        if (ROS_UNLIKELY(OMPL_CONSOLE_ENABLED))
         {
-          ROSCONSOLE_DEFINE_LOCATION(true, ::ros::console::levels::Debug,
-                                     std::string(ROSCONSOLE_ROOT_LOGGER_NAME) + ".ompl");
-          if (ROS_UNLIKELY(OMPL_CONSOLE_ENABLED))
-          {
-            ::ros::console::print(nullptr, OMPL_CONSOLE_LOGGER, OMPL_CONSOLE_LEVEL, filename, line, "", "%s",
-                                  text.c_str());
-          }
+          ::ros::console::print(nullptr, OMPL_CONSOLE_LOGGER, OMPL_CONSOLE_LEVEL, filename, line, "", "%s",
+                                text.c_str());
         }
-        break;
+      }
+      break;
     }
   }
 };

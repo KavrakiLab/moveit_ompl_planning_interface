@@ -44,7 +44,7 @@
 #include <boost/math/constants/constants.hpp>
 #include <eigen_conversions/eigen_msg.h>
 #include <moveit/kinematic_constraints/utils.h>
-#include <pluginlib/class_loader.h>
+#include <pluginlib/class_list_macros.h>
 
 #include <ompl/tools/config/SelfConfig.h>
 #include <ompl/tools/multiplan/ParallelPlan.h>
@@ -63,6 +63,8 @@
 #include <ompl/geometric/planners/rrt/pRRT.h>
 #include <ompl/geometric/planners/sbl/SBL.h>
 #include <ompl/geometric/planners/sbl/pSBL.h>
+#include <ompl/geometric/planners/bitstar/BITstar.h>
+#include <ompl/geometric/planners/fmt/FMT.h>
 
 namespace og = ompl::geometric;
 
@@ -96,17 +98,6 @@ std::string GeometricPlanningContext::getDescription()
   return "OMPL Geometric Planning";
 }
 
-template <typename T>
-static ompl::base::PlannerPtr allocatePlanner(const ompl::base::SpaceInformationPtr& si, const std::string& new_name,
-                                              const std::map<std::string, std::string>& params)
-{
-  ompl::base::PlannerPtr planner(new T(si));
-  if (!new_name.empty())
-    planner->setName(new_name);
-  planner->params().setParams(params, true);
-  return planner;
-}
-
 void GeometricPlanningContext::initializePlannerAllocators()
 {
   registerPlannerAllocator("geometric::RRT", boost::bind(&allocatePlanner<og::RRT>, _1, _2, _3));
@@ -121,6 +112,8 @@ void GeometricPlanningContext::initializePlannerAllocators()
   registerPlannerAllocator("geometric::RRTstar", boost::bind(&allocatePlanner<og::RRTstar>, _1, _2, _3));
   registerPlannerAllocator("geometric::PRM", boost::bind(&allocatePlanner<og::PRM>, _1, _2, _3));
   registerPlannerAllocator("geometric::PRMstar", boost::bind(&allocatePlanner<og::PRMstar>, _1, _2, _3));
+  registerPlannerAllocator("geometric::BITstar", boost::bind(&allocatePlanner<og::BITstar>, _1, _2, _3));
+  registerPlannerAllocator("geometric::FMT", boost::bind(&allocatePlanner<og::FMT>, _1, _2, _3));
 }
 
 void GeometricPlanningContext::registerPlannerAllocator(const std::string& planner_id, const PlannerAllocator& pa)
@@ -643,7 +636,7 @@ bool GeometricPlanningContext::setGoalConstraints(const std::vector<moveit_msgs:
   goal_constraints_.clear();
   for (const auto& goal_constraint : goal_constraints)
   {
-    // NOTE: This only "intelligently" merges joint constraints.  All other
+    // NOTE: This only "intelligently" merges joint constraints .  All other
     // constraint types are simply concatenated.
     // moveit_msgs::Constraints constr =
     // kinematic_constraints::mergeConstraints(goal_constraints[i],
@@ -736,8 +729,7 @@ ompl::base::PlannerPtr GeometricPlanningContext::configurePlanner(const std::str
 
   // No planner configured by this name
   ROS_WARN("No planner allocator found with name '%s'", planner_name.c_str());
-  for (std::map<std::string, PlannerAllocator>::const_iterator it = planner_allocators_.begin();
-       it != planner_allocators_.end(); ++it)
+  for (auto it = planner_allocators_.begin(); it != planner_allocators_.end(); ++it)
     ROS_WARN("  %s", it->first.c_str());
   return ompl::base::PlannerPtr();
 }
@@ -953,4 +945,4 @@ bool GeometricPlanningContext::mergeConstraints(const moveit_msgs::Constraints& 
   return true;
 }
 
-CLASS_LOADER_REGISTER_CLASS(ompl_interface::GeometricPlanningContext, ompl_interface::OMPLPlanningContext);
+PLUGINLIB_EXPORT_CLASS(ompl_interface::GeometricPlanningContext, ompl_interface::OMPLPlanningContext)
