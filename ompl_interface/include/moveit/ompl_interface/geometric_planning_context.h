@@ -115,6 +115,10 @@ public:
   virtual const kinematic_constraints::KinematicConstraintSetPtr& getPathConstraints() const;
 
 protected:
+
+  /// \brief Helper function for adding additional start states
+  void AddStartStates();
+  
   /// \brief Merge constraints c1 and c2, storing the result in output.
   /// If the constraints cannot be merged, false is returned.
   virtual bool mergeConstraints(const moveit_msgs::Constraints& c1, const moveit_msgs::Constraints& c2,

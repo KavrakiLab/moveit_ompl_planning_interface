@@ -54,6 +54,7 @@
 #include <ompl/geometric/planners/kpiece/KPIECE1.h>
 #include <ompl/geometric/planners/kpiece/LBKPIECE1.h>
 #include <ompl/geometric/planners/prm/PRM.h>
+#include <ompl/geometric/planners/prm/PRMconnectivity.h>
 #include <ompl/geometric/planners/prm/PRMstar.h>
 #include <ompl/geometric/planners/rrt/LazyRRT.h>
 #include <ompl/geometric/planners/rrt/RRT.h>
@@ -63,6 +64,11 @@
 #include <ompl/geometric/planners/rrt/pRRT.h>
 #include <ompl/geometric/planners/sbl/SBL.h>
 #include <ompl/geometric/planners/sbl/pSBL.h>
+
+#include <ompl/base/PlannerDataStorage.h>
+#include <boost/archive/text_oarchive.hpp>
+#include <boost/graph/adj_list_serialize.hpp>
+#include <fstream>
 
 namespace og = ompl::geometric;
 
@@ -120,6 +126,7 @@ void GeometricPlanningContext::initializePlannerAllocators()
   registerPlannerAllocator("geometric::LBKPIECE", boost::bind(&allocatePlanner<og::LBKPIECE1>, _1, _2, _3));
   registerPlannerAllocator("geometric::RRTstar", boost::bind(&allocatePlanner<og::RRTstar>, _1, _2, _3));
   registerPlannerAllocator("geometric::PRM", boost::bind(&allocatePlanner<og::PRM>, _1, _2, _3));
+  registerPlannerAllocator("geometric::PRMconnectivity", boost::bind(&allocatePlanner<og::PRMconnectivity>, _1, _2, _3));
   registerPlannerAllocator("geometric::PRMstar", boost::bind(&allocatePlanner<og::PRMstar>, _1, _2, _3));
 }
 
@@ -253,6 +260,27 @@ void GeometricPlanningContext::clear()
   goal_constraints_.clear();
 }
 
+void GeometricPlanningContext::AddStartStates()
+{
+  ros::NodeHandle nh;
+  int state_count;
+  nh.getParam("/reactive/numStates", state_count);
+
+  for (unsigned i=0; i<state_count; i++){
+    robot_state::RobotState start_state(spec_.model);
+    std::string prefix = "/reactive/location_state_"+std::to_string(i);
+    for (unsigned j=0; j<6; j++){
+      double joint_value;
+      nh.getParam(prefix+"/"+std::to_string(j), joint_value);
+      start_state.setVariablePosition(j, joint_value);
+    }
+    ompl::base::ScopedState<> ompl_state(mbss_);
+    copyToOMPLState(ompl_state.get(), start_state);
+    simple_setup_->addStartState(ompl_state);
+  }
+  return;
+}
+
 void GeometricPlanningContext::preSolve()
 {
   simple_setup_->getProblemDefinition()->clearSolutionPaths();
@@ -261,6 +289,7 @@ void GeometricPlanningContext::preSolve()
     planner->clear();
   startGoalSampling();
   simple_setup_->getSpaceInformation()->getMotionValidator()->resetMotionCounter();
+  AddStartStates();
 }
 
 void GeometricPlanningContext::postSolve()
@@ -268,6 +297,18 @@ void GeometricPlanningContext::postSolve()
   stopGoalSampling();
   if (simple_setup_->getProblemDefinition()->hasApproximateSolution())
     ROS_WARN("Solution is approximate");
+  ompl::base::PlannerData pd(simple_setup_->getSpaceInformation());
+  simple_setup_->getPlannerData(pd);
+  ROS_INFO("number of edges is %d", pd.numEdges());
+  std::string graph_filename;
+  ros::NodeHandle nh; //Getting a nodehandle to the global namespace
+  nh.getParam("/reactive/roadmap_file", graph_filename);
+  std::ofstream file;
+  file.open(graph_filename.c_str(), std::ios::out);
+  if (file.good()){
+    ompl::base::PlannerDataStorage pd_storage;
+    pd_storage.store(pd, file);
+  }
 }
 
 void GeometricPlanningContext::startGoalSampling()
@@ -454,8 +495,11 @@ bool GeometricPlanningContext::solve(planning_interface::MotionPlanDetailedRespo
 bool GeometricPlanningContext::solve(double timeout, unsigned int count, double& total_time)
 {
   ompl::time::point start = ompl::time::now();
-
-  preSolve();
+  ROS_ERROR("Keliang you are doing great! count=%d, planner is %s", count, planner_id_.c_str());
+  
+  if (planner_id_.compare("geometric::PRMconnectivity")==0){
+    preSolve();
+  }
 
   bool result = false;
   total_time = 0.0;
@@ -539,14 +583,16 @@ bool GeometricPlanningContext::solve(double timeout, unsigned int count, double&
       unregisterTerminationCondition();
     }
   }
-
-  postSolve();
+  if (planner_id_.compare("geometric::PRMconnectivity")==0){
+    postSolve();
+  }
 
   return result;
 }
 
 double GeometricPlanningContext::simplifySolution(double max_time)
 {
+  return 0.0;
   simple_setup_->simplifySolution(max_time);
   return simple_setup_->getLastSimplificationTime();
 }
