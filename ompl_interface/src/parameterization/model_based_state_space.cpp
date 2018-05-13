@@ -49,7 +49,7 @@ ompl_interface::ModelBasedStateSpace::ModelBasedStateSpace(const ModelBasedState
   // default bounds if not specified)
   if (!spec_.joint_bounds_.empty() && spec_.joint_bounds_.size() != joint_model_vector_.size())
   {
-    logError("Joint group '%s' has incorrect bounds specified. Using the "
+    ROS_ERROR("Joint group '%s' has incorrect bounds specified. Using the "
              "default bounds instead.",
              spec_.joint_model_group_->getName().c_str());
     spec_.joint_bounds_.clear();
@@ -85,7 +85,7 @@ double ompl_interface::ModelBasedStateSpace::getTagSnapToSegment() const
 void ompl_interface::ModelBasedStateSpace::setTagSnapToSegment(double snap)
 {
   if (snap < 0.0 || snap > 1.0)
-    logWarn("Snap to segment for tags is a ratio. It's value must be between "
+    ROS_WARN("Snap to segment for tags is a ratio. It's value must be between "
             "0.0 and 1.0. Value remains as previously "
             "set (%lf)",
             tag_snap_to_segment_);
