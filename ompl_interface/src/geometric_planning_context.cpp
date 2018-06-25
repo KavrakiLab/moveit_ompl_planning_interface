@@ -66,6 +66,8 @@
 #include <ompl/geometric/planners/bitstar/BITstar.h>
 #include <ompl/geometric/planners/fmt/FMT.h>
 
+#include <modified_planners/RRTMod.h>
+
 namespace og = ompl::geometric;
 
 using namespace ompl_interface;
@@ -114,6 +116,8 @@ void GeometricPlanningContext::initializePlannerAllocators()
   registerPlannerAllocator("geometric::PRMstar", boost::bind(&allocatePlanner<og::PRMstar>, _1, _2, _3));
   registerPlannerAllocator("geometric::BITstar", boost::bind(&allocatePlanner<og::BITstar>, _1, _2, _3));
   registerPlannerAllocator("geometric::FMT", boost::bind(&allocatePlanner<og::FMT>, _1, _2, _3));
+
+  registerPlannerAllocator("geometric::RRTMod", boost::bind(&allocatePlanner<og::RRT>, _1, _2, _3));
 }
 
 void GeometricPlanningContext::registerPlannerAllocator(const std::string& planner_id, const PlannerAllocator& pa)
@@ -377,32 +381,31 @@ bool GeometricPlanningContext::solve(planning_interface::MotionPlanDetailedRespo
 
     if (simplify_)
     {
-        double simplify_time = plan_time;
+      double simplify_time = plan_time;
 
-        plan_time += simplifySolution(timeout);
-        if ((timeout - plan_time) > 0)
+      plan_time += simplifySolution(timeout);
+      if ((timeout - plan_time) > 0)
+      {
+        double lasttime;
+        do
         {
-            double lasttime;
-            do
-            {
-                lasttime = plan_time;
-                plan_time += simplifySolution(timeout - plan_time);
-            } while ((timeout - plan_time) > 0 && plan_time - lasttime > 1e-3);
-        }
+          lasttime = plan_time;
+          plan_time += simplifySolution(timeout - plan_time);
+        } while ((timeout - plan_time) > 0 && plan_time - lasttime > 1e-3);
+      }
 
-        res.processing_time_.push_back(plan_time - simplify_time);
-        res.description_.emplace_back("simplify");
+      res.processing_time_.push_back(plan_time - simplify_time);
+      res.description_.emplace_back("simplify");
 
-        pg = simple_setup_->getSolutionPath();
-        res.trajectory_.resize(res.trajectory_.size() + 1);
-        res.trajectory_.back().reset(new robot_trajectory::RobotTrajectory(getRobotModel(), getGroupName()));
+      pg = simple_setup_->getSolutionPath();
+      res.trajectory_.resize(res.trajectory_.size() + 1);
+      res.trajectory_.back().reset(new robot_trajectory::RobotTrajectory(getRobotModel(), getGroupName()));
 
-        for (std::size_t i = 0; i < pg.getStateCount(); ++i)
-        {
-            copyToRobotState(ks, pg.getState(i));
-            res.trajectory_.back()->addSuffixWayPoint(ks, 0.0);
-        }
-
+      for (std::size_t i = 0; i < pg.getStateCount(); ++i)
+      {
+        copyToRobotState(ks, pg.getState(i));
+        res.trajectory_.back()->addSuffixWayPoint(ks, 0.0);
+      }
     }
 
     // Interpolating the final solution
@@ -577,14 +580,14 @@ const ompl::base::StateSpacePtr& GeometricPlanningContext::getOMPLStateSpace() c
   return mbss_;
 }
 
-ModelBasedStateSpace *GeometricPlanningContext::getModelBasedStateSpace()
+ModelBasedStateSpace* GeometricPlanningContext::getModelBasedStateSpace()
 {
-    return mbss_->as<ModelBasedStateSpace>();
+  return mbss_->as<ModelBasedStateSpace>();
 }
 
-const ModelBasedStateSpace *GeometricPlanningContext::getModelBasedStateSpace() const
+const ModelBasedStateSpace* GeometricPlanningContext::getModelBasedStateSpace() const
 {
-    return mbss_->as<ModelBasedStateSpace>();
+  return mbss_->as<ModelBasedStateSpace>();
 }
 
 const ompl::base::SpaceInformationPtr& GeometricPlanningContext::getOMPLSpaceInformation() const
