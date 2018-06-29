@@ -176,12 +176,16 @@ planning_interface::PlanningContextPtr OMPLPlanningContextManager::getPlanningCo
               wparams.min_corner.x, wparams.max_corner.x, wparams.min_corner.y, wparams.max_corner.y,
               wparams.min_corner.z, wparams.max_corner.z);
 
-    context->getModelBasedStateSpace()->setPlanningVolume(wparams.min_corner.x, wparams.max_corner.x, wparams.min_corner.y,
-                                                    wparams.max_corner.y, wparams.min_corner.z, wparams.max_corner.z);
+    context->getModelBasedStateSpace()->setPlanningVolume(wparams.min_corner.x, wparams.max_corner.x,
+                                                          wparams.min_corner.y, wparams.max_corner.y,
+                                                          wparams.min_corner.z, wparams.max_corner.z);
 
     // Set the start and goal states for this query
     robot_state::RobotStatePtr start_state = planning_scene->getCurrentStateUpdated(req.start_state);
     context->setCompleteInitialRobotState(start_state);
+
+    // Get goal region
+    context->goal_region_.reset(new moveit_msgs::GoalRegion(req.goal_region));
 
     if (!context->setGoalConstraints(req.goal_constraints, &error_code))
       return planning_interface::PlanningContextPtr();

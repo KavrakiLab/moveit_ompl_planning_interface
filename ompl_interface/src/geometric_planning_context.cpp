@@ -455,6 +455,9 @@ bool GeometricPlanningContext::solve(double timeout, unsigned int count, double&
 
   bool result = false;
   total_time = 0.0;
+
+  std::cout << "There is a goal region: " << goal_region_->z.max << "!!!!!!!!!!!!!!++++" << std::endl;
+
   if (count <= 1)
   {
     ompl::base::PlannerTerminationCondition ptc =
@@ -635,10 +638,13 @@ bool GeometricPlanningContext::setGoalConstraints(const std::vector<moveit_msgs:
     return false;
   }
 
+  std::cout << "setGoalConstraints" << std::endl;
+
   // Merge path constraints (if any) with goal constraints
   goal_constraints_.clear();
   for (const auto& goal_constraint : goal_constraints)
   {
+    std::cout << "setting goal_constraint" << std::endl;
     // NOTE: This only "intelligently" merges joint constraints .  All other
     // constraint types are simply concatenated.
     // moveit_msgs::Constraints constr =
@@ -675,6 +681,7 @@ bool GeometricPlanningContext::setGoalConstraints(const std::vector<moveit_msgs:
   std::vector<ompl::base::GoalPtr> goals;
   for (auto& goal_constraint : goal_constraints_)
   {
+    std::cout << "setting goal_constraint2" << std::endl;
     constraint_samplers::ConstraintSamplerPtr cs;
     if (constraint_sampler_manager_)
       cs = constraint_sampler_manager_->selectSampler(getPlanningScene(), getGroupName(),

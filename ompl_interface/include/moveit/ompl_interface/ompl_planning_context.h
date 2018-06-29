@@ -73,6 +73,9 @@ struct PlanningContextSpecification
 class OMPLPlanningContext : public planning_interface::PlanningContext
 {
 public:
+  // goal region
+  std::unique_ptr<moveit_msgs::GoalRegion> goal_region_;
+
   OMPLPlanningContext()
     : planning_interface::PlanningContext("UNINITIALIZED", "NO_GROUP"), use_state_validity_cache_(true)
   {
