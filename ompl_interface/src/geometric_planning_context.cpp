@@ -702,7 +702,10 @@ bool GeometricPlanningContext::setGoalConstraints(const std::vector<moveit_msgs:
   {
     ompl::base::GoalPtr goal;
     if (goals.size() == 1)
+    {
+      std::cout << "only one goal" << std::endl;
       goal = goals[0];
+    }
     else
       goal = ompl::base::GoalPtr(new GoalSampleableRegionMux(goals));
 

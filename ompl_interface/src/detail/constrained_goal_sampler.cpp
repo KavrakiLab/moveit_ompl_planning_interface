@@ -56,6 +56,7 @@ ompl_interface::ConstrainedGoalSampler::ConstrainedGoalSampler(
     default_sampler_ = si_->allocStateSampler();
   logDebug("Constructed a ConstrainedGoalSampler instance at address %p", this);
   startSampling();
+  std::cout << "After start sampling goals: !!!!!!!!!!!!!!++++" << std::endl;
 }
 
 bool ompl_interface::ConstrainedGoalSampler::checkStateValidity(ompl::base::State* new_goal,
