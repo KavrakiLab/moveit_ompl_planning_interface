@@ -456,7 +456,7 @@ bool GeometricPlanningContext::solve(double timeout, unsigned int count, double&
   bool result = false;
   total_time = 0.0;
 
-  std::cout << "There is a goal region: " << goal_region_->z.max << "!!!!!!!!!!!!!!++++" << std::endl;
+  std::cout << "There are (2): " << goal_regions_.size() << " goal regions !!!!!!!!!!!!!!++++" << std::endl;
 
   if (count <= 1)
   {
@@ -628,6 +628,7 @@ void GeometricPlanningContext::setCompleteInitialRobotState(const robot_state::R
 }
 
 bool GeometricPlanningContext::setGoalConstraints(const std::vector<moveit_msgs::Constraints>& goal_constraints,
+                                                  const std::vector<moveit_msgs::GoalRegion>& goal_regions,
                                                   moveit_msgs::MoveItErrorCodes* error)
 {
   if (goal_constraints.empty())
@@ -639,6 +640,14 @@ bool GeometricPlanningContext::setGoalConstraints(const std::vector<moveit_msgs:
   }
 
   std::cout << "setGoalConstraints" << std::endl;
+
+  // Get goal regions
+  goal_regions_.clear();
+  for (const auto& goal_region : goal_regions)
+  {
+    std::cout << "setting goal_region*" << std::endl;
+    goal_regions_.push_back(moveit_msgs::GoalRegion(goal_region));
+  }
 
   // Merge path constraints (if any) with goal constraints
   goal_constraints_.clear();
@@ -679,16 +688,24 @@ bool GeometricPlanningContext::setGoalConstraints(const std::vector<moveit_msgs:
 
   // Creating constraint sampler for each constraint
   std::vector<ompl::base::GoalPtr> goals;
-  for (auto& goal_constraint : goal_constraints_)
+  for (std::size_t i = 0; i < goal_constraints_.size(); ++i)
+  //  for (auto& goal_constraint : goal_constraints_)
   {
     std::cout << "setting goal_constraint2" << std::endl;
     constraint_samplers::ConstraintSamplerPtr cs;
     if (constraint_sampler_manager_)
       cs = constraint_sampler_manager_->selectSampler(getPlanningScene(), getGroupName(),
-                                                      goal_constraint->getAllConstraints());
-    if (cs)
+                                                      goal_constraints_[i]->getAllConstraints());
+    if (goal_regions_.size() > 0)
     {
-      ompl::base::GoalPtr g = ompl::base::GoalPtr(new ConstrainedGoalSampler(this, goal_constraint, cs));
+      std::cout << "Using goal regions!!!!!!" << std::endl;
+      ompl::base::GoalPtr g =
+          ompl::base::GoalPtr(new ConstrainedGoalRegionSampler(this, goal_constraints_[i], goal_regions_[i], cs));
+      goals.push_back(g);
+    }
+    else if (cs)
+    {
+      ompl::base::GoalPtr g = ompl::base::GoalPtr(new ConstrainedGoalSampler(this, goal_constraints_[i], cs));
       goals.push_back(g);
     }
     else

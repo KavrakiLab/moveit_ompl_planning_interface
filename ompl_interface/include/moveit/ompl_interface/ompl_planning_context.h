@@ -73,9 +73,6 @@ struct PlanningContextSpecification
 class OMPLPlanningContext : public planning_interface::PlanningContext
 {
 public:
-  // goal region
-  std::unique_ptr<moveit_msgs::GoalRegion> goal_region_;
-
   OMPLPlanningContext()
     : planning_interface::PlanningContext("UNINITIALIZED", "NO_GROUP"), use_state_validity_cache_(true)
   {
@@ -147,6 +144,7 @@ public:
 
   /// \brief Set the goal state of the robot via a set of constraints
   virtual bool setGoalConstraints(const std::vector<moveit_msgs::Constraints>& goal_constraints,
+                                  const std::vector<moveit_msgs::GoalRegion>& goal_regions,
                                   moveit_msgs::MoveItErrorCodes* error) = 0;
 
   /// \brief Return the set of constraints that must be satisfied along the

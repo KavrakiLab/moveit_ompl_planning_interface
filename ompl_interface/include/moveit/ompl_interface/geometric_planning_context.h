@@ -45,16 +45,15 @@
 
 namespace ompl_interface
 {
-
 template <typename T>
 static ompl::base::PlannerPtr allocatePlanner(const ompl::base::SpaceInformationPtr& si, const std::string& new_name,
                                               const std::map<std::string, std::string>& params)
 {
-    ompl::base::PlannerPtr planner(new T(si));
-    if (!new_name.empty())
-        planner->setName(new_name);
-    planner->params().setParams(params, true);
-    return planner;
+  ompl::base::PlannerPtr planner(new T(si));
+  if (!new_name.empty())
+    planner->setName(new_name);
+  planner->params().setParams(params, true);
+  return planner;
 }
 /// \brief Definition of a geometric planning context.  This context plans in
 /// the space of joint angles for a given group.  This context is NOT thread
@@ -116,6 +115,7 @@ public:
   /// These constraints are merged with any path constraints that are specified
   /// in the motion plan request.
   virtual bool setGoalConstraints(const std::vector<moveit_msgs::Constraints>& goal_constraints,
+                                  const std::vector<moveit_msgs::GoalRegion>& goal_regions,
                                   moveit_msgs::MoveItErrorCodes* error);
 
   /// \brief Return the set of constraints that must be satisfied along the
@@ -215,6 +215,9 @@ protected:
 
   /// \brief The set of goal constraints to achieve
   std::vector<kinematic_constraints::KinematicConstraintSetPtr> goal_constraints_;
+
+  /// \brief The set of goal regions
+  std::vector<moveit_msgs::GoalRegion> goal_regions_;
 
   /// \brief The (possibly empty) set of constraints that must be satisfied
   /// along the entire path.

@@ -40,9 +40,11 @@
 #include <moveit/constraint_samplers/constraint_sampler.h>
 #include <moveit/kinematic_constraints/kinematic_constraint.h>
 #include <ompl/base/goals/GoalLazySamples.h>
+#include <ompl/base/spaces/SE3StateSpace.h>
 
 #include <moveit/robot_model/joint_model_group.h>
 #include <moveit/robot_state/robot_state.h>
+#include <moveit_msgs/GoalRegion.h>
 
 namespace ompl_interface
 {
@@ -72,6 +74,37 @@ private:
   unsigned int invalid_sampled_constraints_;
   bool warned_invalid_samples_;
   unsigned int verbose_display_;
+};
+
+/** @class ConstrainedGoalRegionSampler
+ *  An interface to the OMPL goal lazy sampler*/
+class ConstrainedGoalRegionSampler : public ompl::base::GoalLazySamples
+{
+public:
+  ConstrainedGoalRegionSampler(
+      const OMPLPlanningContext* pc, const kinematic_constraints::KinematicConstraintSetPtr& ks,
+      const moveit_msgs::GoalRegion& gr,
+      const constraint_samplers::ConstraintSamplerPtr& cs = constraint_samplers::ConstraintSamplerPtr());
+
+private:
+  bool sampleUsingConstraintSampler(const ompl::base::GoalLazySamples* gls, ompl::base::State* new_goal);
+  bool stateValidityCallback(ompl::base::State* new_goal, robot_state::RobotState const* state,
+                             const robot_model::JointModelGroup*, const double*, bool verbose = false) const;
+  bool checkStateValidity(ompl::base::State* new_goal, const robot_state::RobotState& state,
+                          bool verbose = false) const;
+
+  const OMPLPlanningContext* planning_context_;
+  kinematic_constraints::KinematicConstraintSetPtr kinematic_constraint_set_;
+  constraint_samplers::ConstraintSamplerPtr constraint_sampler_;
+  ompl::base::StateSamplerPtr default_sampler_;
+  robot_state::RobotState work_state_;
+  unsigned int invalid_sampled_constraints_;
+  bool warned_invalid_samples_;
+  unsigned int verbose_display_;
+  moveit_msgs::GoalRegion goal_region_;
+
+  /** \brief State sampler */
+  ompl::base::StateSamplerPtr se3_sampler_;
 };
 }
 

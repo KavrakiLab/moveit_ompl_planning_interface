@@ -163,3 +163,150 @@ bool ompl_interface::ConstrainedGoalSampler::sampleUsingConstraintSampler(const 
   }
   return false;
 }
+
+// ConstrainedGoalRegionSampler
+
+ompl_interface::ConstrainedGoalRegionSampler::ConstrainedGoalRegionSampler(
+    const OMPLPlanningContext* pc, const kinematic_constraints::KinematicConstraintSetPtr& ks,
+    const moveit_msgs::GoalRegion& gr, const constraint_samplers::ConstraintSamplerPtr& cs)
+  : ompl::base::GoalLazySamples(pc->getOMPLSpaceInformation(),
+                                boost::bind(&ConstrainedGoalRegionSampler::sampleUsingConstraintSampler, this, _1, _2),
+                                false)
+  , planning_context_(pc)
+  , kinematic_constraint_set_(ks)
+  , constraint_sampler_(cs)
+  , work_state_(pc->getCompleteInitialRobotState())
+  , invalid_sampled_constraints_(0)
+  , warned_invalid_samples_(false)
+  , verbose_display_(0)
+  , goal_region_(moveit_msgs::GoalRegion(gr))
+{
+  if (!constraint_sampler_)
+    default_sampler_ = si_->allocStateSampler();
+
+  // construct the se3 state space for sampling poses
+  auto space(std::make_shared<ompl::base::SE3StateSpace>());
+
+  // set the bounds for the R^3 part of SE(3)
+  ompl::base::RealVectorBounds bounds(3);
+  bounds.setLow(0, goal_region_.x.min);
+  bounds.setLow(1, goal_region_.y.min);
+  bounds.setLow(2, goal_region_.z.min);
+
+  bounds.setHigh(0, goal_region_.x.max);
+  bounds.setHigh(1, goal_region_.y.max);
+  bounds.setHigh(2, goal_region_.z.max);
+
+  space->setBounds(bounds);
+
+  if (!se3_sampler_)
+    se3_sampler_ = space->allocStateSampler();
+
+  logDebug("Constructed a ConstrainedGoalRegionSampler instance at address %p", this);
+  startSampling();
+}
+
+bool ompl_interface::ConstrainedGoalRegionSampler::checkStateValidity(ompl::base::State* new_goal,
+                                                                      const robot_state::RobotState& state,
+                                                                      bool verbose) const
+{
+  planning_context_->copyToOMPLState(new_goal, state);
+  return dynamic_cast<const StateValidityChecker*>(si_->getStateValidityChecker().get())->isValid(new_goal, verbose);
+}
+
+bool ompl_interface::ConstrainedGoalRegionSampler::stateValidityCallback(ompl::base::State* new_goal,
+                                                                         robot_state::RobotState const* state,
+                                                                         const robot_model::JointModelGroup* jmg,
+                                                                         const double* jpos, bool verbose) const
+{
+  // we copy the state to not change the seed state
+  robot_state::RobotState solution_state(*state);
+  solution_state.setJointGroupPositions(jmg, jpos);
+  solution_state.update();
+  return checkStateValidity(new_goal, solution_state, verbose);
+}
+
+bool ompl_interface::ConstrainedGoalRegionSampler::sampleUsingConstraintSampler(const ompl::base::GoalLazySamples* gls,
+                                                                                ompl::base::State* new_goal)
+{
+  //  moveit::Profiler::ScopedBlock
+  //  sblock("ConstrainedGoalRegionSampler::sampleUsingConstraintSampler");
+
+  // unsigned int max_attempts =
+  // planning_context_->getMaximumGoalSamplingAttempts();
+  unsigned int max_attempts = 1000;
+  unsigned int attempts_so_far = gls->samplingAttemptsCount();
+
+  // terminate after too many attempts
+  if (attempts_so_far >= max_attempts)
+    return false;
+
+  // terminate after a maximum number of samples
+  // if (gls->getStateCount() >= planning_context_->getMaximumGoalSamples())
+  unsigned int max_goal_samples = 50;
+  if (gls->getStateCount() >= max_goal_samples)
+    return false;
+
+  // terminate the sampling thread when a solution has been found
+  if (planning_context_->getOMPLProblemDefinition()->hasSolution())
+    return false;
+
+  unsigned int max_attempts_div2 = max_attempts / 2;
+  for (unsigned int a = gls->samplingAttemptsCount(); a < max_attempts && gls->isSampling(); ++a)
+  {
+    bool verbose = false;
+    if (gls->getStateCount() == 0 && a >= max_attempts_div2)
+      if (verbose_display_ < 1)
+      {
+        verbose = true;
+        verbose_display_++;
+      }
+
+    if (constraint_sampler_)
+    {
+      // makes the constraint sampler also perform a validity callback
+      robot_state::GroupStateValidityCallbackFn gsvcf =
+          boost::bind(&ompl_interface::ConstrainedGoalRegionSampler::stateValidityCallback, this, new_goal,
+                      _1,  // pointer to state
+                      _2,  // const* joint model group
+                      _3,  // double* of joint positions
+                      verbose);
+      constraint_sampler_->setGroupStateValidityCallback(gsvcf);
+
+      unsigned int max_state_sampling_attempts = 4;
+      // if (constraint_sampler_->project(work_state_,
+      // planning_context_->getMaximumStateSamplingAttempts()))
+      if (constraint_sampler_->project(work_state_, max_state_sampling_attempts))
+      {
+        work_state_.update();
+        if (kinematic_constraint_set_->decide(work_state_, verbose).satisfied)
+        {
+          if (checkStateValidity(new_goal, work_state_, verbose))
+            return true;
+        }
+        else
+        {
+          invalid_sampled_constraints_++;
+          if (!warned_invalid_samples_ && invalid_sampled_constraints_ >= (attempts_so_far * 8) / 10)
+          {
+            warned_invalid_samples_ = true;
+            logWarn("More than 80%% of the sampled goal states fail to satisfy "
+                    "the constraints imposed on the goal "
+                    "sampler. Is the constrained sampler working correctly?");
+          }
+        }
+      }
+    }
+    else
+    {
+      default_sampler_->sampleUniform(new_goal);
+      if (dynamic_cast<const StateValidityChecker*>(si_->getStateValidityChecker().get())->isValid(new_goal, verbose))
+      {
+        planning_context_->copyToRobotState(work_state_, new_goal);
+        if (kinematic_constraint_set_->decide(work_state_, verbose).satisfied)
+          return true;
+      }
+    }
+  }
+  return false;
+}
