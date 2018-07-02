@@ -167,9 +167,9 @@ bool ompl_interface::ConstrainedGoalSampler::sampleUsingConstraintSampler(const 
 // ConstrainedGoalRegionSampler
 
 ompl_interface::ConstrainedGoalRegionSampler::ConstrainedGoalRegionSampler(
-    const OMPLPlanningContext* pc, const robot_model::RobotModelConstPtr& rm,
+    const OMPLPlanningContext* pc, const std::string& group_name, const robot_model::RobotModelConstPtr& rm,
     const planning_scene::PlanningSceneConstPtr& ps, moveit_msgs::Constraints& constr,
-    const kinematic_constraints::KinematicConstraintSetPtr& ks, const moveit_msgs::GoalRegion& gr,
+    const moveit_msgs::GoalRegion& gr, constraint_samplers::ConstraintSamplerManagerPtr csm,
     const constraint_samplers::ConstraintSamplerPtr& cs)
   : ompl::base::GoalLazySamples(pc->getOMPLSpaceInformation(),
                                 boost::bind(&ConstrainedGoalRegionSampler::sampleUsingConstraintSampler, this, _1, _2),
@@ -183,6 +183,8 @@ ompl_interface::ConstrainedGoalRegionSampler::ConstrainedGoalRegionSampler(
   , goal_region_(moveit_msgs::GoalRegion(gr))
   , constr_(moveit_msgs::Constraints(constr))
   , planning_scene_(ps)
+  , constraint_sampler_manager_(csm)
+  , group_name_(group_name)
 {
   if (!constraint_sampler_)
     default_sampler_ = si_->allocStateSampler();
@@ -214,7 +216,6 @@ ompl_interface::ConstrainedGoalRegionSampler::ConstrainedGoalRegionSampler(
 
   //
   kinematic_constraint_set_.reset(new kinematic_constraints::KinematicConstraintSet(rm));
-  kinematic_constraint_set_->add(constr_, planning_scene_->getTransforms());
 
   logDebug("Constructed a ConstrainedGoalRegionSampler instance at address %p", this);
   startSampling();
@@ -251,38 +252,16 @@ bool ompl_interface::ConstrainedGoalRegionSampler::sampleUsingConstraintSampler(
   //  kinematic_constraint_set_->getPositionConstraints()[0].constraint_region.primitive_poses[0].position.x =
   //      state->as<ompl::base::SE3StateSpace::StateType>()->getX();
 
-  std::cout << "before kinematic constraint x: "
-            << kinematic_constraint_set_->getPositionConstraints()[0].constraint_region.primitive_poses[0].position.x
-            << std::endl;
-  std::cout << "before kinematic constraint y: "
-            << kinematic_constraint_set_->getPositionConstraints()[0].constraint_region.primitive_poses[0].position.y
-            << std::endl;
-  std::cout << "before kinematic constraint z: "
-            << kinematic_constraint_set_->getPositionConstraints()[0].constraint_region.primitive_poses[0].position.z
-            << std::endl;
-  std::cout << "before kinematic constraint qx: "
-            << kinematic_constraint_set_->getPositionConstraints()[0].constraint_region.primitive_poses[0].orientation.x
-            << std::endl;
-  std::cout << "before kinematic constraint qy: "
-            << kinematic_constraint_set_->getPositionConstraints()[0].constraint_region.primitive_poses[0].orientation.y
-            << std::endl;
-  std::cout << "before kinematic constraint qz: "
-            << kinematic_constraint_set_->getPositionConstraints()[0].constraint_region.primitive_poses[0].orientation.z
-            << std::endl;
-  std::cout << "before kinematic constraint qw: "
-            << kinematic_constraint_set_->getPositionConstraints()[0].constraint_region.primitive_poses[0].orientation.w
-            << std::endl;
-
   std::cout << "X: " << state->as<ompl::base::SE3StateSpace::StateType>()->getX() << std::endl;
   std::cout << "Y: " << state->as<ompl::base::SE3StateSpace::StateType>()->getY() << std::endl;
   std::cout << "Z: " << state->as<ompl::base::SE3StateSpace::StateType>()->getZ() << std::endl;
 
-  constr_.position_constraints[0].constraint_region.primitive_poses[0].position.x =
-      state->as<ompl::base::SE3StateSpace::StateType>()->getX();
-  constr_.position_constraints[0].constraint_region.primitive_poses[0].position.y =
-      state->as<ompl::base::SE3StateSpace::StateType>()->getY();
-  constr_.position_constraints[0].constraint_region.primitive_poses[0].position.z =
-      state->as<ompl::base::SE3StateSpace::StateType>()->getZ();
+  //  constr_.position_constraints[0].constraint_region.primitive_poses[0].position.x =
+  //      state->as<ompl::base::SE3StateSpace::StateType>()->getX();
+  //  constr_.position_constraints[0].constraint_region.primitive_poses[0].position.y =
+  //      state->as<ompl::base::SE3StateSpace::StateType>()->getY();
+  //  constr_.position_constraints[0].constraint_region.primitive_poses[0].position.z =
+  //      state->as<ompl::base::SE3StateSpace::StateType>()->getZ();
   //  constr_.position_constraints[0].constraint_region.primitive_poses[0].orientation.x;
   //  state->as<ompl::base::SE3StateSpace::StateType>()->rotation().x;
   //  constr_.position_constraints[0].constraint_region.primitive_poses[0].orientation.y;
@@ -293,7 +272,18 @@ bool ompl_interface::ConstrainedGoalRegionSampler::sampleUsingConstraintSampler(
   //  state->as<ompl::base::SE3StateSpace::StateType>()->rotation().w;
 
   kinematic_constraint_set_->clear();
+  // constr_.position_constraints[0].constraint_region.primitive_poses[0].position.z = 0.35;
+  // kinematic_constraint_set_->add(constr_, planning_scene_->getTransforms());
+
+  constr_.position_constraints[0].constraint_region.primitive_poses[0].position.x =
+      state->as<ompl::base::SE3StateSpace::StateType>()->getX();
+  constr_.position_constraints[0].constraint_region.primitive_poses[0].position.y =
+      state->as<ompl::base::SE3StateSpace::StateType>()->getY();
+  constr_.position_constraints[0].constraint_region.primitive_poses[0].position.z =
+      state->as<ompl::base::SE3StateSpace::StateType>()->getZ();
   kinematic_constraint_set_->add(constr_, planning_scene_->getTransforms());
+  constraint_sampler_ = constraint_sampler_manager_->selectSampler(planning_scene_, group_name_,
+                                                                   kinematic_constraint_set_->getAllConstraints());
 
   std::cout << "kinematic constraint x: "
             << kinematic_constraint_set_->getPositionConstraints()[0].constraint_region.primitive_poses[0].position.x
@@ -304,17 +294,13 @@ bool ompl_interface::ConstrainedGoalRegionSampler::sampleUsingConstraintSampler(
   std::cout << "kinematic constraint z: "
             << kinematic_constraint_set_->getPositionConstraints()[0].constraint_region.primitive_poses[0].position.z
             << std::endl;
-  std::cout << "kinematic constraint qx: "
-            << kinematic_constraint_set_->getPositionConstraints()[0].constraint_region.primitive_poses[0].orientation.x
+  std::cout << "kinematic constraint qx: " << kinematic_constraint_set_->getOrientationConstraints()[0].orientation.x
             << std::endl;
-  std::cout << "kinematic constraint qy: "
-            << kinematic_constraint_set_->getPositionConstraints()[0].constraint_region.primitive_poses[0].orientation.y
+  std::cout << "kinematic constraint qy: " << kinematic_constraint_set_->getOrientationConstraints()[0].orientation.y
             << std::endl;
-  std::cout << "kinematic constraint qz: "
-            << kinematic_constraint_set_->getPositionConstraints()[0].constraint_region.primitive_poses[0].orientation.z
+  std::cout << "kinematic constraint qz: " << kinematic_constraint_set_->getOrientationConstraints()[0].orientation.z
             << std::endl;
-  std::cout << "kinematic constraint qw: "
-            << kinematic_constraint_set_->getPositionConstraints()[0].constraint_region.primitive_poses[0].orientation.w
+  std::cout << "kinematic constraint qw: " << kinematic_constraint_set_->getOrientationConstraints()[0].orientation.w
             << std::endl;
 
   //  moveit::Profiler::ScopedBlock

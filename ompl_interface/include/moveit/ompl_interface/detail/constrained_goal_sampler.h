@@ -39,6 +39,7 @@
 
 #include <moveit/constraint_samplers/constraint_sampler.h>
 #include <moveit/kinematic_constraints/kinematic_constraint.h>
+#include <moveit/ompl_interface/detail/constrained_sampler.h>
 #include <ompl/base/goals/GoalLazySamples.h>
 #include <ompl/base/spaces/SE3StateSpace.h>
 
@@ -82,9 +83,9 @@ class ConstrainedGoalRegionSampler : public ompl::base::GoalLazySamples
 {
 public:
   ConstrainedGoalRegionSampler(
-      const OMPLPlanningContext* pc, const robot_model::RobotModelConstPtr& rm,
+      const OMPLPlanningContext* pc, const std::string& group_name, const robot_model::RobotModelConstPtr& rm,
       const planning_scene::PlanningSceneConstPtr& ps, moveit_msgs::Constraints& constr,
-      const kinematic_constraints::KinematicConstraintSetPtr& ks, const moveit_msgs::GoalRegion& gr,
+      const moveit_msgs::GoalRegion& gr, constraint_samplers::ConstraintSamplerManagerPtr csm,
       const constraint_samplers::ConstraintSamplerPtr& cs = constraint_samplers::ConstraintSamplerPtr());
 
 private:
@@ -108,6 +109,8 @@ private:
   ompl::base::StateSamplerPtr se3_sampler_;
   planning_scene::PlanningSceneConstPtr planning_scene_;
   moveit_msgs::Constraints constr_;
+  constraint_samplers::ConstraintSamplerManagerPtr constraint_sampler_manager_;
+  const std::string& group_name_;
 };
 }
 
