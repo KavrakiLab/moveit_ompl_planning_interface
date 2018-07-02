@@ -82,8 +82,9 @@ class ConstrainedGoalRegionSampler : public ompl::base::GoalLazySamples
 {
 public:
   ConstrainedGoalRegionSampler(
-      const OMPLPlanningContext* pc, const kinematic_constraints::KinematicConstraintSetPtr& ks,
-      const moveit_msgs::GoalRegion& gr,
+      const OMPLPlanningContext* pc, const robot_model::RobotModelConstPtr& rm,
+      const planning_scene::PlanningSceneConstPtr& ps, moveit_msgs::Constraints& constr,
+      const kinematic_constraints::KinematicConstraintSetPtr& ks, const moveit_msgs::GoalRegion& gr,
       const constraint_samplers::ConstraintSamplerPtr& cs = constraint_samplers::ConstraintSamplerPtr());
 
 private:
@@ -103,8 +104,10 @@ private:
   unsigned int verbose_display_;
   moveit_msgs::GoalRegion goal_region_;
 
-  /** \brief State sampler */
+  ompl::base::StateSpacePtr space_;
   ompl::base::StateSamplerPtr se3_sampler_;
+  planning_scene::PlanningSceneConstPtr planning_scene_;
+  moveit_msgs::Constraints constr_;
 };
 }
 

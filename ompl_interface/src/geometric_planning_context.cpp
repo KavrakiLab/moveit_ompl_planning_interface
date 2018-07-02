@@ -289,6 +289,7 @@ void GeometricPlanningContext::stopGoalSampling()
 
 bool GeometricPlanningContext::solve(planning_interface::MotionPlanResponse& res)
 {
+  std::cout << "solve with MotionPlanResponse" << std::endl;
   if (!initialized_)
   {
     ROS_ERROR("%s: Cannot solve motion plan query.  Planning context is not "
@@ -651,6 +652,7 @@ bool GeometricPlanningContext::setGoalConstraints(const std::vector<moveit_msgs:
 
   // Merge path constraints (if any) with goal constraints
   goal_constraints_.clear();
+  std::vector<moveit_msgs::Constraints> merged_constraints;
   for (const auto& goal_constraint : goal_constraints)
   {
     std::cout << "setting goal_constraint" << std::endl;
@@ -670,6 +672,9 @@ bool GeometricPlanningContext::setGoalConstraints(const std::vector<moveit_msgs:
         error->val = moveit_msgs::MoveItErrorCodes::INVALID_GOAL_CONSTRAINTS;
       return false;
     }
+
+    if (goal_regions_.size() > 0)
+      merged_constraints.push_back(constr);
 
     kinematic_constraints::KinematicConstraintSetPtr kset(
         new kinematic_constraints::KinematicConstraintSet(getRobotModel()));
@@ -699,8 +704,9 @@ bool GeometricPlanningContext::setGoalConstraints(const std::vector<moveit_msgs:
     if (goal_regions_.size() > 0)
     {
       std::cout << "Using goal regions!!!!!!" << std::endl;
-      ompl::base::GoalPtr g =
-          ompl::base::GoalPtr(new ConstrainedGoalRegionSampler(this, goal_constraints_[i], goal_regions_[i], cs));
+      ompl::base::GoalPtr g = ompl::base::GoalPtr(
+          new ConstrainedGoalRegionSampler(this, getRobotModel(), getPlanningScene(), merged_constraints[i],
+                                           goal_constraints_[i], goal_regions_[i], cs));
       goals.push_back(g);
     }
     else if (cs)
