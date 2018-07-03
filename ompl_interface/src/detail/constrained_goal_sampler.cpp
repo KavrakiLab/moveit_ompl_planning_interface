@@ -38,6 +38,7 @@
 #include "moveit/ompl_interface/detail/state_validity_checker.h"
 #include "moveit/ompl_interface/ompl_planning_context.h"
 #include <moveit/profiler/profiler.h>
+#include <tf/tf.h>
 
 ompl_interface::ConstrainedGoalSampler::ConstrainedGoalSampler(
     const OMPLPlanningContext* pc, const kinematic_constraints::KinematicConstraintSetPtr& ks,
@@ -202,13 +203,6 @@ ompl_interface::ConstrainedGoalRegionSampler::ConstrainedGoalRegionSampler(
   bounds.setHigh(1, goal_region_.y.max);
   bounds.setHigh(2, goal_region_.z.max);
 
-  std::cout << "goal_region_.x.min: " << goal_region_.x.min << std::endl;
-  std::cout << "goal_region_.y.min: " << goal_region_.y.min << std::endl;
-  std::cout << "goal_region_.z.min: " << goal_region_.z.min << std::endl;
-  std::cout << "goal_region_.x.max: " << goal_region_.x.max << std::endl;
-  std::cout << "goal_region_.y.max: " << goal_region_.y.max << std::endl;
-  std::cout << "goal_region_.z.max: " << goal_region_.z.max << std::endl;
-
   space_->as<ompl::base::SE3StateSpace>()->setBounds(bounds);
 
   if (!se3_sampler_)
@@ -249,31 +243,11 @@ bool ompl_interface::ConstrainedGoalRegionSampler::sampleUsingConstraintSampler(
   se3_sampler_->sampleUniform(state);
   space_->as<ompl::base::SE3StateSpace>()->printState(state, std::cout);
 
-  //  kinematic_constraint_set_->getPositionConstraints()[0].constraint_region.primitive_poses[0].position.x =
-  //      state->as<ompl::base::SE3StateSpace::StateType>()->getX();
-
   std::cout << "X: " << state->as<ompl::base::SE3StateSpace::StateType>()->getX() << std::endl;
   std::cout << "Y: " << state->as<ompl::base::SE3StateSpace::StateType>()->getY() << std::endl;
   std::cout << "Z: " << state->as<ompl::base::SE3StateSpace::StateType>()->getZ() << std::endl;
 
-  //  constr_.position_constraints[0].constraint_region.primitive_poses[0].position.x =
-  //      state->as<ompl::base::SE3StateSpace::StateType>()->getX();
-  //  constr_.position_constraints[0].constraint_region.primitive_poses[0].position.y =
-  //      state->as<ompl::base::SE3StateSpace::StateType>()->getY();
-  //  constr_.position_constraints[0].constraint_region.primitive_poses[0].position.z =
-  //      state->as<ompl::base::SE3StateSpace::StateType>()->getZ();
-  //  constr_.position_constraints[0].constraint_region.primitive_poses[0].orientation.x;
-  //  state->as<ompl::base::SE3StateSpace::StateType>()->rotation().x;
-  //  constr_.position_constraints[0].constraint_region.primitive_poses[0].orientation.y;
-  //  state->as<ompl::base::SE3StateSpace::StateType>()->rotation().y;
-  //  constr_.position_constraints[0].constraint_region.primitive_poses[0].orientation.z;
-  //  state->as<ompl::base::SE3StateSpace::StateType>()->rotation().z;
-  //  constr_.position_constraints[0].constraint_region.primitive_poses[0].orientation.w;
-  //  state->as<ompl::base::SE3StateSpace::StateType>()->rotation().w;
-
   kinematic_constraint_set_->clear();
-  // constr_.position_constraints[0].constraint_region.primitive_poses[0].position.z = 0.35;
-  // kinematic_constraint_set_->add(constr_, planning_scene_->getTransforms());
 
   constr_.position_constraints[0].constraint_region.primitive_poses[0].position.x =
       state->as<ompl::base::SE3StateSpace::StateType>()->getX();
@@ -281,6 +255,42 @@ bool ompl_interface::ConstrainedGoalRegionSampler::sampleUsingConstraintSampler(
       state->as<ompl::base::SE3StateSpace::StateType>()->getY();
   constr_.position_constraints[0].constraint_region.primitive_poses[0].position.z =
       state->as<ompl::base::SE3StateSpace::StateType>()->getZ();
+
+  if (goal_region_.roll.free_value || goal_region_.pitch.free_value || goal_region_.yaw.free_value)
+  {
+    std::cout << "free value: " << std::endl;
+    tf::Quaternion q_sampled = tf::Quaternion(state->as<ompl::base::SE3StateSpace::StateType>()->rotation().x,
+                                              state->as<ompl::base::SE3StateSpace::StateType>()->rotation().y,
+                                              state->as<ompl::base::SE3StateSpace::StateType>()->rotation().z,
+                                              state->as<ompl::base::SE3StateSpace::StateType>()->rotation().w);
+    tf::Matrix3x3 m_sampled(q_sampled);
+    double roll_sampled, pitch_sampled, yaw_sampled;
+    m_sampled.getRPY(roll_sampled, pitch_sampled, yaw_sampled);
+
+    tf::Quaternion q = tf::Quaternion(
+        constr_.orientation_constraints[0].orientation.x, constr_.orientation_constraints[0].orientation.y,
+        constr_.orientation_constraints[0].orientation.z, constr_.orientation_constraints[0].orientation.w);
+    tf::Matrix3x3 m(q);
+    double roll, pitch, yaw;
+    m.getRPY(roll, pitch, yaw);
+
+    std::cout << "roll_sampled: " << roll_sampled << std::endl;
+    std::cout << "roll: " << roll << std::endl;
+    std::cout << "pitch_sampled: " << pitch_sampled << std::endl;
+    std::cout << "pitch: " << pitch << std::endl;
+    std::cout << "yaw_sampled: " << yaw_sampled << std::endl;
+    std::cout << "yaw: " << yaw << std::endl;
+
+    tf::Quaternion q_new = tf::createQuaternionFromRPY(goal_region_.roll.free_value ? roll_sampled : roll,
+                                                       goal_region_.pitch.free_value ? pitch_sampled : pitch,
+                                                       goal_region_.yaw.free_value ? yaw_sampled : yaw);
+
+    constr_.orientation_constraints[0].orientation.x = q_new[0];
+    constr_.orientation_constraints[0].orientation.y = q_new[1];
+    constr_.orientation_constraints[0].orientation.z = q_new[2];
+    constr_.orientation_constraints[0].orientation.w = q_new[3];
+  }
+
   kinematic_constraint_set_->add(constr_, planning_scene_->getTransforms());
   constraint_sampler_ = constraint_sampler_manager_->selectSampler(planning_scene_, group_name_,
                                                                    kinematic_constraint_set_->getAllConstraints());
@@ -302,6 +312,8 @@ bool ompl_interface::ConstrainedGoalRegionSampler::sampleUsingConstraintSampler(
             << std::endl;
   std::cout << "kinematic constraint qw: " << kinematic_constraint_set_->getOrientationConstraints()[0].orientation.w
             << std::endl;
+
+  space_->freeState(state);
 
   //  moveit::Profiler::ScopedBlock
   //  sblock("ConstrainedGoalRegionSampler::sampleUsingConstraintSampler");
