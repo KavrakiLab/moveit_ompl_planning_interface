@@ -33,9 +33,10 @@
 *********************************************************************/
 
 /* Author: Ioan Sucan */
+/* Modified by: Juan David Hernandez Vega */
 
-#ifndef MOVEIT_OMPL_INTERFACE_DETAIL_CONSTRAINED_GOAL_SAMPLER_
-#define MOVEIT_OMPL_INTERFACE_DETAIL_CONSTRAINED_GOAL_SAMPLER_
+#ifndef MOVEIT_OMPL_INTERFACE_DETAIL_CONSTRAINED_GOAL_REGION_SAMPLER_
+#define MOVEIT_OMPL_INTERFACE_DETAIL_CONSTRAINED_GOAL_REGION_SAMPLER_
 
 #include <moveit/constraint_samplers/constraint_sampler.h>
 #include <moveit/kinematic_constraints/kinematic_constraint.h>
@@ -52,17 +53,19 @@ namespace ompl_interface
 {
 class OMPLPlanningContext;
 
-/** @class ConstrainedGoalSampler
- *  An interface to the OMPL goal lazy sampler*/
-class ConstrainedGoalSampler : public ompl::base::GoalLazySamples
+/** @class ConstrainedGoalRegionSampler
+ *  An interface to the weighted goal region sampler*/
+class ConstrainedGoalRegionSampler : public ompl::base::WeightedGoalRegionSamples
 {
 public:
-  ConstrainedGoalSampler(
-      const OMPLPlanningContext* pc, const kinematic_constraints::KinematicConstraintSetPtr& ks,
-      const constraint_samplers::ConstraintSamplerPtr& cs = constraint_samplers::ConstraintSamplerPtr());
+  ConstrainedGoalRegionSampler(const OMPLPlanningContext* pc, const std::string& group_name,
+                               const robot_model::RobotModelConstPtr& rm,
+                               const planning_scene::PlanningSceneConstPtr& ps, moveit_msgs::Constraints& constr,
+                               const moveit_msgs::GoalRegion& gr, constraint_samplers::ConstraintSamplerManagerPtr csm,
+                               const unsigned int max_sampled_goals = 10);
 
 private:
-  bool sampleUsingConstraintSampler(const ompl::base::GoalLazySamples* gls, ompl::base::State* new_goal);
+  bool sampleUsingConstraintSampler(const ompl::base::WeightedGoalRegionSamples* gls, ompl::base::State* new_goal);
   bool stateValidityCallback(ompl::base::State* new_goal, robot_state::RobotState const* state,
                              const robot_model::JointModelGroup*, const double*, bool verbose = false) const;
   bool checkStateValidity(ompl::base::State* new_goal, const robot_state::RobotState& state,
@@ -76,6 +79,15 @@ private:
   unsigned int invalid_sampled_constraints_;
   bool warned_invalid_samples_;
   unsigned int verbose_display_;
+
+  moveit_msgs::GoalRegion goal_region_;
+
+  ompl::base::StateSpacePtr space_;
+  ompl::base::StateSamplerPtr se3_sampler_;
+  planning_scene::PlanningSceneConstPtr planning_scene_;
+  moveit_msgs::Constraints constr_;
+  constraint_samplers::ConstraintSamplerManagerPtr constraint_sampler_manager_;
+  const std::string& group_name_;
 };
 }
 

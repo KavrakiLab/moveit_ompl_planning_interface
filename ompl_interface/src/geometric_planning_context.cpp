@@ -33,9 +33,11 @@
 *********************************************************************/
 
 /* Author: Ryan Luna */
+/* Modified by: Juan David Hernandez Vega */
 
 #include "moveit/ompl_interface/geometric_planning_context.h"
 #include "moveit/ompl_interface/detail/constrained_goal_sampler.h"
+#include "moveit/ompl_interface/detail/constrained_goal_region_sampler.h"
 #include "moveit/ompl_interface/detail/constrained_sampler.h"
 #include "moveit/ompl_interface/detail/goal_union.h"
 #include "moveit/ompl_interface/detail/projection_evaluators.h"
@@ -270,7 +272,9 @@ void GeometricPlanningContext::postSolve()
 void GeometricPlanningContext::startGoalSampling()
 {
   bool gls = simple_setup_->getGoal()->hasType(ompl::base::GOAL_LAZY_SAMPLES);
-  if (gls)
+  if (goal_regions_.size() > 0 && gls)
+    dynamic_cast<ompl::base::WeightedGoalRegionSamples*>(simple_setup_->getGoal().get())->startSampling();
+  else if (gls)
     dynamic_cast<ompl::base::GoalLazySamples*>(simple_setup_->getGoal().get())->startSampling();
   else
     // we know this is a GoalSampleableMux by elimination
@@ -280,7 +284,9 @@ void GeometricPlanningContext::startGoalSampling()
 void GeometricPlanningContext::stopGoalSampling()
 {
   bool gls = simple_setup_->getGoal()->hasType(ompl::base::GOAL_LAZY_SAMPLES);
-  if (gls)
+  if (goal_regions_.size() > 0 && gls)
+    dynamic_cast<ompl::base::WeightedGoalRegionSamples*>(simple_setup_->getGoal().get())->stopSampling();
+  else if (gls)
     dynamic_cast<ompl::base::GoalLazySamples*>(simple_setup_->getGoal().get())->stopSampling();
   else
     // we know this is a GoalSampleableMux by elimination
@@ -664,21 +670,6 @@ bool GeometricPlanningContext::setGoalConstraints(const std::vector<moveit_msgs:
 
     // This will merge the path constraints with goal_constraints[i]
 
-    std::cout << "setting kinematic constraint x: "
-              << goal_constraint.position_constraints[0].constraint_region.primitive_poses[0].position.x << std::endl;
-    std::cout << "setting kinematic constraint y: "
-              << goal_constraint.position_constraints[0].constraint_region.primitive_poses[0].position.y << std::endl;
-    std::cout << "setting kinematic constraint z: "
-              << goal_constraint.position_constraints[0].constraint_region.primitive_poses[0].position.z << std::endl;
-    std::cout << "setting kinematic constraint qx: " << goal_constraint.orientation_constraints[0].orientation.x
-              << std::endl;
-    std::cout << "setting kinematic constraint qy: " << goal_constraint.orientation_constraints[0].orientation.y
-              << std::endl;
-    std::cout << "setting kinematic constraint qz: " << goal_constraint.orientation_constraints[0].orientation.z
-              << std::endl;
-    std::cout << "setting kinematic constraint qw: " << goal_constraint.orientation_constraints[0].orientation.w
-              << std::endl;
-
     moveit_msgs::Constraints constr;
     if (!mergeConstraints(goal_constraint, request_.path_constraints, constr))
     {
@@ -688,17 +679,6 @@ bool GeometricPlanningContext::setGoalConstraints(const std::vector<moveit_msgs:
         error->val = moveit_msgs::MoveItErrorCodes::INVALID_GOAL_CONSTRAINTS;
       return false;
     }
-
-    std::cout << "constr x: " << constr.position_constraints[0].constraint_region.primitive_poses[0].position.x
-              << std::endl;
-    std::cout << "constr y: " << constr.position_constraints[0].constraint_region.primitive_poses[0].position.y
-              << std::endl;
-    std::cout << "constr z: " << constr.position_constraints[0].constraint_region.primitive_poses[0].position.z
-              << std::endl;
-    std::cout << "constr qx: " << constr.orientation_constraints[0].orientation.x << std::endl;
-    std::cout << "constr qy: " << constr.orientation_constraints[0].orientation.y << std::endl;
-    std::cout << "constr qz: " << constr.orientation_constraints[0].orientation.z << std::endl;
-    std::cout << "constr qw: " << constr.orientation_constraints[0].orientation.w << std::endl;
 
     if (goal_regions_.size() > 0)
       merged_constraints.push_back(constr);
@@ -733,7 +713,7 @@ bool GeometricPlanningContext::setGoalConstraints(const std::vector<moveit_msgs:
       std::cout << "Using goal regions!!!!!!" << std::endl;
       ompl::base::GoalPtr g = ompl::base::GoalPtr(
           new ConstrainedGoalRegionSampler(this, getGroupName(), getRobotModel(), getPlanningScene(),
-                                           merged_constraints[i], goal_regions_[i], constraint_sampler_manager_, cs));
+                                           merged_constraints[i], goal_regions_[i], constraint_sampler_manager_));
       goals.push_back(g);
     }
     else if (cs)
