@@ -42,6 +42,8 @@
 #include "moveit/ompl_interface/detail/goal_union.h"
 #include "moveit/ompl_interface/detail/projection_evaluators.h"
 #include "moveit/ompl_interface/detail/state_validity_checker.h"
+#include "moveit/ompl_interface/modified_planners/RRTMod.h"
+#include "moveit/ompl_interface/modified_planners/RRTGoalRegion.h"
 
 #include <boost/math/constants/constants.hpp>
 #include <eigen_conversions/eigen_msg.h>
@@ -67,8 +69,6 @@
 #include <ompl/geometric/planners/sbl/pSBL.h>
 #include <ompl/geometric/planners/bitstar/BITstar.h>
 #include <ompl/geometric/planners/fmt/FMT.h>
-
-#include <modified_planners/RRTMod.h>
 
 namespace og = ompl::geometric;
 
@@ -120,6 +120,7 @@ void GeometricPlanningContext::initializePlannerAllocators()
   registerPlannerAllocator("geometric::FMT", boost::bind(&allocatePlanner<og::FMT>, _1, _2, _3));
 
   registerPlannerAllocator("geometric::RRTMod", boost::bind(&allocatePlanner<og::RRTMod>, _1, _2, _3));
+  registerPlannerAllocator("geometric::RRTGoalRegion", boost::bind(&allocatePlanner<og::RRTGoalRegion>, _1, _2, _3));
 }
 
 void GeometricPlanningContext::registerPlannerAllocator(const std::string& planner_id, const PlannerAllocator& pa)

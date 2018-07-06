@@ -243,8 +243,8 @@ void ompl::base::WeightedGoalRegionSamples::penalizeWeightedGoal(WeightedGoal& w
   w = weighted_goal.heap_element_->data->weight_;
   std::cout << "after w: " << w << std::endl;
 
-  //  if (w < 0.2)
-  //    addSampledGoalStates();
+  if (w < 0.2)
+    max_sampled_goals_ += 10;  // addSampledGoalStates();
 }
 
 void ompl::base::WeightedGoalRegionSamples::rewardWeightedGoal(WeightedGoal& weighted_goal)
@@ -259,4 +259,16 @@ void ompl::base::WeightedGoalRegionSamples::rewardWeightedGoal(WeightedGoal& wei
     w = weighted_goal.heap_element_->data->weight_;
     std::cout << "after w: " << w << std::endl;
   }
+}
+
+void ompl::base::WeightedGoalRegionSamples::sampleWeightedGoal(WeightedGoal& weighted_goal)
+{
+  if (states_.empty())
+    throw Exception("There are no goals to sample");
+
+  ompl::BinaryHeap<WeightedGoal*, WeightedGoalCompare>::Element* heap_element = goals_priority_queue_.top();
+
+  si_->copyState(weighted_goal.state_, heap_element->data->state_);
+  weighted_goal.weight_ = heap_element->data->weight_;
+  weighted_goal.heap_element_ = heap_element->data->heap_element_;
 }

@@ -14,6 +14,8 @@ add_library(${MOVEIT_LIB_NAME}
   src/detail/ompl_console.cpp
   src/detail/constrained_valid_state_sampler.cpp
   src/detail/threadsafe_state_storage.cpp
+  src/modified_planners/RRTMod.cpp
+  src/modified_planners/RRTGoalRegion.cpp
 )
 
 target_include_directories(${MOVEIT_LIB_NAME} SYSTEM

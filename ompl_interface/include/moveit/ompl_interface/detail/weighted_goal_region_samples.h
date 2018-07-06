@@ -167,6 +167,8 @@ public:
 
   void rewardWeightedGoal(WeightedGoal& weighted_goal);
 
+  void sampleWeightedGoal(WeightedGoal& weighted_goal);
+
   void clear() override;
 
   unsigned int maxSampleCount() const override;
