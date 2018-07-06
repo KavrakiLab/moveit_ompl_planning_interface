@@ -32,8 +32,8 @@
 *  POSSIBILITY OF SUCH DAMAGE.
 *********************************************************************/
 
-/* Author: Ioan Sucan */
-/* Modified by: Juan David Hernandez Vega */
+/* Author: Juan David Hernandez Vega */
+/* Extension of constrained_goal_sampler by: (Ioan Sucan) */
 
 #ifndef MOVEIT_OMPL_INTERFACE_DETAIL_CONSTRAINED_GOAL_REGION_SAMPLER_
 #define MOVEIT_OMPL_INTERFACE_DETAIL_CONSTRAINED_GOAL_REGION_SAMPLER_
@@ -60,12 +60,17 @@ class ConstrainedGoalRegionSampler : public ompl::base::WeightedGoalRegionSample
 public:
   ConstrainedGoalRegionSampler(const OMPLPlanningContext* pc, const std::string& group_name,
                                const robot_model::RobotModelConstPtr& rm,
-                               const planning_scene::PlanningSceneConstPtr& ps, moveit_msgs::Constraints& constr,
-                               const moveit_msgs::GoalRegion& gr, constraint_samplers::ConstraintSamplerManagerPtr csm,
+                               const planning_scene::PlanningSceneConstPtr& ps,
+                               const std::vector<moveit_msgs::Constraints>& constrs,
+                               const std::vector<moveit_msgs::GoalRegion>& grs,
+                               constraint_samplers::ConstraintSamplerManagerPtr csm,
                                const unsigned int max_sampled_goals = 10);
 
+  void clear() override;
+
 private:
-  bool sampleUsingConstraintSampler(const ompl::base::WeightedGoalRegionSamples* gls, ompl::base::State* new_goal);
+  bool sampleUsingConstraintSampler(const ompl::base::WeightedGoalRegionSamples* gls,
+                                    std::vector<ompl::base::State*>& sampled_states);
   bool stateValidityCallback(ompl::base::State* new_goal, robot_state::RobotState const* state,
                              const robot_model::JointModelGroup*, const double*, bool verbose = false) const;
   bool checkStateValidity(ompl::base::State* new_goal, const robot_state::RobotState& state,
@@ -80,12 +85,11 @@ private:
   bool warned_invalid_samples_;
   unsigned int verbose_display_;
 
-  moveit_msgs::GoalRegion goal_region_;
-
-  ompl::base::StateSpacePtr space_;
-  ompl::base::StateSamplerPtr se3_sampler_;
   planning_scene::PlanningSceneConstPtr planning_scene_;
-  moveit_msgs::Constraints constr_;
+  std::vector<ompl::base::StateSamplerPtr> se3_samplers_;
+  std::vector<ompl::base::StateSpacePtr> se3_spaces_;
+  std::vector<moveit_msgs::Constraints> constrs_;
+  std::vector<moveit_msgs::GoalRegion> goal_regions_;
   constraint_samplers::ConstraintSamplerManagerPtr constraint_sampler_manager_;
   const std::string& group_name_;
 };

@@ -115,24 +115,32 @@ void ompl::base::WeightedGoalRegionSamples::goalSamplingThread()
   if (isSampling() && samplerFunc_)
   {
     OMPL_DEBUG("Beginning sampling thread computation");
-    ScopedState<> s(si_);
     while (isSampling())
     {
-      if (num_sampled_goals_ < max_sampled_goals_ && samplerFunc_(this, s.get()))
+      std::vector<State*> sampled_states;
+      if (num_sampled_goals_ < max_sampled_goals_ && samplerFunc_(this, sampled_states))
       {
+        std::cout << "sampled_states.size(): " << sampled_states.size() << std::endl;
         std::cout << "Sampled state (" << num_sampled_goals_ << "): " << std::endl;
-        si_->printState(s->as<State>());
-        ++samplingAttempts_;
-        if (si_->satisfiesBounds(s.get()) && si_->isValid(s.get()))
+
+        bool increase_num_sampled_goals = false;
+        for (auto& sampled_state : sampled_states)
         {
-          ++num_sampled_goals_;
-          OMPL_DEBUG("Adding goal state");
-          addStateIfDifferent(s.get(), minDist_);
+          si_->printState(sampled_state->as<State>());
+          if (si_->satisfiesBounds(sampled_state) && si_->isValid(sampled_state))
+          {
+            increase_num_sampled_goals = true;
+            ++num_sampled_goals_;
+            OMPL_DEBUG("Adding goal state");
+            addStateIfDifferent(sampled_state, minDist_);
+          }
+          else
+          {
+            OMPL_DEBUG("Invalid goal candidate");
+          }
         }
-        else
-        {
-          OMPL_DEBUG("Invalid goal candidate");
-        }
+        if (increase_num_sampled_goals)
+          ++samplingAttempts_;
       }
     }
   }

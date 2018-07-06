@@ -56,7 +56,7 @@ class WeightedGoalRegionSamples;
 /** \brief Goal sampling function. Returns false when no further calls should be made to it.
     Fills its second argument (the state) with the sampled goal state. This function need not
     be thread safe. */
-typedef std::function<bool(const WeightedGoalRegionSamples*, base::State*)> GoalRegionSamplingFn;
+typedef std::function<bool(const WeightedGoalRegionSamples*, std::vector<base::State*>&)> GoalRegionSamplingFn;
 
 /** \brief Definition of a goal region that can be sampled,
  but the sampling process can be slow.  This class allows

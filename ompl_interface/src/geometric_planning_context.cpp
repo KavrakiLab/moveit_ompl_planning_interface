@@ -698,33 +698,36 @@ bool GeometricPlanningContext::setGoalConstraints(const std::vector<moveit_msgs:
       error->val = moveit_msgs::MoveItErrorCodes::INVALID_GOAL_CONSTRAINTS;
     return false;
   }
-
-  // Creating constraint sampler for each constraint
   std::vector<ompl::base::GoalPtr> goals;
-  for (std::size_t i = 0; i < goal_constraints_.size(); ++i)
-  //  for (auto& goal_constraint : goal_constraints_)
+
+  if (goal_regions_.size() > 0)
   {
-    std::cout << "setting goal_constraint2" << std::endl;
-    constraint_samplers::ConstraintSamplerPtr cs;
-    if (constraint_sampler_manager_)
-      cs = constraint_sampler_manager_->selectSampler(getPlanningScene(), getGroupName(),
-                                                      goal_constraints_[i]->getAllConstraints());
-    if (goal_regions_.size() > 0)
+    std::cout << "Using goal regions!!!!!!" << std::endl;
+    ompl::base::GoalPtr g = ompl::base::GoalPtr(
+        new ConstrainedGoalRegionSampler(this, getGroupName(), getRobotModel(), getPlanningScene(), merged_constraints,
+                                         goal_regions_, constraint_sampler_manager_));
+    goals.push_back(g);
+  }
+  else
+  {
+    // Creating constraint sampler for each constraint
+    for (std::size_t i = 0; i < goal_constraints_.size(); ++i)
+    //  for (auto& goal_constraint : goal_constraints_)
     {
-      std::cout << "Using goal regions!!!!!!" << std::endl;
-      ompl::base::GoalPtr g = ompl::base::GoalPtr(
-          new ConstrainedGoalRegionSampler(this, getGroupName(), getRobotModel(), getPlanningScene(),
-                                           merged_constraints[i], goal_regions_[i], constraint_sampler_manager_));
-      goals.push_back(g);
-    }
-    else if (cs)
-    {
-      ompl::base::GoalPtr g = ompl::base::GoalPtr(new ConstrainedGoalSampler(this, goal_constraints_[i], cs));
-      goals.push_back(g);
-    }
-    else
-    {
-      ROS_WARN("No constraint sampler available to sample goal constraints");
+      std::cout << "setting goal_constraint2" << std::endl;
+      constraint_samplers::ConstraintSamplerPtr cs;
+      if (constraint_sampler_manager_)
+        cs = constraint_sampler_manager_->selectSampler(getPlanningScene(), getGroupName(),
+                                                        goal_constraints_[i]->getAllConstraints());
+      if (cs)
+      {
+        ompl::base::GoalPtr g = ompl::base::GoalPtr(new ConstrainedGoalSampler(this, goal_constraints_[i], cs));
+        goals.push_back(g);
+      }
+      else
+      {
+        ROS_WARN("No constraint sampler available to sample goal constraints");
+      }
     }
   }
 
