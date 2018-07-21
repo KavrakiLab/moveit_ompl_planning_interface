@@ -25,7 +25,7 @@ target_include_directories(${MOVEIT_LIB_NAME} SYSTEM
 
 #find_package(OpenMP)
 
-target_link_libraries(${MOVEIT_LIB_NAME} ${OMPL_LIBRARIES} lib_rrt_goal_region ${catkin_LIBRARIES} ${Boost_LIBRARIES})
+target_link_libraries(${MOVEIT_LIB_NAME} ${OMPL_LIBRARIES} ${catkin_LIBRARIES} ${Boost_LIBRARIES})
 set_target_properties(${MOVEIT_LIB_NAME} PROPERTIES COMPILE_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
 set_target_properties(${MOVEIT_LIB_NAME} PROPERTIES LINK_FLAGS "${OpenMP_CXX_FLAGS}")
 
