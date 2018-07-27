@@ -115,8 +115,8 @@ bool ompl_interface::StateValidityChecker::isValidWithoutCache(const ompl::base:
   // check bounds
   if (!si_->satisfiesBounds(state))
   {
-//    if (verbose)
-//      logInform("State outside bounds");
+    if (verbose)
+      ROS_INFO_NAMED("state_validity_checker", "State outside bounds");
     return false;
   }
 
@@ -145,8 +145,8 @@ bool ompl_interface::StateValidityChecker::isValidWithoutCache(const ompl::base:
 {
   if (!si_->satisfiesBounds(state))
   {
-//    if (verbose)
-//      logInform("State outside bounds");
+    if (verbose)
+      ROS_INFO_NAMED("state_validity_checker", "State outside bounds");
     return false;
   }
 
@@ -187,8 +187,8 @@ bool ompl_interface::StateValidityChecker::isValidWithCache(const ompl::base::St
 
   if (!si_->satisfiesBounds(state))
   {
-//    if (verbose)
-//      logInform("State outside bounds");
+    if (verbose)
+      ROS_INFO_NAMED("state_validity_checker", "State outside bounds");
     const_cast<ompl::base::State*>(state)->as<ModelBasedStateSpace::StateType>()->markInvalid();
     return false;
   }
@@ -239,8 +239,8 @@ bool ompl_interface::StateValidityChecker::isValidWithCache(const ompl::base::St
 
   if (!si_->satisfiesBounds(state))
   {
-//    if (verbose)
-//      logInform("State outside bounds");
+    if (verbose)
+      ROS_INFO_NAMED("state_validity_checker", "State outside bounds");
     const_cast<ompl::base::State*>(state)->as<ModelBasedStateSpace::StateType>()->markInvalid(0.0);
     return false;
   }
