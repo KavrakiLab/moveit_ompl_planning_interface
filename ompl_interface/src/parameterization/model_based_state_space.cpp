@@ -41,7 +41,7 @@ ompl_interface::ModelBasedStateSpace::ModelBasedStateSpace(const ModelBasedState
   : ompl::base::RealVectorStateSpace(spec.joint_model_group_->getVariableCount()), spec_(spec)
 {
   // TODO: The right answer would be a compound space alternating real vectors with SO2, but that'd be a lot of work.
-  //type_ = ompl::base::StateSpaceType::STATE_SPACE_REAL_VECTOR;
+  // type_ = ompl::base::StateSpaceType::STATE_SPACE_REAL_VECTOR;
   // set the state space name
   setName(spec_.joint_model_group_->getName());
   variable_count_ = spec_.joint_model_group_->getVariableCount();
@@ -52,14 +52,15 @@ ompl_interface::ModelBasedStateSpace::ModelBasedStateSpace(const ModelBasedState
   // default bounds if not specified)
   if (!spec_.joint_bounds_.empty() && spec_.joint_bounds_.size() != joint_model_vector_.size())
   {
-    logError("Joint group '%s' has incorrect bounds specified. Using the "
-             "default bounds instead.",
-             spec_.joint_model_group_->getName().c_str());
+    ROS_ERROR_NAMED("model_based_state_space",
+                    "Joint group '%s' has incorrect bounds specified. Using the default bounds instead.",
+                    spec_.joint_model_group_->getName().c_str());
     spec_.joint_bounds_.clear();
   }
 
   // copy the default joint bounds if needed
-  if (spec_.joint_bounds_.empty()) {
+  if (spec_.joint_bounds_.empty())
+  {
     spec_.joint_bounds_ = spec_.joint_model_group_->getActiveJointModelsBounds();
   }
 
@@ -73,8 +74,10 @@ ompl_interface::ModelBasedStateSpace::ModelBasedStateSpace(const ModelBasedState
   // Set up the Real Vector bounds.
   ompl::base::RealVectorBounds bounds(variable_count_);
   int i = 0;
-  for (auto rob_bounds : spec_.joint_bounds_) {
-    for(auto var_bounds : *rob_bounds) {
+  for (auto rob_bounds : spec_.joint_bounds_)
+  {
+    for (auto var_bounds : *rob_bounds)
+    {
       bounds.setLow(i, var_bounds.min_position_);
       bounds.setHigh(i, var_bounds.max_position_);
       i++;
@@ -86,7 +89,8 @@ ompl_interface::ModelBasedStateSpace::ModelBasedStateSpace(const ModelBasedState
   setTagSnapToSegment(0.95);
 
   /// expose parameters
-  params_.declareParam<double>("tag_snap_to_segment", std::bind(&ModelBasedStateSpace::setTagSnapToSegment, this, std::placeholders::_1),
+  params_.declareParam<double>("tag_snap_to_segment",
+                               std::bind(&ModelBasedStateSpace::setTagSnapToSegment, this, std::placeholders::_1),
                                std::bind(&ModelBasedStateSpace::getTagSnapToSegment, this));
 }
 
@@ -100,10 +104,10 @@ double ompl_interface::ModelBasedStateSpace::getTagSnapToSegment() const
 void ompl_interface::ModelBasedStateSpace::setTagSnapToSegment(double snap)
 {
   if (snap < 0.0 || snap > 1.0)
-    logWarn("Snap to segment for tags is a ratio. It's value must be between "
-            "0.0 and 1.0. Value remains as previously "
-            "set (%lf)",
-            tag_snap_to_segment_);
+    ROS_WARN_NAMED("model_based_state_space",
+                   "Snap to segment for tags is a ratio. It's value must be between 0.0 and 1.0. "
+                   "Value remains as previously set (%lf)",
+                   tag_snap_to_segment_);
   else
   {
     tag_snap_to_segment_ = snap;
