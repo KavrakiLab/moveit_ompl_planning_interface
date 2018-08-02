@@ -316,15 +316,6 @@ bool GeometricPlanningContext::solve(planning_interface::MotionPlanResponse& res
     if (simplify_)
     {
       plan_time += simplifySolution(timeout);
-      if ((timeout - plan_time) > 0)
-      {
-        double lasttime;
-        do
-        {
-          lasttime = plan_time;
-          plan_time += simplifySolution(timeout - plan_time);
-        } while ((timeout - plan_time) > 0 && plan_time - lasttime > 1e-3);
-      }
     }
 
     ompl::geometric::PathGeometric& pg = simple_setup_->getSolutionPath();
