@@ -289,7 +289,6 @@ void GeometricPlanningContext::preSolve()
     planner->clear();
   startGoalSampling();
   simple_setup_->getSpaceInformation()->getMotionValidator()->resetMotionCounter();
-  AddStartStates();
 }
 
 void GeometricPlanningContext::postSolve()
@@ -297,18 +296,6 @@ void GeometricPlanningContext::postSolve()
   stopGoalSampling();
   if (simple_setup_->getProblemDefinition()->hasApproximateSolution())
     ROS_WARN("Solution is approximate");
-  ompl::base::PlannerData pd(simple_setup_->getSpaceInformation());
-  simple_setup_->getPlannerData(pd);
-  ROS_INFO("number of edges is %d", pd.numEdges());
-  std::string graph_filename;
-  ros::NodeHandle nh; //Getting a nodehandle to the global namespace
-  nh.getParam("/reactive/roadmap_file", graph_filename);
-  std::ofstream file;
-  file.open(graph_filename.c_str(), std::ios::out);
-  if (file.good()){
-    ompl::base::PlannerDataStorage pd_storage;
-    pd_storage.store(pd, file);
-  }
 }
 
 void GeometricPlanningContext::startGoalSampling()
@@ -352,15 +339,6 @@ bool GeometricPlanningContext::solve(planning_interface::MotionPlanResponse& res
     if (simplify_)
     {
       plan_time += simplifySolution(timeout);
-      if ((timeout - plan_time) > 0)
-      {
-        double lasttime;
-        do
-        {
-          lasttime = plan_time;
-          plan_time += simplifySolution(timeout - plan_time);
-        } while ((timeout - plan_time) > 0 && plan_time - lasttime > 1e-3);
-      }
     }
 
     ompl::geometric::PathGeometric& pg = simple_setup_->getSolutionPath();
@@ -428,15 +406,6 @@ bool GeometricPlanningContext::solve(planning_interface::MotionPlanDetailedRespo
         double simplify_time = plan_time;
 
         plan_time += simplifySolution(timeout);
-        if ((timeout - plan_time) > 0)
-        {
-            double lasttime;
-            do
-            {
-                lasttime = plan_time;
-                plan_time += simplifySolution(timeout - plan_time);
-            } while ((timeout - plan_time) > 0 && plan_time - lasttime > 1e-3);
-        }
 
         res.processing_time_.push_back(plan_time - simplify_time);
         res.description_.emplace_back("simplify");
@@ -496,9 +465,10 @@ bool GeometricPlanningContext::solve(double timeout, unsigned int count, double&
 {
   ompl::time::point start = ompl::time::now();
   ROS_ERROR("Keliang you are doing great! count=%d, planner is %s", count, planner_id_.c_str());
-  
+
+  preSolve();    
   if (planner_id_.compare("geometric::PRMconnectivity")==0){
-    preSolve();
+    AddStartStates();
   }
 
   bool result = false;
@@ -583,16 +553,28 @@ bool GeometricPlanningContext::solve(double timeout, unsigned int count, double&
       unregisterTerminationCondition();
     }
   }
-  if (planner_id_.compare("geometric::PRMconnectivity")==0){
-    postSolve();
-  }
 
+  if (planner_id_.compare("geometric::PRMconnectivity")==0){
+    ompl::base::PlannerData pd(simple_setup_->getSpaceInformation());
+    simple_setup_->getPlannerData(pd);
+    ROS_INFO("number of edges is %d", pd.numEdges());
+    std::string graph_filename;
+    ros::NodeHandle nh; //Getting a nodehandle to the global namespace
+    nh.getParam("/reactive/roadmap_file", graph_filename);
+    std::ofstream file;
+    file.open(graph_filename.c_str(), std::ios::out);
+    if (file.good()){
+      ompl::base::PlannerDataStorage pd_storage;
+      pd_storage.store(pd, file);
+    }
+  }
+  postSolve();
+  
   return result;
 }
 
 double GeometricPlanningContext::simplifySolution(double max_time)
 {
-  return 0.0;
   simple_setup_->simplifySolution(max_time);
   return simple_setup_->getLastSimplificationTime();
 }
@@ -600,7 +582,7 @@ double GeometricPlanningContext::simplifySolution(double max_time)
 double GeometricPlanningContext::interpolateSolution(ompl::geometric::PathGeometric& path, unsigned int waypoint_count)
 {
   ompl::time::point start = ompl::time::now();
-  path.interpolate(waypoint_count);
+  path.interpolate();
 
   return ompl::time::seconds(ompl::time::now() - start);
 }
