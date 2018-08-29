@@ -184,6 +184,9 @@ planning_interface::PlanningContextPtr OMPLPlanningContextManager::getPlanningCo
     robot_state::RobotStatePtr start_state = planning_scene->getCurrentStateUpdated(req.start_state);
     context->setCompleteInitialRobotState(start_state);
 
+    std::cout << "req.goal_constraints: " << req.goal_constraints.size() << std::endl;
+    std::cout << "req.goal_regions: " << req.goal_regions.size() << std::endl;
+
     if (!context->setGoalConstraints(req.goal_constraints, req.goal_regions, &error_code))
       return planning_interface::PlanningContextPtr();
   }

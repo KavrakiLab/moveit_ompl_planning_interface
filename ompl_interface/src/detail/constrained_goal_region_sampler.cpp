@@ -89,7 +89,7 @@ ompl_interface::ConstrainedGoalRegionSampler::ConstrainedGoalRegionSampler(
   //
   kinematic_constraint_set_.reset(new kinematic_constraints::KinematicConstraintSet(rm));
 
-  //logDebug("Constructed a ConstrainedGoalRegionSampler instance at address %p", this);
+  // logDebug("Constructed a ConstrainedGoalRegionSampler instance at address %p", this);
   startSampling();
 }
 
@@ -121,12 +121,12 @@ bool ompl_interface::ConstrainedGoalRegionSampler::sampleUsingConstraintSampler(
   for (std::size_t i = 0; i < goal_regions_.size(); ++i)
   {
     // Sampling an SE3 pose
-    std::cout << "sampling !!!!!:" << std::endl;
+    // std::cout << "sampling !!!!!:" << std::endl;
     ompl::base::State* state = se3_spaces_[i]->as<ompl::base::SE3StateSpace>()->allocState();
     se3_samplers_[i]->sampleUniform(state);
 
-    std::cout << "sampled SE3 pose:" << std::endl;
-    se3_spaces_[i]->as<ompl::base::SE3StateSpace>()->printState(state, std::cout);
+    // std::cout << "sampled SE3 pose:" << std::endl;
+    // se3_spaces_[i]->as<ompl::base::SE3StateSpace>()->printState(state, std::cout);
 
     kinematic_constraint_set_->clear();
 
@@ -248,9 +248,9 @@ bool ompl_interface::ConstrainedGoalRegionSampler::sampleUsingConstraintSampler(
             if (!warned_invalid_samples_ && invalid_sampled_constraints_ >= (attempts_so_far * 8) / 10)
             {
               warned_invalid_samples_ = true;
-//              logWarn("More than 80%% of the sampled goal states fail to satisfy "
-//                      "the constraints imposed on the goal "
-//                      "sampler. Is the constrained sampler working correctly?");
+              //              logWarn("More than 80%% of the sampled goal states fail to satisfy "
+              //                      "the constraints imposed on the goal "
+              //                      "sampler. Is the constrained sampler working correctly?");
             }
           }
         }
