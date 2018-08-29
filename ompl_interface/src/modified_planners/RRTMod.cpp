@@ -95,9 +95,7 @@ ompl::base::PlannerStatus ompl::geometric::RRTMod::solve(const base::PlannerTerm
 {
   checkValidity();
   base::Goal* goal = pdef_->getGoal().get();
-  auto* goal_s = dynamic_cast<base::GoalSampleableRegion*>(goal);
-
-  OMPL_INFORM("%s: solving++++++++++++++++++++++++++", getName().c_str());
+  auto* goal_region = dynamic_cast<base::WeightedGoalRegionSamples*>(goal);
 
   while (const base::State* st = pis_.nextStart())
   {
@@ -124,14 +122,19 @@ ompl::base::PlannerStatus ompl::geometric::RRTMod::solve(const base::PlannerTerm
   base::State* rstate = rmotion->state;
   base::State* xstate = si_->allocState();
 
+  base::WeightedGoalRegionSamples::WeightedGoal weighted_goal;
+  bool expansion_toward_goal;
+
   while (!ptc)
   {
     /* sample random state (with goal biasing) */
-    if ((goal_s != nullptr) && rng_.uniform01() < goalBias_ && goal_s->canSample())
+    if ((goal_region != nullptr) && rng_.uniform01() < goalBias_ && goal_region->canSample())
     {
-      goal_s->sampleGoal(rstate);
-      std::cout << "Planner Sampled state:" << std::endl;
-      si_->printState(rstate);
+      expansion_toward_goal = true;
+
+      weighted_goal.state_ = rstate;
+      goal_region->sampleConsecutiveGoal(weighted_goal);
+      // goal_s->sampleGoal(rstate);
     }
     else
       sampler_->sampleUniform(rstate);
@@ -148,7 +151,48 @@ ompl::base::PlannerStatus ompl::geometric::RRTMod::solve(const base::PlannerTerm
       dstate = xstate;
     }
 
-    if (si_->checkMotion(nmotion->state, dstate))
+    std::pair<base::State*, double> last_valid;
+
+    bool expansion_result = si_->checkMotion(nmotion->state, dstate, last_valid);
+
+    if (expansion_toward_goal && !expansion_result)
+    {
+      if (last_valid.second > 0.0)
+      {
+        // std::cout << "Expanding towards the goal: should NOT penalize!! " << std::endl;
+        // goal_region->rewardWeightedGoal(weighted_goal);
+
+        si_->getStateSpace()->interpolate(nmotion->state, dstate, last_valid.second, xstate);
+        dstate = xstate;
+
+        /* create a motion */
+        auto* motion = new Motion(si_);
+        si_->copyState(motion->state, dstate);
+        motion->parent = nmotion;
+
+        nn_->add(motion);
+        double dist = 0.0;
+        bool sat = goal->isSatisfied(motion->state, &dist);
+        if (sat)
+        {
+          approxdif = dist;
+          solution = motion;
+
+          break;
+        }
+        if (dist < approxdif)
+        {
+          approxdif = dist;
+          approxsol = motion;
+        }
+      }
+      // else
+      //{
+      // std::cout << "Expanding towards the goal: should penalize " << std::endl;
+      // goal_region->penalizeWeightedGoal(weighted_goal);
+      //}
+    }
+    else if (expansion_result)
     {
       /* create a motion */
       auto* motion = new Motion(si_);

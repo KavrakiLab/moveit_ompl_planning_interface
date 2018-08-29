@@ -59,7 +59,7 @@ ompl_interface::ConstrainedGoalRegionSampler::ConstrainedGoalRegionSampler(
   , constraint_sampler_manager_(csm)
   , group_name_(group_name)
 {
-  std::cout << "creating ConstrainedGoalRegionSampler! " << std::endl;
+  // std::cout << "creating ConstrainedGoalRegionSampler! " << std::endl;
 
   for (auto& constr : constrs)
     constrs_.push_back(moveit_msgs::Constraints(constr));
@@ -125,8 +125,8 @@ bool ompl_interface::ConstrainedGoalRegionSampler::sampleUsingConstraintSampler(
     ompl::base::State* state = se3_spaces_[i]->as<ompl::base::SE3StateSpace>()->allocState();
     se3_samplers_[i]->sampleUniform(state);
 
-    // std::cout << "sampled SE3 pose:" << std::endl;
-    // se3_spaces_[i]->as<ompl::base::SE3StateSpace>()->printState(state, std::cout);
+    //    std::cout << "sampled SE3 pose:" << std::endl;
+    //    se3_spaces_[i]->as<ompl::base::SE3StateSpace>()->printState(state, std::cout);
 
     kinematic_constraint_set_->clear();
 
@@ -179,12 +179,12 @@ bool ompl_interface::ConstrainedGoalRegionSampler::sampleUsingConstraintSampler(
 
     // unsigned int max_attempts =
     // planning_context_->getMaximumGoalSamplingAttempts();
-    unsigned int max_attempts = 2;
+    unsigned int max_attempts = 5;
     unsigned int attempts_so_far = gls->samplingAttemptsCount();
 
-    // terminate after too many attempts
-    if (attempts_so_far >= max_attempts)
-      continue;  // return false;
+    //    // terminate after too many attempts
+    //    if (attempts_so_far >= max_attempts)
+    //      continue;  // return false;
 
     // terminate after a maximum number of samples
     // if (gls->getStateCount() >= planning_context_->getMaximumGoalSamples())
@@ -198,9 +198,8 @@ bool ompl_interface::ConstrainedGoalRegionSampler::sampleUsingConstraintSampler(
 
     ompl::base::State* goal = si_->allocState();
     unsigned int max_attempts_div2 = max_attempts / 2;
-    for (unsigned int a = gls->samplingAttemptsCount(); a < max_attempts && gls->isSampling(); ++a)
+    for (unsigned int a = 0; a < max_attempts && gls->isSampling(); ++a)
     {
-      std::cout << "goal region: " << i << ", attempt: " << a << std::endl;
       bool verbose = false;
       if (gls->getStateCount() == 0 && a >= max_attempts_div2)
         if (verbose_display_ < 1)

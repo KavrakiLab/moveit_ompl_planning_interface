@@ -168,6 +168,7 @@ public:
   void rewardWeightedGoal(WeightedGoal& weighted_goal);
 
   void sampleWeightedGoal(WeightedGoal& weighted_goal);
+  void sampleConsecutiveGoal(WeightedGoal& weighted_goal);
 
   void clear() override;
 
@@ -222,6 +223,8 @@ protected:
 
   // Maximum number of sampled goals per goal region
   unsigned int max_sampled_goals_;
+
+  bool sample_goals_;
 
   // Maximum number of sampled goals per goal region
   unsigned int num_sampled_goals_;

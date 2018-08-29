@@ -146,7 +146,6 @@ ompl::base::PlannerStatus ompl::geometric::RRTGoalRegion::solve(const base::Plan
 
     /* find state to add */
     double d = si_->distance(nmotion->state, rstate);
-
     if (d > maxDistance_)
     {
       si_->getStateSpace()->interpolate(nmotion->state, rstate, maxDistance_ / d, xstate);
@@ -161,7 +160,7 @@ ompl::base::PlannerStatus ompl::geometric::RRTGoalRegion::solve(const base::Plan
     {
       if (last_valid.second > 0.0)
       {
-        std::cout << "Expanding towards the goal: should NOT penalize!! " << std::endl;
+        // std::cout << "Expanding towards the goal: should NOT penalize!! " << std::endl;
         goal_region->rewardWeightedGoal(weighted_goal);
 
         si_->getStateSpace()->interpolate(nmotion->state, dstate, last_valid.second, xstate);
@@ -190,7 +189,7 @@ ompl::base::PlannerStatus ompl::geometric::RRTGoalRegion::solve(const base::Plan
       }
       else
       {
-        std::cout << "Expanding towards the goal: should penalize " << std::endl;
+        // std::cout << "Expanding towards the goal: should penalize " << std::endl;
         goal_region->penalizeWeightedGoal(weighted_goal);
       }
     }
@@ -198,7 +197,7 @@ ompl::base::PlannerStatus ompl::geometric::RRTGoalRegion::solve(const base::Plan
     {
       if (expansion_toward_goal)
       {
-        std::cout << "Expanding towards the goal: should NOT penalize " << std::endl;
+        // std::cout << "Expanding towards the goal: should NOT penalize " << std::endl;
         goal_region->rewardWeightedGoal(weighted_goal);
       }
 
