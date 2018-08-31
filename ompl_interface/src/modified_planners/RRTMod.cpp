@@ -125,6 +125,8 @@ ompl::base::PlannerStatus ompl::geometric::RRTMod::solve(const base::PlannerTerm
   base::WeightedGoalRegionSamples::WeightedGoal weighted_goal;
   bool expansion_toward_goal;
 
+  // maxDistance_ = 2.0;
+
   while (!ptc)
   {
     /* sample random state (with goal biasing) */
@@ -155,44 +157,7 @@ ompl::base::PlannerStatus ompl::geometric::RRTMod::solve(const base::PlannerTerm
 
     bool expansion_result = si_->checkMotion(nmotion->state, dstate, last_valid);
 
-    if (expansion_toward_goal && !expansion_result)
-    {
-      if (last_valid.second > 0.0)
-      {
-        // std::cout << "Expanding towards the goal: should NOT penalize!! " << std::endl;
-        // goal_region->rewardWeightedGoal(weighted_goal);
-
-        si_->getStateSpace()->interpolate(nmotion->state, dstate, last_valid.second, xstate);
-        dstate = xstate;
-
-        /* create a motion */
-        auto* motion = new Motion(si_);
-        si_->copyState(motion->state, dstate);
-        motion->parent = nmotion;
-
-        nn_->add(motion);
-        double dist = 0.0;
-        bool sat = goal->isSatisfied(motion->state, &dist);
-        if (sat)
-        {
-          approxdif = dist;
-          solution = motion;
-
-          break;
-        }
-        if (dist < approxdif)
-        {
-          approxdif = dist;
-          approxsol = motion;
-        }
-      }
-      // else
-      //{
-      // std::cout << "Expanding towards the goal: should penalize " << std::endl;
-      // goal_region->penalizeWeightedGoal(weighted_goal);
-      //}
-    }
-    else if (expansion_result)
+    if (expansion_result)
     {
       /* create a motion */
       auto* motion = new Motion(si_);

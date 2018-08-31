@@ -168,6 +168,7 @@ public:
   void rewardWeightedGoal(WeightedGoal& weighted_goal);
 
   void sampleWeightedGoal(WeightedGoal& weighted_goal);
+
   void sampleConsecutiveGoal(WeightedGoal& weighted_goal);
 
   void clear() override;

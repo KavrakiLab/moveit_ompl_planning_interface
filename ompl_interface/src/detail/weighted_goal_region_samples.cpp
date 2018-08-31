@@ -145,17 +145,13 @@ void ompl::base::WeightedGoalRegionSamples::goalSamplingThread()
           }
         }
         if (num_sampled_goals_ >= max_sampled_goals_)
+        {
           sample_goals_ = false;
+        }
         // std::cout << "num_sampled_goals_ (after): " << num_sampled_goals_ << std::endl;
         if (increase_num_sampled_goals)
           ++samplingAttempts_;
       }
-      //      else
-      //        std::cout << "do not sample " << std::endl;
-      //      if (!isSampling())
-      //        std::cout << "it is NOT sampling " << std::endl;
-      //      else
-      //        std::cout << "it is NOT sampling " << std::endl;
     }
   }
   else
@@ -262,14 +258,22 @@ void ompl::base::WeightedGoalRegionSamples::penalizeWeightedGoal(WeightedGoal& w
   // std::cout << "penalize -> prev w: " << w << std::endl;
   weighted_goal.heap_element_->data->weight_ = w / (w + 1.);
   goals_priority_queue_.update(weighted_goal.heap_element_);
-  w = weighted_goal.heap_element_->data->weight_;
-  // std::cout << "penalize -> after w: " << w << std::endl;
+
+  // std::cout << "penalize -> after w: " << weighted_goal.heap_element_->data->weight_ << std::endl;
 
   if (w < 0.2 && !sample_goals_)
   {
+    std::vector<WeightedGoal*> existing_weighted_goals;
+    goals_priority_queue_.getContent(existing_weighted_goals);
+    for (auto weighted_goal : existing_weighted_goals)
+    {
+      weighted_goal->heap_element_->data->weight_ = 0.5;
+      goals_priority_queue_.update(weighted_goal->heap_element_);
+    }
+
     sample_goals_ = true;
     max_sampled_goals_ += 10;  // addSampledGoalStates();
-    // std::cout << "sample more goals !!!!!! " << std::endl;
+    // std::cout << "sample more goals !!!!!!!!!!!!!!!!!!!!!!!!!!!!" << std::endl;
   }
 }
 
@@ -280,10 +284,15 @@ void ompl::base::WeightedGoalRegionSamples::rewardWeightedGoal(WeightedGoal& wei
 
   if (w < 1.0)
   {
-    weighted_goal.heap_element_->data->weight_ = w / (1. - w);
+    double new_w = w / (1. - w);
+
+    if (new_w > 1.0)
+      new_w = 1.0;
+
+    weighted_goal.heap_element_->data->weight_ = new_w;
     goals_priority_queue_.update(weighted_goal.heap_element_);
-    w = weighted_goal.heap_element_->data->weight_;
-    // std::cout << "reward -> after w: " << w << std::endl;
+
+    // std::cout << "reward -> after w: " << new_w << std::endl;
   }
 }
 

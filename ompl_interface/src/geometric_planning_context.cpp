@@ -44,6 +44,7 @@
 #include "moveit/ompl_interface/detail/state_validity_checker.h"
 #include "moveit/ompl_interface/modified_planners/RRTMod.h"
 #include "moveit/ompl_interface/modified_planners/RRTGoalRegion.h"
+#include "moveit/ompl_interface/modified_planners/RRTGoalRegCons.h"
 
 #include <boost/math/constants/constants.hpp>
 #include <eigen_conversions/eigen_msg.h>
@@ -121,6 +122,7 @@ void GeometricPlanningContext::initializePlannerAllocators()
 
   registerPlannerAllocator("geometric::RRTMod", boost::bind(&allocatePlanner<og::RRTMod>, _1, _2, _3));
   registerPlannerAllocator("geometric::RRTGoalRegion", boost::bind(&allocatePlanner<og::RRTGoalRegion>, _1, _2, _3));
+  registerPlannerAllocator("geometric::RRTGoalRegCons", boost::bind(&allocatePlanner<og::RRTGoalRegCons>, _1, _2, _3));
 }
 
 void GeometricPlanningContext::registerPlannerAllocator(const std::string& planner_id, const PlannerAllocator& pa)
@@ -728,12 +730,10 @@ bool GeometricPlanningContext::setGoalConstraints(const std::vector<moveit_msgs:
     ompl::base::GoalPtr goal;
     if (goals.size() == 1)
     {
-      std::cout << "only one goal" << std::endl;
       goal = goals[0];
     }
     else
     {
-      std::cout << "more than one goal" << std::endl;
       goal = ompl::base::GoalPtr(new GoalSampleableRegionMux(goals));
     }
 

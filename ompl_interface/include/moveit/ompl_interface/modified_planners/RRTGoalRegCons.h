@@ -33,9 +33,10 @@
 *********************************************************************/
 
 /* Author: Ioan Sucan */
+/* Modified by: Juan David Hernandez Vega */
 
-#ifndef OMPL_GEOMETRIC_PLANNERS_RRT_RRT_MOD_
-#define OMPL_GEOMETRIC_PLANNERS_RRT_RRT_MOD_
+#ifndef OMPL_GEOMETRIC_PLANNERS_RRT_RRT_GOAL_REGION_CONS_
+#define OMPL_GEOMETRIC_PLANNERS_RRT_RRT_GOAL_REGION_CONS_
 
 #include <moveit/ompl_interface/detail/weighted_goal_region_samples.h>
 #include <ompl/datastructures/NearestNeighbors.h>
@@ -48,8 +49,8 @@ namespace geometric
 /**
    @anchor gRRT
    @par Short description
-   RRTMod is a tree-based motion planner that uses the following
-   idea: RRTMod samples a random state @b qr in the state space,
+   RRTGoalRegCons is a tree-based motion planner that uses the following
+   idea: RRTGoalRegCons samples a random state @b qr in the state space,
    then finds the state @b qc among the previously seen states
    that is closest to @b qr and expands from @b qc towards @b
    qr, until a state @b qm is reached. @b qm is then added to
@@ -64,13 +65,13 @@ namespace geometric
 */
 
 /** \brief Rapidly-exploring Random Trees */
-class RRTMod : public base::Planner
+class RRTGoalRegCons : public base::Planner
 {
 public:
   /** \brief Constructor */
-  RRTMod(const base::SpaceInformationPtr& si);
+  RRTGoalRegCons(const base::SpaceInformationPtr& si);
 
-  ~RRTMod() override;
+  ~RRTGoalRegCons() override;
 
   void getPlannerData(base::PlannerData& data) const override;
 

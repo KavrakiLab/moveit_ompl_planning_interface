@@ -35,28 +35,29 @@
 /* Author: Ioan Sucan */
 /* Modified by: Juan David Hernandez Vega */
 
-#include <moveit/ompl_interface/modified_planners/RRTGoalRegion.h>
+#include <moveit/ompl_interface/modified_planners/RRTGoalRegCons.h>
 #include <ompl/base/goals/GoalSampleableRegion.h>
 #include <ompl/tools/config/SelfConfig.h>
 #include <limits>
 
-ompl::geometric::RRTGoalRegion::RRTGoalRegion(const base::SpaceInformationPtr& si) : base::Planner(si, "RRTGoalRegion")
+ompl::geometric::RRTGoalRegCons::RRTGoalRegCons(const base::SpaceInformationPtr& si)
+  : base::Planner(si, "RRTGoalRegCons")
 {
   specs_.approximateSolutions = true;
   specs_.directed = true;
 
-  Planner::declareParam<double>("range", this, &RRTGoalRegion::setRange, &RRTGoalRegion::getRange, "0.:1.:"
-                                                                                                   "10000.");
-  Planner::declareParam<double>("goal_bias", this, &RRTGoalRegion::setGoalBias, &RRTGoalRegion::getGoalBias, "0.:.05:"
-                                                                                                             "1.");
+  Planner::declareParam<double>("range", this, &RRTGoalRegCons::setRange, &RRTGoalRegCons::getRange, "0.:1.:"
+                                                                                                     "10000.");
+  Planner::declareParam<double>("goal_bias", this, &RRTGoalRegCons::setGoalBias, &RRTGoalRegCons::getGoalBias, "0.:.05:"
+                                                                                                               "1.");
 }
 
-ompl::geometric::RRTGoalRegion::~RRTGoalRegion()
+ompl::geometric::RRTGoalRegCons::~RRTGoalRegCons()
 {
   freeMemory();
 }
 
-void ompl::geometric::RRTGoalRegion::clear()
+void ompl::geometric::RRTGoalRegCons::clear()
 {
   Planner::clear();
   sampler_.reset();
@@ -66,7 +67,7 @@ void ompl::geometric::RRTGoalRegion::clear()
   lastGoalMotion_ = nullptr;
 }
 
-void ompl::geometric::RRTGoalRegion::setup()
+void ompl::geometric::RRTGoalRegCons::setup()
 {
   Planner::setup();
   tools::SelfConfig sc(si_, getName());
@@ -77,7 +78,7 @@ void ompl::geometric::RRTGoalRegion::setup()
   nn_->setDistanceFunction([this](const Motion* a, const Motion* b) { return distanceFunction(a, b); });
 }
 
-void ompl::geometric::RRTGoalRegion::freeMemory()
+void ompl::geometric::RRTGoalRegCons::freeMemory()
 {
   if (nn_)
   {
@@ -92,7 +93,7 @@ void ompl::geometric::RRTGoalRegion::freeMemory()
   }
 }
 
-ompl::base::PlannerStatus ompl::geometric::RRTGoalRegion::solve(const base::PlannerTerminationCondition& ptc)
+ompl::base::PlannerStatus ompl::geometric::RRTGoalRegCons::solve(const base::PlannerTerminationCondition& ptc)
 {
   checkValidity();
   base::Goal* goal = pdef_->getGoal().get();
@@ -137,7 +138,7 @@ ompl::base::PlannerStatus ompl::geometric::RRTGoalRegion::solve(const base::Plan
       expansion_toward_goal = true;
 
       weighted_goal.state_ = rstate;
-      goal_region->sampleWeightedGoal(weighted_goal);
+      goal_region->sampleConsecutiveGoal(weighted_goal);
       //      std::cout << std::endl;
       //      si_->printState(weighted_goal.state_);
     }
@@ -165,7 +166,7 @@ ompl::base::PlannerStatus ompl::geometric::RRTGoalRegion::solve(const base::Plan
       if (last_valid.second > 0.0)
       {
         // std::cout << "Expanding towards the goal: should NOT penalize!! " << std::endl;
-        goal_region->rewardWeightedGoal(weighted_goal);
+        // goal_region->rewardWeightedGoal(weighted_goal);
 
         si_->getStateSpace()->interpolate(nmotion->state, dstate, last_valid.second, xstate);
         dstate = xstate;
@@ -191,19 +192,19 @@ ompl::base::PlannerStatus ompl::geometric::RRTGoalRegion::solve(const base::Plan
           approxsol = motion;
         }
       }
-      else
-      {
-        // std::cout << "Expanding towards the goal: should penalize " << std::endl;
-        goal_region->penalizeWeightedGoal(weighted_goal);
-      }
+      //      else
+      //      {
+      //        // std::cout << "Expanding towards the goal: should penalize " << std::endl;
+      //        goal_region->penalizeWeightedGoal(weighted_goal);
+      //      }
     }
     else if (expansion_result)
     {
-      if (expansion_toward_goal)
-      {
-        // std::cout << "Expanding towards the goal: should NOT penalize " << std::endl;
-        goal_region->rewardWeightedGoal(weighted_goal);
-      }
+      //      if (expansion_toward_goal)
+      //      {
+      //        // std::cout << "Expanding towards the goal: should NOT penalize " << std::endl;
+      //        goal_region->rewardWeightedGoal(weighted_goal);
+      //      }
 
       /* create a motion */
       auto* motion = new Motion(si_);
@@ -265,7 +266,7 @@ ompl::base::PlannerStatus ompl::geometric::RRTGoalRegion::solve(const base::Plan
   return base::PlannerStatus(solved, approximate);
 }
 
-void ompl::geometric::RRTGoalRegion::getPlannerData(base::PlannerData& data) const
+void ompl::geometric::RRTGoalRegCons::getPlannerData(base::PlannerData& data) const
 {
   Planner::getPlannerData(data);
 

@@ -179,7 +179,7 @@ bool ompl_interface::ConstrainedGoalRegionSampler::sampleUsingConstraintSampler(
 
     // unsigned int max_attempts =
     // planning_context_->getMaximumGoalSamplingAttempts();
-    unsigned int max_attempts = 5;
+    unsigned int max_attempts = 20;
     unsigned int attempts_so_far = gls->samplingAttemptsCount();
 
     //    // terminate after too many attempts
@@ -188,9 +188,9 @@ bool ompl_interface::ConstrainedGoalRegionSampler::sampleUsingConstraintSampler(
 
     // terminate after a maximum number of samples
     // if (gls->getStateCount() >= planning_context_->getMaximumGoalSamples())
-    unsigned int max_goal_samples = 50;
-    if (gls->getStateCount() >= max_goal_samples)
-      continue;  // return false;
+    //    unsigned int max_goal_samples = 50;
+    //    if (gls->getStateCount() >= max_goal_samples)
+    //      continue;  // return false;
 
     // terminate the sampling thread when a solution has been found
     if (planning_context_->getOMPLProblemDefinition()->hasSolution())
