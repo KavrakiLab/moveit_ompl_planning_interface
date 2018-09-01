@@ -127,7 +127,8 @@ ompl::base::PlannerStatus ompl::geometric::RRTGoalRegCons::solve(const base::Pla
   base::WeightedGoalRegionSamples::WeightedGoal weighted_goal;
   bool expansion_toward_goal;
 
-  maxDistance_ = 3.0;
+  // maxDistance_ = 3.0;
+  //goalBias_ = 0.5;
 
   while (!ptc)
   {

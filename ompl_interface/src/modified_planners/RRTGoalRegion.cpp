@@ -126,7 +126,8 @@ ompl::base::PlannerStatus ompl::geometric::RRTGoalRegion::solve(const base::Plan
   base::WeightedGoalRegionSamples::WeightedGoal weighted_goal;
   bool expansion_toward_goal;
 
-  maxDistance_ = 3.0;
+  // maxDistance_ = 3.0;
+  //goalBias_ = 0.5;
 
   while (!ptc)
   {
@@ -138,11 +139,17 @@ ompl::base::PlannerStatus ompl::geometric::RRTGoalRegion::solve(const base::Plan
 
       weighted_goal.state_ = rstate;
       goal_region->sampleWeightedGoal(weighted_goal);
-      //      std::cout << std::endl;
-      //      si_->printState(weighted_goal.state_);
+
+      //      std::cout << "goal" << std::endl;
+      //      si_->printState(rstate);
     }
     else
+    {
       sampler_->sampleUniform(rstate);
+
+      //      std::cout << "random" << std::endl;
+      //      si_->printState(rstate);
+    }
 
     /* find closest state in the tree */
     Motion* nmotion = nn_->nearest(rmotion);
