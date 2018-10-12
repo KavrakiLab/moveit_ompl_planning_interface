@@ -46,8 +46,6 @@
 #include "moveit/ompl_interface/modified_planners/RRTGoalRegion.h"
 #include "moveit/ompl_interface/modified_planners/RRTGoalRegCons.h"
 
-#include <boost/algorithm/string/trim.hpp>
-#include <boost/algorithm/string.hpp>
 #include <boost/math/constants/constants.hpp>
 #include <eigen_conversions/eigen_msg.h>
 #include <moveit/kinematic_constraints/utils.h>

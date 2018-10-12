@@ -53,7 +53,7 @@ public:
 
   virtual unsigned int getDimension() const;
   virtual void defaultCellSizes();
-  virtual void project(const ompl::base::State* state, Eigen::Ref<Eigen::VectorXd> projection) const;
+  virtual void project(const ompl::base::State* state, ompl::base::EuclideanProjection& projection) const;
 
 private:
   const OMPLPlanningContext* planning_context_;
@@ -70,7 +70,7 @@ public:
 
   virtual unsigned int getDimension() const;
   virtual void defaultCellSizes();
-  virtual void project(const ompl::base::State* state, Eigen::Ref<Eigen::VectorXd> projection) const;
+  virtual void project(const ompl::base::State* state, ompl::base::EuclideanProjection& projection) const;
 
 private:
   const OMPLPlanningContext* planning_context_;
