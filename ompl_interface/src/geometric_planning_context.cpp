@@ -41,6 +41,8 @@
 #include "moveit/ompl_interface/detail/projection_evaluators.h"
 #include "moveit/ompl_interface/detail/state_validity_checker.h"
 
+#include <boost/algorithm/string/trim.hpp>
+#include <boost/algorithm/string.hpp>
 #include <boost/math/constants/constants.hpp>
 #include <eigen_conversions/eigen_msg.h>
 #include <moveit/kinematic_constraints/utils.h>
