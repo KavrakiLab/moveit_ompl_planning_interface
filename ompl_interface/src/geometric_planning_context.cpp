@@ -300,7 +300,6 @@ void GeometricPlanningContext::stopGoalSampling()
 
 bool GeometricPlanningContext::solve(planning_interface::MotionPlanResponse& res)
 {
-  // std::cout << "solve with MotionPlanResponse" << std::endl;
   if (!initialized_)
   {
     ROS_ERROR("%s: Cannot solve motion plan query.  Planning context is not "
@@ -458,9 +457,6 @@ bool GeometricPlanningContext::solve(double timeout, unsigned int count, double&
 
   bool result = false;
   total_time = 0.0;
-
-  // std::cout << "There are (2): " << goal_regions_.size() << " goal regions !!!!!!!!!!!!!!++++" << std::endl;
-
   if (count <= 1)
   {
     ompl::base::PlannerTerminationCondition ptc =
@@ -641,14 +637,12 @@ bool GeometricPlanningContext::setGoalConstraints(const std::vector<moveit_msgs:
       error->val = moveit_msgs::MoveItErrorCodes::INVALID_GOAL_CONSTRAINTS;
     return false;
   }
-
-  // std::cout << "setGoalConstraints" << std::endl;
-
+  
   // Get goal regions
   goal_regions_.clear();
   for (const auto& goal_region : goal_regions)
   {
-    // std::cout << "setting goal_region*" << std::endl;
+    // Setting goal_region
     goal_regions_.push_back(moveit_msgs::GoalRegion(goal_region));
   }
 
@@ -657,7 +651,6 @@ bool GeometricPlanningContext::setGoalConstraints(const std::vector<moveit_msgs:
   std::vector<moveit_msgs::Constraints> merged_constraints;
   for (const auto& goal_constraint : goal_constraints)
   {
-    // std::cout << "setting goal_constraint" << std::endl;
     // NOTE: This only "intelligently" merges joint constraints .  All other
     // constraint types are simply concatenated.
     // moveit_msgs::Constraints constr =
@@ -665,7 +658,6 @@ bool GeometricPlanningContext::setGoalConstraints(const std::vector<moveit_msgs:
     // request_.path_constraints);
 
     // This will merge the path constraints with goal_constraints[i]
-
     moveit_msgs::Constraints constr;
     if (!mergeConstraints(goal_constraint, request_.path_constraints, constr))
     {
@@ -697,7 +689,6 @@ bool GeometricPlanningContext::setGoalConstraints(const std::vector<moveit_msgs:
 
   if (goal_regions_.size() > 0)
   {
-    // std::cout << "Using goal regions!!!!!!" << std::endl;
     ompl::base::GoalPtr g = ompl::base::GoalPtr(
         new ConstrainedGoalRegionSampler(this, getGroupName(), getRobotModel(), getPlanningScene(), merged_constraints,
                                          goal_regions_, constraint_sampler_manager_));
@@ -709,7 +700,6 @@ bool GeometricPlanningContext::setGoalConstraints(const std::vector<moveit_msgs:
     for (std::size_t i = 0; i < goal_constraints_.size(); ++i)
     //  for (auto& goal_constraint : goal_constraints_)
     {
-      std::cout << "setting goal_constraint2" << std::endl;
       constraint_samplers::ConstraintSamplerPtr cs;
       if (constraint_sampler_manager_)
         cs = constraint_sampler_manager_->selectSampler(getPlanningScene(), getGroupName(),
