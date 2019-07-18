@@ -48,6 +48,8 @@
 //#include <moveit_planners_ompl/OMPLDynamicReconfigureConfig.h>
 #include <moveit_ompl_planning_interface/OMPLDynamicReconfigureConfig.h>
 
+#include <moveit/ompl_interface/geometric_planning_context.h>
+
 namespace ompl_interface
 {
 class OMPLPlanningContextManager : public planning_interface::PlannerManager
