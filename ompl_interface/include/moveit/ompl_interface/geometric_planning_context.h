@@ -122,7 +122,11 @@ public:
   /// entire path
   virtual const kinematic_constraints::KinematicConstraintSetPtr& getPathConstraints() const;
 
+  virtual void configure();
+
 protected:
+  virtual void useConfig();
+
   /// \brief Merge constraints c1 and c2, storing the result in output.
   /// If the constraints cannot be merged, false is returned.
   virtual bool mergeConstraints(const moveit_msgs::Constraints& c1, const moveit_msgs::Constraints& c2,
@@ -248,6 +252,10 @@ protected:
 
   /// \brief True when the context is properly initialized
   bool initialized_;
+
+  /// the maximum length that is allowed for segments that make up the motion plan; by default this is 1% from the
+  /// extent of the space
+  double max_solution_segment_length_;
 };
 }
 

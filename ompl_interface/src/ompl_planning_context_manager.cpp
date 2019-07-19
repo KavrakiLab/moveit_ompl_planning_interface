@@ -185,6 +185,21 @@ planning_interface::PlanningContextPtr OMPLPlanningContextManager::getPlanningCo
 
     if (!context->setGoalConstraints(req.goal_constraints, &error_code))
       return planning_interface::PlanningContextPtr();
+
+    try
+    {
+      std::shared_ptr<GeometricPlanningContext> context_geom =
+          std::dynamic_pointer_cast<GeometricPlanningContext>(context);
+
+      context_geom->configure();
+      ROS_DEBUG_NAMED("planning_context_manager", "%s: New planning context is set.", context->getName().c_str());
+      error_code.val = moveit_msgs::MoveItErrorCodes::SUCCESS;
+    }
+    catch (ompl::Exception& ex)
+    {
+      ROS_ERROR_NAMED("planning_context_manager", "OMPL encountered an error: %s", ex.what());
+      //      context.reset();
+    }
   }
   return context;
 }
