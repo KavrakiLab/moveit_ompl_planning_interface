@@ -46,6 +46,8 @@
 #include "moveit/ompl_interface/modified_planners/RRTGoalRegion.h"
 #include "moveit/ompl_interface/modified_planners/RRTGoalRegCons.h"
 
+#include <moveit/utils/lexical_casts.h>
+
 #include <boost/algorithm/string/trim.hpp>
 #include <boost/algorithm/string.hpp>
 #include <boost/math/constants/constants.hpp>
@@ -56,28 +58,50 @@
 #include <ompl/tools/config/SelfConfig.h>
 #include <ompl/tools/multiplan/ParallelPlan.h>
 
+#include <ompl/geometric/planners/sbl/SBL.h>
+
 #include <ompl/geometric/planners/est/EST.h>
+#include <ompl/geometric/planners/est/BiEST.h>
+#include <ompl/geometric/planners/est/ProjEST.h>
+
 #include <ompl/geometric/planners/kpiece/BKPIECE1.h>
 #include <ompl/geometric/planners/kpiece/KPIECE1.h>
 #include <ompl/geometric/planners/kpiece/LBKPIECE1.h>
-#include <ompl/geometric/planners/prm/PRM.h>
-#include <ompl/geometric/planners/prm/PRMstar.h>
-#include <ompl/geometric/planners/rrt/LazyRRT.h>
+
 #include <ompl/geometric/planners/rrt/RRT.h>
 #include <ompl/geometric/planners/rrt/RRTConnect.h>
 #include <ompl/geometric/planners/rrt/RRTstar.h>
+#include <ompl/geometric/planners/rrt/LazyRRT.h>
 #include <ompl/geometric/planners/rrt/TRRT.h>
-#include <ompl/geometric/planners/rrt/pRRT.h>
-#include <ompl/geometric/planners/sbl/SBL.h>
-#include <ompl/geometric/planners/sbl/pSBL.h>
-#include <ompl/geometric/planners/bitstar/BITstar.h>
+#include <ompl/geometric/planners/rrt/BiTRRT.h>
+#include <ompl/geometric/planners/rrt/LBTRRT.h>
+
+#include <ompl/geometric/planners/prm/PRM.h>
+#include <ompl/geometric/planners/prm/PRMstar.h>
+#include <ompl/geometric/planners/prm/LazyPRM.h>
+#include <ompl/geometric/planners/prm/LazyPRMstar.h>
+
+#include <ompl/geometric/planners/prm/SPARS.h>
+#include <ompl/geometric/planners/prm/SPARStwo.h>
+
+#include <ompl/geometric/planners/pdst/PDST.h>
+#include <ompl/geometric/planners/stride/STRIDE.h>
+
 #include <ompl/geometric/planners/fmt/FMT.h>
+#include <ompl/geometric/planners/fmt/BFMT.h>
+#include <ompl/geometric/planners/bitstar/BITstar.h>
+
+#include "ompl/base/objectives/PathLengthOptimizationObjective.h"
+#include "ompl/base/objectives/MechanicalWorkOptimizationObjective.h"
+#include "ompl/base/objectives/MinimaxObjective.h"
+#include "ompl/base/objectives/StateCostIntegralObjective.h"
+#include "ompl/base/objectives/MaximizeMinClearanceObjective.h"
 
 namespace og = ompl::geometric;
 
 using namespace ompl_interface;
 
-GeometricPlanningContext::GeometricPlanningContext() : OMPLPlanningContext()
+GeometricPlanningContext::GeometricPlanningContext() : OMPLPlanningContext(), max_solution_segment_length_(0.0)
 {
   initializePlannerAllocators();
   complete_initial_robot_state_ = nullptr;
@@ -107,24 +131,43 @@ std::string GeometricPlanningContext::getDescription()
 
 void GeometricPlanningContext::initializePlannerAllocators()
 {
-  registerPlannerAllocator("geometric::RRT", boost::bind(&allocatePlanner<og::RRT>, _1, _2, _3));
-  registerPlannerAllocator("geometric::RRTConnect", boost::bind(&allocatePlanner<og::RRTConnect>, _1, _2, _3));
-  registerPlannerAllocator("geometric::LazyRRT", boost::bind(&allocatePlanner<og::LazyRRT>, _1, _2, _3));
-  registerPlannerAllocator("geometric::TRRT", boost::bind(&allocatePlanner<og::TRRT>, _1, _2, _3));
-  registerPlannerAllocator("geometric::EST", boost::bind(&allocatePlanner<og::EST>, _1, _2, _3));
   registerPlannerAllocator("geometric::SBL", boost::bind(&allocatePlanner<og::SBL>, _1, _2, _3));
+
+  registerPlannerAllocator("geometric::EST", boost::bind(&allocatePlanner<og::EST>, _1, _2, _3));
+  registerPlannerAllocator("geometric::BiEST", boost::bind(&allocatePlanner<og::BiEST>, _1, _2, _3));
+  registerPlannerAllocator("geometric::ProjEST", boost::bind(&allocatePlanner<og::ProjEST>, _1, _2, _3));
+
   registerPlannerAllocator("geometric::KPIECE", boost::bind(&allocatePlanner<og::KPIECE1>, _1, _2, _3));
   registerPlannerAllocator("geometric::BKPIECE", boost::bind(&allocatePlanner<og::BKPIECE1>, _1, _2, _3));
   registerPlannerAllocator("geometric::LBKPIECE", boost::bind(&allocatePlanner<og::LBKPIECE1>, _1, _2, _3));
+
+  registerPlannerAllocator("geometric::RRT", boost::bind(&allocatePlanner<og::RRT>, _1, _2, _3));
+  registerPlannerAllocator("geometric::RRTConnect", boost::bind(&allocatePlanner<og::RRTConnect>, _1, _2, _3));
   registerPlannerAllocator("geometric::RRTstar", boost::bind(&allocatePlanner<og::RRTstar>, _1, _2, _3));
+  registerPlannerAllocator("geometric::LazyRRT", boost::bind(&allocatePlanner<og::LazyRRT>, _1, _2, _3));
+  registerPlannerAllocator("geometric::TRRT", boost::bind(&allocatePlanner<og::TRRT>, _1, _2, _3));
+  registerPlannerAllocator("geometric::BiTRRT", boost::bind(&allocatePlanner<og::BiTRRT>, _1, _2, _3));
+  registerPlannerAllocator("geometric::LBTRRT", boost::bind(&allocatePlanner<og::LBTRRT>, _1, _2, _3));
+
   registerPlannerAllocator("geometric::PRM", boost::bind(&allocatePlanner<og::PRM>, _1, _2, _3));
   registerPlannerAllocator("geometric::PRMstar", boost::bind(&allocatePlanner<og::PRMstar>, _1, _2, _3));
-  registerPlannerAllocator("geometric::BITstar", boost::bind(&allocatePlanner<og::BITstar>, _1, _2, _3));
+  registerPlannerAllocator("geometric::LazyPRM", boost::bind(&allocatePlanner<og::LazyPRM>, _1, _2, _3));
+  registerPlannerAllocator("geometric::LazyPRMstar", boost::bind(&allocatePlanner<og::LazyPRMstar>, _1, _2, _3));
+
+  registerPlannerAllocator("geometric::SPARS", boost::bind(&allocatePlanner<og::SPARS>, _1, _2, _3));
+  registerPlannerAllocator("geometric::SPARStwo", boost::bind(&allocatePlanner<og::SPARStwo>, _1, _2, _3));
+
+  registerPlannerAllocator("geometric::PDST", boost::bind(&allocatePlanner<og::PDST>, _1, _2, _3));
+  registerPlannerAllocator("geometric::STRIDE", boost::bind(&allocatePlanner<og::STRIDE>, _1, _2, _3));
+
   registerPlannerAllocator("geometric::FMT", boost::bind(&allocatePlanner<og::FMT>, _1, _2, _3));
 
   registerPlannerAllocator("geometric::RRTMod", boost::bind(&allocatePlanner<og::RRTMod>, _1, _2, _3));
   registerPlannerAllocator("geometric::RRTGoalRegion", boost::bind(&allocatePlanner<og::RRTGoalRegion>, _1, _2, _3));
   registerPlannerAllocator("geometric::RRTGoalRegCons", boost::bind(&allocatePlanner<og::RRTGoalRegCons>, _1, _2, _3));
+
+  registerPlannerAllocator("geometric::BFMT", boost::bind(&allocatePlanner<og::BFMT>, _1, _2, _3));
+  registerPlannerAllocator("geometric::BITstar", boost::bind(&allocatePlanner<og::BITstar>, _1, _2, _3));
 }
 
 void GeometricPlanningContext::registerPlannerAllocator(const std::string& planner_id, const PlannerAllocator& pa)
@@ -246,6 +289,137 @@ GeometricPlanningContext::allocPathConstrainedSampler(const ompl::base::StateSpa
   }
   ROS_DEBUG("%s: Allocating default state sampler for state space", name_.c_str());
   return ss->allocDefaultStateSampler();
+}
+
+void GeometricPlanningContext::configure()
+{
+  //  if (path_constraints_ && spec_.constraints_library_)
+  //  {
+  //    const ConstraintApproximationPtr& ca =
+  //        spec_.constraints_library_->getConstraintApproximation(path_constraints_msg_);
+  //        if (ca)
+  //        {
+  //          getOMPLStateSpace()->setInterpolationFunction(ca->getInterpolationFunction());
+  //          ROS_INFO_NAMED("model_based_planning_context", "Using precomputed interpolation states");
+  //        }
+  //  }
+
+  useConfig();
+  if (simple_setup_->getGoal())
+    simple_setup_->setup();
+}
+
+void GeometricPlanningContext::useConfig()
+{
+  const std::map<std::string, std::string>& config = spec_.config;
+  if (config.empty())
+    return;
+  std::map<std::string, std::string> cfg = config;
+
+  // set the distance between waypoints when interpolating and collision checking.
+  auto it = cfg.find("longest_valid_segment_fraction");
+  // If one of the two variables is set.
+  if (it != cfg.end() || max_solution_segment_length_ != 0.0)
+  {
+    // clang-format off
+    double longest_valid_segment_fraction_config = (it != cfg.end())
+      ? moveit::core::toDouble(it->second)  // value from config file if there
+      : 0.01;  // default value in OMPL.
+    double longest_valid_segment_fraction_final = longest_valid_segment_fraction_config;
+    if (max_solution_segment_length_ > 0.0)
+    {
+      // If this parameter is specified too, take the most conservative of the two variables,
+      // i.e. the one that uses the shorter segment length.
+      longest_valid_segment_fraction_final = std::min(
+          longest_valid_segment_fraction_config,
+          max_solution_segment_length_ / simple_setup_->getStateSpace()->getMaximumExtent()
+      );
+    }
+    // clang-format on
+
+    // convert to string using no locale
+    cfg["longest_valid_segment_fraction"] = moveit::core::toString(longest_valid_segment_fraction_final);
+  }
+
+  // set the projection evaluator
+  it = cfg.find("projection_evaluator");
+  if (it != cfg.end())
+  {
+    setProjectionEvaluator(boost::trim_copy(it->second));
+    cfg.erase(it);
+  }
+
+  if (cfg.empty())
+    return;
+
+  std::string optimizer;
+  ompl::base::OptimizationObjectivePtr objective;
+  it = cfg.find("optimization_objective");
+  if (it == cfg.end())
+  {
+    optimizer = "PathLengthOptimizationObjective";
+    ROS_DEBUG_NAMED("model_based_planning_context", "No optimization objective specified, defaulting to %s",
+                    optimizer.c_str());
+  }
+  else
+  {
+    optimizer = it->second;
+    cfg.erase(it);
+  }
+
+  if (optimizer == "PathLengthOptimizationObjective")
+  {
+    objective.reset(new ompl::base::PathLengthOptimizationObjective(simple_setup_->getSpaceInformation()));
+  }
+  else if (optimizer == "MinimaxObjective")
+  {
+    objective.reset(new ompl::base::MinimaxObjective(simple_setup_->getSpaceInformation()));
+  }
+  else if (optimizer == "StateCostIntegralObjective")
+  {
+    objective.reset(new ompl::base::StateCostIntegralObjective(simple_setup_->getSpaceInformation()));
+  }
+  else if (optimizer == "MechanicalWorkOptimizationObjective")
+  {
+    objective.reset(new ompl::base::MechanicalWorkOptimizationObjective(simple_setup_->getSpaceInformation()));
+  }
+  else if (optimizer == "MaximizeMinClearanceObjective")
+  {
+    objective.reset(new ompl::base::MaximizeMinClearanceObjective(simple_setup_->getSpaceInformation()));
+  }
+  else
+  {
+    objective.reset(new ompl::base::PathLengthOptimizationObjective(simple_setup_->getSpaceInformation()));
+  }
+
+  simple_setup_->setOptimizationObjective(objective);
+
+  // remove the 'type' parameter; the rest are parameters for the planner itself
+  //  it = cfg.find("type");
+  //  if (it == cfg.end())
+  //  {
+  //    if (name_ != getGroupName())
+  //      ROS_WARN_NAMED("model_based_planning_context", "%s: Attribute 'type' not specified in planner configuration",
+  //                     name_.c_str());
+  //  }
+  //  else
+  //  {
+  //    std::string type = it->second;
+  //    cfg.erase(it);
+  //    simple_setup_->setPlannerAllocator(std::bind(spec_.planner_selector_(type), std::placeholders::_1,
+  //                                                 name_ != getGroupName() ? name_ : "", std::cref(spec_)));
+  //    ROS_INFO_NAMED("model_based_planning_context",
+  //                   "Planner configuration '%s' will use planner '%s'. "
+  //                   "Additional configuration parameters will be set when the planner is constructed.",
+  //                   name_.c_str(), type.c_str());
+  //  }
+
+  std::cout << "setting params!!! " << std::endl;
+  // call the setParams() after setup(), so we know what the params are
+  simple_setup_->getSpaceInformation()->setup();
+  simple_setup_->getSpaceInformation()->params().setParams(cfg, true);
+  // call setup() again for possibly new param values
+  simple_setup_->getSpaceInformation()->setup();
 }
 
 void GeometricPlanningContext::clear()
@@ -458,7 +632,7 @@ bool GeometricPlanningContext::solve(double timeout, unsigned int count, double&
   std::cout << "simple_setup_->getStateSpace()->getLongestValidSegmentLength(): "
             << simple_setup_->getStateSpace()->getLongestValidSegmentLength() << std::endl;
 
-  simple_setup_->getStateSpace()->setLongestValidSegmentFraction(0.005);
+  // simple_setup_->getStateSpace()->setLongestValidSegmentFraction(0.005);
 
   std::cout << "simple_setup_->getStateSpace()->getLongestValidSegmentFraction(): "
             << simple_setup_->getStateSpace()->getLongestValidSegmentFraction() << std::endl;
