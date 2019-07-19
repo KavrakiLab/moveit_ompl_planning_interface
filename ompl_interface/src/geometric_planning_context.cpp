@@ -629,14 +629,6 @@ bool GeometricPlanningContext::solve(double timeout, unsigned int count, double&
 
   preSolve();
 
-  std::cout << "simple_setup_->getStateSpace()->getLongestValidSegmentLength(): "
-            << simple_setup_->getStateSpace()->getLongestValidSegmentLength() << std::endl;
-
-  // simple_setup_->getStateSpace()->setLongestValidSegmentFraction(0.005);
-
-  std::cout << "simple_setup_->getStateSpace()->getLongestValidSegmentFraction(): "
-            << simple_setup_->getStateSpace()->getLongestValidSegmentFraction() << std::endl;
-
   bool result = false;
   total_time = 0.0;
   if (count <= 1)
