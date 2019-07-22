@@ -35,21 +35,22 @@
 /* Author: Juan David Hernandez Vega */
 /* Extension of constrained_goal_sampler by: (Ioan Sucan) */
 
-#include "moveit/ompl_interface/detail/constrained_goal_region_sampler.h"
+#include <moveit/ompl_interface/modified_planners/goal_region_sampler.h>
 #include "moveit/ompl_interface/detail/state_validity_checker.h"
 #include "moveit/ompl_interface/ompl_planning_context.h"
 #include <moveit/profiler/profiler.h>
 #include <tf/tf.h>
 
-ompl_interface::ConstrainedGoalRegionSampler::ConstrainedGoalRegionSampler(
-    const OMPLPlanningContext* pc, const std::string& group_name, const robot_model::RobotModelConstPtr& rm,
-    const planning_scene::PlanningSceneConstPtr& ps, const std::vector<moveit_msgs::Constraints>& constrs,
-    const std::vector<moveit_msgs::GoalRegion>& grs, constraint_samplers::ConstraintSamplerManagerPtr csm,
-    const unsigned int max_sampled_goals)
-  : ompl::base::WeightedGoalRegionSamples(
-        pc->getOMPLSpaceInformation(),
-        boost::bind(&ConstrainedGoalRegionSampler::sampleUsingConstraintSampler, this, _1, _2), max_sampled_goals,
-        false)
+ompl_interface::GoalRegionSampler::GoalRegionSampler(const OMPLPlanningContext* pc, const std::string& group_name,
+                                                     const robot_model::RobotModelConstPtr& rm,
+                                                     const planning_scene::PlanningSceneConstPtr& ps,
+                                                     const std::vector<moveit_msgs::Constraints>& constrs,
+                                                     const std::vector<moveit_msgs::WorkspaceGoalRegion>& grs,
+                                                     constraint_samplers::ConstraintSamplerManagerPtr csm,
+                                                     const unsigned int max_sampled_goals)
+  : ompl::base::WeightedGoalRegionSampler(pc->getOMPLSpaceInformation(),
+                                          boost::bind(&GoalRegionSampler::sampleUsingConstraintSampler, this, _1, _2),
+                                          max_sampled_goals, false)
   , planning_context_(pc)
   , work_state_(pc->getCompleteInitialRobotState())
   , invalid_sampled_constraints_(0)
@@ -59,12 +60,12 @@ ompl_interface::ConstrainedGoalRegionSampler::ConstrainedGoalRegionSampler(
   , constraint_sampler_manager_(csm)
   , group_name_(group_name)
 {
-  // std::cout << "creating ConstrainedGoalRegionSampler! " << std::endl;
+  // std::cout << "creating GoalRegionSampler! " << std::endl;
 
   for (auto& constr : constrs)
     constrs_.push_back(moveit_msgs::Constraints(constr));
   for (auto& gr : grs)
-    goal_regions_.push_back(moveit_msgs::GoalRegion(gr));
+    goal_regions_.push_back(moveit_msgs::WorkspaceGoalRegion(gr));
 
   for (std::size_t i = 0; i < goal_regions_.size(); ++i)
   {
@@ -89,22 +90,21 @@ ompl_interface::ConstrainedGoalRegionSampler::ConstrainedGoalRegionSampler(
   //
   kinematic_constraint_set_.reset(new kinematic_constraints::KinematicConstraintSet(rm));
 
-  // logDebug("Constructed a ConstrainedGoalRegionSampler instance at address %p", this);
+  // logDebug("Constructed a GoalRegionSampler instance at address %p", this);
   startSampling();
 }
 
-bool ompl_interface::ConstrainedGoalRegionSampler::checkStateValidity(ompl::base::State* new_goal,
-                                                                      const robot_state::RobotState& state,
-                                                                      bool verbose) const
+bool ompl_interface::GoalRegionSampler::checkStateValidity(ompl::base::State* new_goal,
+                                                           const robot_state::RobotState& state, bool verbose) const
 {
   planning_context_->copyToOMPLState(new_goal, state);
   return dynamic_cast<const StateValidityChecker*>(si_->getStateValidityChecker().get())->isValid(new_goal, verbose);
 }
 
-bool ompl_interface::ConstrainedGoalRegionSampler::stateValidityCallback(ompl::base::State* new_goal,
-                                                                         robot_state::RobotState const* state,
-                                                                         const robot_model::JointModelGroup* jmg,
-                                                                         const double* jpos, bool verbose) const
+bool ompl_interface::GoalRegionSampler::stateValidityCallback(ompl::base::State* new_goal,
+                                                              robot_state::RobotState const* state,
+                                                              const robot_model::JointModelGroup* jmg,
+                                                              const double* jpos, bool verbose) const
 {
   // we copy the state to not change the seed state
   robot_state::RobotState solution_state(*state);
@@ -113,15 +113,15 @@ bool ompl_interface::ConstrainedGoalRegionSampler::stateValidityCallback(ompl::b
   return checkStateValidity(new_goal, solution_state, verbose);
 }
 
-bool ompl_interface::ConstrainedGoalRegionSampler::sampleUsingConstraintSampler(
-    const ompl::base::WeightedGoalRegionSamples* gls, std::vector<ompl::base::State*>& sampled_states)
+bool ompl_interface::GoalRegionSampler::sampleUsingConstraintSampler(const ompl::base::WeightedGoalRegionSampler* gls,
+                                                                     std::vector<ompl::base::State*>& sampled_states)
 {
   bool success = false;
 
   for (std::size_t i = 0; i < goal_regions_.size(); ++i)
   {
     // Sampling an SE3 pose
-    // std::cout << "sampling !!!!!:" << std::endl;
+    //    std::cout << "sampling !!!!!:" << std::endl;
     ompl::base::State* state = se3_spaces_[i]->as<ompl::base::SE3StateSpace>()->allocState();
     se3_samplers_[i]->sampleUniform(state);
 
@@ -175,7 +175,7 @@ bool ompl_interface::ConstrainedGoalRegionSampler::sampleUsingConstraintSampler(
     se3_spaces_[i]->freeState(state);
 
     //  moveit::Profiler::ScopedBlock
-    //  sblock("ConstrainedGoalRegionSampler::sampleUsingConstraintSampler");
+    //  sblock("GoalRegionSampler::sampleUsingConstraintSampler");
 
     // unsigned int max_attempts =
     // planning_context_->getMaximumGoalSamplingAttempts();
@@ -212,7 +212,7 @@ bool ompl_interface::ConstrainedGoalRegionSampler::sampleUsingConstraintSampler(
       {
         // makes the constraint sampler also perform a validity callback
         robot_state::GroupStateValidityCallbackFn gsvcf =
-            boost::bind(&ompl_interface::ConstrainedGoalRegionSampler::stateValidityCallback, this, goal,
+            boost::bind(&ompl_interface::GoalRegionSampler::stateValidityCallback, this, goal,
                         _1,  // pointer to state
                         _2,  // const* joint model group
                         _3,  // double* of joint positions
@@ -283,10 +283,10 @@ bool ompl_interface::ConstrainedGoalRegionSampler::sampleUsingConstraintSampler(
     return false;
 }
 
-void ompl_interface::ConstrainedGoalRegionSampler::clear()
+void ompl_interface::GoalRegionSampler::clear()
 {
   std::lock_guard<std::mutex> slock(lock_);
-  WeightedGoalRegionSamples::clear();
+  WeightedGoalRegionSampler::clear();
   constrs_.clear();
   goal_regions_.clear();
   se3_samplers_.clear();

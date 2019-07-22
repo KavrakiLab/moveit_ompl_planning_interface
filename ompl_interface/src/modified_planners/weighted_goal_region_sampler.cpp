@@ -35,13 +35,13 @@
 /* Author: Ioan Sucan */
 /* Modified by: Juan David Hernandez Vega */
 
-#include <moveit/ompl_interface/detail/weighted_goal_region_samples.h>
+#include <moveit/ompl_interface/modified_planners/weighted_goal_region_sampler.h>
 #include <utility>
 
 #include <ompl/base/ScopedState.h>
 #include <ompl/util/Time.h>
 
-ompl::base::WeightedGoalRegionSamples::WeightedGoalRegionSamples(const SpaceInformationPtr& si,
+ompl::base::WeightedGoalRegionSampler::WeightedGoalRegionSampler(const SpaceInformationPtr& si,
                                                                  GoalRegionSamplingFn samplerFunc,
                                                                  const unsigned int max_sampled_goals, bool autoStart,
                                                                  double minDist)
@@ -60,23 +60,23 @@ ompl::base::WeightedGoalRegionSamples::WeightedGoalRegionSamples(const SpaceInfo
     startSampling();
 }
 
-ompl::base::WeightedGoalRegionSamples::~WeightedGoalRegionSamples()
+ompl::base::WeightedGoalRegionSampler::~WeightedGoalRegionSampler()
 {
   stopSampling();
 }
 
-void ompl::base::WeightedGoalRegionSamples::startSampling()
+void ompl::base::WeightedGoalRegionSampler::startSampling()
 {
   std::lock_guard<std::mutex> slock(lock_);
   if (samplingThread_ == nullptr)
   {
     OMPL_DEBUG("Starting goal sampling thread");
     terminateSamplingThread_ = false;
-    samplingThread_ = new std::thread(&WeightedGoalRegionSamples::goalSamplingThread, this);
+    samplingThread_ = new std::thread(&WeightedGoalRegionSampler::goalSamplingThread, this);
   }
 }
 
-void ompl::base::WeightedGoalRegionSamples::stopSampling()
+void ompl::base::WeightedGoalRegionSampler::stopSampling()
 {
   /* Set termination flag */
   {
@@ -97,7 +97,7 @@ void ompl::base::WeightedGoalRegionSamples::stopSampling()
   }
 }
 
-void ompl::base::WeightedGoalRegionSamples::goalSamplingThread()
+void ompl::base::WeightedGoalRegionSampler::goalSamplingThread()
 {
   {
     /* Wait for startSampling() to finish assignment
@@ -166,72 +166,72 @@ void ompl::base::WeightedGoalRegionSamples::goalSamplingThread()
   OMPL_DEBUG("Stopped goal sampling thread after %u sampling attempts", samplingAttempts_ - prevsa);
 }
 
-bool ompl::base::WeightedGoalRegionSamples::isSampling() const
+bool ompl::base::WeightedGoalRegionSampler::isSampling() const
 {
   std::lock_guard<std::mutex> slock(lock_);
   return !terminateSamplingThread_ && samplingThread_ != nullptr;
 }
 
-bool ompl::base::WeightedGoalRegionSamples::couldSample() const
+bool ompl::base::WeightedGoalRegionSampler::couldSample() const
 {
   return canSample() || isSampling();
 }
 
-void ompl::base::WeightedGoalRegionSamples::clear()
+void ompl::base::WeightedGoalRegionSampler::clear()
 {
   std::lock_guard<std::mutex> slock(lock_);
   GoalStates::clear();
   goals_priority_queue_.clear();
 }
 
-double ompl::base::WeightedGoalRegionSamples::distanceGoal(const State* st) const
+double ompl::base::WeightedGoalRegionSampler::distanceGoal(const State* st) const
 {
   std::lock_guard<std::mutex> slock(lock_);
   return GoalStates::distanceGoal(st);
 }
 
-void ompl::base::WeightedGoalRegionSamples::sampleGoal(base::State* st) const
+void ompl::base::WeightedGoalRegionSampler::sampleGoal(base::State* st) const
 {
   std::lock_guard<std::mutex> slock(lock_);
   GoalStates::sampleGoal(st);
 }
 
-void ompl::base::WeightedGoalRegionSamples::setNewStateCallback(const NewStateCallbackFn& callback)
+void ompl::base::WeightedGoalRegionSampler::setNewStateCallback(const NewStateCallbackFn& callback)
 {
   callback_ = callback;
 }
 
-void ompl::base::WeightedGoalRegionSamples::addState(const State* st)
+void ompl::base::WeightedGoalRegionSampler::addState(const State* st)
 {
   std::lock_guard<std::mutex> slock(lock_);
   GoalStates::addState(st);
 }
 
-const ompl::base::State* ompl::base::WeightedGoalRegionSamples::getState(unsigned int index) const
+const ompl::base::State* ompl::base::WeightedGoalRegionSampler::getState(unsigned int index) const
 {
   std::lock_guard<std::mutex> slock(lock_);
   return GoalStates::getState(index);
 }
 
-bool ompl::base::WeightedGoalRegionSamples::hasStates() const
+bool ompl::base::WeightedGoalRegionSampler::hasStates() const
 {
   std::lock_guard<std::mutex> slock(lock_);
   return GoalStates::hasStates();
 }
 
-std::size_t ompl::base::WeightedGoalRegionSamples::getStateCount() const
+std::size_t ompl::base::WeightedGoalRegionSampler::getStateCount() const
 {
   std::lock_guard<std::mutex> slock(lock_);
   return GoalStates::getStateCount();
 }
 
-unsigned int ompl::base::WeightedGoalRegionSamples::maxSampleCount() const
+unsigned int ompl::base::WeightedGoalRegionSampler::maxSampleCount() const
 {
   std::lock_guard<std::mutex> slock(lock_);
   return GoalStates::maxSampleCount();
 }
 
-bool ompl::base::WeightedGoalRegionSamples::addStateIfDifferent(const State* st, double minDistance)
+bool ompl::base::WeightedGoalRegionSampler::addStateIfDifferent(const State* st, double minDistance)
 {
   const base::State* newState = nullptr;
   bool added = false;
@@ -252,7 +252,7 @@ bool ompl::base::WeightedGoalRegionSamples::addStateIfDifferent(const State* st,
   return added;
 }
 
-void ompl::base::WeightedGoalRegionSamples::penalizeWeightedGoal(WeightedGoal& weighted_goal)
+void ompl::base::WeightedGoalRegionSampler::penalizeWeightedGoal(WeightedGoal& weighted_goal)
 {
   double w = weighted_goal.heap_element_->data->weight_;
   // std::cout << "penalize -> prev w: " << w << std::endl;
@@ -277,7 +277,7 @@ void ompl::base::WeightedGoalRegionSamples::penalizeWeightedGoal(WeightedGoal& w
   }
 }
 
-void ompl::base::WeightedGoalRegionSamples::rewardWeightedGoal(WeightedGoal& weighted_goal)
+void ompl::base::WeightedGoalRegionSampler::rewardWeightedGoal(WeightedGoal& weighted_goal)
 {
   double w = weighted_goal.heap_element_->data->weight_;
   // std::cout << "reward -> prev w: " << w << std::endl;
@@ -296,7 +296,7 @@ void ompl::base::WeightedGoalRegionSamples::rewardWeightedGoal(WeightedGoal& wei
   }
 }
 
-void ompl::base::WeightedGoalRegionSamples::sampleWeightedGoal(WeightedGoal& weighted_goal)
+void ompl::base::WeightedGoalRegionSampler::sampleWeightedGoal(WeightedGoal& weighted_goal)
 {
   if (states_.empty())
     throw Exception("There are no goals to sample");
@@ -308,7 +308,7 @@ void ompl::base::WeightedGoalRegionSamples::sampleWeightedGoal(WeightedGoal& wei
   weighted_goal.heap_element_ = heap_element->data->heap_element_;
 }
 
-void ompl::base::WeightedGoalRegionSamples::sampleConsecutiveGoal(WeightedGoal& weighted_goal)
+void ompl::base::WeightedGoalRegionSampler::sampleConsecutiveGoal(WeightedGoal& weighted_goal)
 {
   if (states_.empty())
     throw Exception("There are no goals to sample");

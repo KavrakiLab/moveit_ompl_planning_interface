@@ -115,7 +115,7 @@ public:
   /// These constraints are merged with any path constraints that are specified
   /// in the motion plan request.
   virtual bool setGoalConstraints(const std::vector<moveit_msgs::Constraints>& goal_constraints,
-                                  const std::vector<moveit_msgs::GoalRegion>& goal_regions,
+                                  const std::vector<moveit_msgs::WorkspaceGoalRegion>& goal_regions,
                                   moveit_msgs::MoveItErrorCodes* error);
 
   /// \brief Return the set of constraints that must be satisfied along the
@@ -221,7 +221,7 @@ protected:
   std::vector<kinematic_constraints::KinematicConstraintSetPtr> goal_constraints_;
 
   /// \brief The set of goal regions
-  std::vector<moveit_msgs::GoalRegion> goal_regions_;
+  std::vector<moveit_msgs::WorkspaceGoalRegion> goal_regions_;
 
   /// \brief The (possibly empty) set of constraints that must be satisfied
   /// along the entire path.

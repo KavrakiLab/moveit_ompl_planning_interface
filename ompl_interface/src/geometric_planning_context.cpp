@@ -37,7 +37,6 @@
 
 #include "moveit/ompl_interface/geometric_planning_context.h"
 #include "moveit/ompl_interface/detail/constrained_goal_sampler.h"
-#include "moveit/ompl_interface/detail/constrained_goal_region_sampler.h"
 #include "moveit/ompl_interface/detail/constrained_sampler.h"
 #include "moveit/ompl_interface/detail/goal_union.h"
 #include "moveit/ompl_interface/detail/projection_evaluators.h"
@@ -45,6 +44,7 @@
 #include "moveit/ompl_interface/modified_planners/RRTMod.h"
 #include "moveit/ompl_interface/modified_planners/RRTGoalRegion.h"
 #include "moveit/ompl_interface/modified_planners/RRTGoalRegCons.h"
+#include "moveit/ompl_interface/modified_planners/goal_region_sampler.h"
 
 #include <moveit/utils/lexical_casts.h>
 
@@ -52,6 +52,7 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/math/constants/constants.hpp>
 #include <eigen_conversions/eigen_msg.h>
+
 #include <moveit/kinematic_constraints/utils.h>
 #include <pluginlib/class_list_macros.h>
 
@@ -452,7 +453,7 @@ void GeometricPlanningContext::startGoalSampling()
 {
   bool gls = simple_setup_->getGoal()->hasType(ompl::base::GOAL_LAZY_SAMPLES);
   if (goal_regions_.size() > 0 && gls)
-    dynamic_cast<ompl::base::WeightedGoalRegionSamples*>(simple_setup_->getGoal().get())->startSampling();
+    dynamic_cast<ompl::base::WeightedGoalRegionSampler*>(simple_setup_->getGoal().get())->startSampling();
   else if (gls)
     dynamic_cast<ompl::base::GoalLazySamples*>(simple_setup_->getGoal().get())->startSampling();
   else
@@ -464,7 +465,7 @@ void GeometricPlanningContext::stopGoalSampling()
 {
   bool gls = simple_setup_->getGoal()->hasType(ompl::base::GOAL_LAZY_SAMPLES);
   if (goal_regions_.size() > 0 && gls)
-    dynamic_cast<ompl::base::WeightedGoalRegionSamples*>(simple_setup_->getGoal().get())->stopSampling();
+    dynamic_cast<ompl::base::WeightedGoalRegionSampler*>(simple_setup_->getGoal().get())->stopSampling();
   else if (gls)
     dynamic_cast<ompl::base::GoalLazySamples*>(simple_setup_->getGoal().get())->stopSampling();
   else
@@ -801,7 +802,7 @@ void GeometricPlanningContext::setCompleteInitialRobotState(const robot_state::R
 }
 
 bool GeometricPlanningContext::setGoalConstraints(const std::vector<moveit_msgs::Constraints>& goal_constraints,
-                                                  const std::vector<moveit_msgs::GoalRegion>& goal_regions,
+                                                  const std::vector<moveit_msgs::WorkspaceGoalRegion>& goal_regions,
                                                   moveit_msgs::MoveItErrorCodes* error)
 {
   if (goal_constraints.empty())
@@ -817,7 +818,7 @@ bool GeometricPlanningContext::setGoalConstraints(const std::vector<moveit_msgs:
   for (const auto& goal_region : goal_regions)
   {
     // Setting goal_region
-    goal_regions_.push_back(moveit_msgs::GoalRegion(goal_region));
+    goal_regions_.push_back(moveit_msgs::WorkspaceGoalRegion(goal_region));
   }
 
   // Merge path constraints (if any) with goal constraints
@@ -864,7 +865,7 @@ bool GeometricPlanningContext::setGoalConstraints(const std::vector<moveit_msgs:
   if (goal_regions_.size() > 0)
   {
     ompl::base::GoalPtr g = ompl::base::GoalPtr(
-        new ConstrainedGoalRegionSampler(this, getGroupName(), getRobotModel(), getPlanningScene(), merged_constraints,
+        new GoalRegionSampler(this, getGroupName(), getRobotModel(), getPlanningScene(), merged_constraints,
                                          goal_regions_, constraint_sampler_manager_));
     goals.push_back(g);
   }

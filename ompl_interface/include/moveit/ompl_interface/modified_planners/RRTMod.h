@@ -37,7 +37,7 @@
 #ifndef OMPL_GEOMETRIC_PLANNERS_RRT_RRT_MOD_
 #define OMPL_GEOMETRIC_PLANNERS_RRT_RRT_MOD_
 
-#include <moveit/ompl_interface/detail/weighted_goal_region_samples.h>
+#include <moveit/ompl_interface/modified_planners/weighted_goal_region_sampler.h>
 #include <ompl/datastructures/NearestNeighbors.h>
 #include <ompl/geometric/planners/PlannerIncludes.h>
 

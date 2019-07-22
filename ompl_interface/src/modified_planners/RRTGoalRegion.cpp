@@ -96,7 +96,7 @@ ompl::base::PlannerStatus ompl::geometric::RRTGoalRegion::solve(const base::Plan
 {
   checkValidity();
   base::Goal* goal = pdef_->getGoal().get();
-  auto* goal_region = dynamic_cast<base::WeightedGoalRegionSamples*>(goal);
+  auto* goal_region = dynamic_cast<base::WeightedGoalRegionSampler*>(goal);
 
   while (const base::State* st = pis_.nextStart())
   {
@@ -123,7 +123,7 @@ ompl::base::PlannerStatus ompl::geometric::RRTGoalRegion::solve(const base::Plan
   base::State* rstate = rmotion->state;
   base::State* xstate = si_->allocState();
 
-  base::WeightedGoalRegionSamples::WeightedGoal weighted_goal;
+  base::WeightedGoalRegionSampler::WeightedGoal weighted_goal;
   bool expansion_toward_goal;
 
   // maxDistance_ = 3.0;

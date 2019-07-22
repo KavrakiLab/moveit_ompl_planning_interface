@@ -7,16 +7,16 @@ add_library(${MOVEIT_LIB_NAME}
   src/detail/state_validity_checker.cpp
   src/detail/projection_evaluators.cpp
   src/detail/goal_union.cpp
-  src/detail/weighted_goal_region_samples.cpp
   src/detail/constrained_sampler.cpp
   src/detail/constrained_goal_sampler.cpp
-  src/detail/constrained_goal_region_sampler.cpp
   src/detail/ompl_console.cpp
   src/detail/constrained_valid_state_sampler.cpp
   src/detail/threadsafe_state_storage.cpp
   src/modified_planners/RRTMod.cpp
   src/modified_planners/RRTGoalRegion.cpp
   src/modified_planners/RRTGoalRegCons.cpp
+  src/modified_planners/weighted_goal_region_sampler.cpp
+  src/modified_planners/goal_region_sampler.cpp
 )
 
 target_include_directories(${MOVEIT_LIB_NAME} SYSTEM

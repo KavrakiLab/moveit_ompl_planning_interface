@@ -41,35 +41,35 @@
 #include <moveit/constraint_samplers/constraint_sampler.h>
 #include <moveit/kinematic_constraints/kinematic_constraint.h>
 #include <moveit/ompl_interface/detail/constrained_sampler.h>
+#include <moveit/ompl_interface/modified_planners/weighted_goal_region_sampler.h>
 #include <ompl/base/goals/GoalLazySamples.h>
-#include <moveit/ompl_interface/detail/weighted_goal_region_samples.h>
 #include <ompl/base/spaces/SE3StateSpace.h>
 
 #include <moveit/robot_model/joint_model_group.h>
 #include <moveit/robot_state/robot_state.h>
-#include <moveit_msgs/GoalRegion.h>
+#include <moveit_msgs/WorkspaceGoalRegion.h>
 
 namespace ompl_interface
 {
 class OMPLPlanningContext;
 
-/** @class ConstrainedGoalRegionSampler
+/** @class GoalRegionSampler
  *  An interface to the weighted goal region sampler*/
-class ConstrainedGoalRegionSampler : public ompl::base::WeightedGoalRegionSamples
+class GoalRegionSampler : public ompl::base::WeightedGoalRegionSampler
 {
 public:
-  ConstrainedGoalRegionSampler(const OMPLPlanningContext* pc, const std::string& group_name,
+  GoalRegionSampler(const OMPLPlanningContext* pc, const std::string& group_name,
                                const robot_model::RobotModelConstPtr& rm,
                                const planning_scene::PlanningSceneConstPtr& ps,
                                const std::vector<moveit_msgs::Constraints>& constrs,
-                               const std::vector<moveit_msgs::GoalRegion>& grs,
+                               const std::vector<moveit_msgs::WorkspaceGoalRegion>& grs,
                                constraint_samplers::ConstraintSamplerManagerPtr csm,
                                const unsigned int max_sampled_goals = 10);
 
   void clear() override;
 
 private:
-  bool sampleUsingConstraintSampler(const ompl::base::WeightedGoalRegionSamples* gls,
+  bool sampleUsingConstraintSampler(const ompl::base::WeightedGoalRegionSampler* gls,
                                     std::vector<ompl::base::State*>& sampled_states);
   bool stateValidityCallback(ompl::base::State* new_goal, robot_state::RobotState const* state,
                              const robot_model::JointModelGroup*, const double*, bool verbose = false) const;
@@ -89,7 +89,7 @@ private:
   std::vector<ompl::base::StateSamplerPtr> se3_samplers_;
   std::vector<ompl::base::StateSpacePtr> se3_spaces_;
   std::vector<moveit_msgs::Constraints> constrs_;
-  std::vector<moveit_msgs::GoalRegion> goal_regions_;
+  std::vector<moveit_msgs::WorkspaceGoalRegion> goal_regions_;
   constraint_samplers::ConstraintSamplerManagerPtr constraint_sampler_manager_;
   const std::string& group_name_;
 };

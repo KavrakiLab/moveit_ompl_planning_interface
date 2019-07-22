@@ -41,12 +41,12 @@
 #include <moveit/kinematic_constraints/kinematic_constraint.h>
 #include <moveit/ompl_interface/detail/constrained_sampler.h>
 #include <ompl/base/goals/GoalLazySamples.h>
-#include <moveit/ompl_interface/detail/weighted_goal_region_samples.h>
+#include <moveit/ompl_interface/modified_planners/weighted_goal_region_sampler.h>
 #include <ompl/base/spaces/SE3StateSpace.h>
 
 #include <moveit/robot_model/joint_model_group.h>
 #include <moveit/robot_state/robot_state.h>
-#include <moveit_msgs/GoalRegion.h>
+#include <moveit_msgs/WorkspaceGoalRegion.h>
 
 namespace ompl_interface
 {
