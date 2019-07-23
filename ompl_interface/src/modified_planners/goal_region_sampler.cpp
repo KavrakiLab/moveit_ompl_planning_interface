@@ -41,11 +41,19 @@
 #include <moveit/profiler/profiler.h>
 #include <tf/tf.h>
 
+#include <boost/graph/graph_traits.hpp>
+#include <boost/graph/adjacency_list.hpp>
+#include <boost/pending/disjoint_sets.hpp>
+#include <boost/graph/astar_search.hpp>
+#include <boost/graph/incremental_components.hpp>
+#include <boost/property_map/vector_property_map.hpp>
+#include <boost/foreach.hpp>
+
 ompl_interface::GoalRegionSampler::GoalRegionSampler(const OMPLPlanningContext* pc, const std::string& group_name,
                                                      const robot_model::RobotModelConstPtr& rm,
                                                      const planning_scene::PlanningSceneConstPtr& ps,
                                                      const std::vector<moveit_msgs::Constraints>& constrs,
-                                                     const std::vector<moveit_msgs::WorkspaceGoalRegion>& grs,
+                                                     const std::vector<moveit_msgs::WorkspaceGoalRegion>& wsgrs,
                                                      constraint_samplers::ConstraintSamplerManagerPtr csm,
                                                      const unsigned int max_sampled_goals)
   : ompl::base::WeightedGoalRegionSampler(pc->getOMPLSpaceInformation(),
@@ -64,34 +72,53 @@ ompl_interface::GoalRegionSampler::GoalRegionSampler(const OMPLPlanningContext* 
 
   for (auto& constr : constrs)
     constrs_.push_back(moveit_msgs::Constraints(constr));
-  for (auto& gr : grs)
-    goal_regions_.push_back(moveit_msgs::WorkspaceGoalRegion(gr));
 
-  for (std::size_t i = 0; i < goal_regions_.size(); ++i)
+  for (std::size_t i = 0; i < workspace_goal_regions_.size(); ++i)
   {
     // construct the se3 state space for sampling poses
     se3_spaces_.push_back(ompl::base::StateSpacePtr(new ompl::base::SE3StateSpace()));
 
     // set the bounds for the R^3 part of SE(3)
     ompl::base::RealVectorBounds bounds(3);
-    bounds.setLow(0, goal_regions_[i].x.min);
-    bounds.setLow(1, goal_regions_[i].y.min);
-    bounds.setLow(2, goal_regions_[i].z.min);
+    bounds.setLow(0, workspace_goal_regions_[i].x.min);
+    bounds.setLow(1, workspace_goal_regions_[i].y.min);
+    bounds.setLow(2, workspace_goal_regions_[i].z.min);
 
-    bounds.setHigh(0, goal_regions_[i].x.max);
-    bounds.setHigh(1, goal_regions_[i].y.max);
-    bounds.setHigh(2, goal_regions_[i].z.max);
+    bounds.setHigh(0, workspace_goal_regions_[i].x.max);
+    bounds.setHigh(1, workspace_goal_regions_[i].y.max);
+    bounds.setHigh(2, workspace_goal_regions_[i].z.max);
 
     se3_spaces_[i]->as<ompl::base::SE3StateSpace>()->setBounds(bounds);
-
     se3_samplers_.push_back(se3_spaces_[i]->as<ompl::base::SE3StateSpace>()->allocStateSampler());
+
+    OMPL_DEBUG("Creating SE3 workspace sampler for GoalRegion%d", i + 1);
   }
 
   //
   kinematic_constraint_set_.reset(new kinematic_constraints::KinematicConstraintSet(rm));
 
-  // logDebug("Constructed a GoalRegionSampler instance at address %p", this);
+  OMPL_DEBUG("Creating PRM for Goal Regions");
+  // construct the state space we are planning in
+  //  auto prm_space = std::make_shared<ompl::base::StateSpace>(planning_context_->getOMPLStateSpace());
+  //  // construct an instance of  space information from this state space
+  auto prm_si(std::make_shared<ompl::base::SpaceInformation>(planning_context_->getOMPLStateSpace()));
+  //  // set state validity checking for this space
+  //  prm_si->setStateValidityChecker(
+  //      std::make_shared<plan::ValidityChecker>(prm_si, std::make_shared<Box2DCollisionManager>(robot_)));
+  // create a problem instance
+  auto prm_pdef(std::make_shared<ompl::base::ProblemDefinition>(prm_si));
+  // create a planner for the defined space
+  prm_planner_ = std::make_shared<ompl::geometric::PRMMod>(prm_si);
+  // set the problem we are trying to solve for the planner
+  prm_planner_->setProblemDefinition(prm_pdef);
+  // perform setup steps for the planner
+  prm_planner_->setup();
+  // Set a goal regions state sampler
+  prm_planner_->getSpaceInformation()->getStateSpace()->setStateSamplerAllocator(
+      std::bind(ob::newAllocStateSampler, std::placeholders::_1, this));
+
   startSampling();
+  //  startGrowingRoadmap();
 }
 
 bool ompl_interface::GoalRegionSampler::checkStateValidity(ompl::base::State* new_goal,
@@ -118,7 +145,7 @@ bool ompl_interface::GoalRegionSampler::sampleUsingConstraintSampler(const ompl:
 {
   bool success = false;
 
-  for (std::size_t i = 0; i < goal_regions_.size(); ++i)
+  for (std::size_t i = 0; i < workspace_goal_regions_.size(); ++i)
   {
     // Sampling an SE3 pose
     //    std::cout << "sampling !!!!!:" << std::endl;
@@ -137,7 +164,8 @@ bool ompl_interface::GoalRegionSampler::sampleUsingConstraintSampler(const ompl:
     constrs_[i].position_constraints[0].constraint_region.primitive_poses[0].position.z =
         state->as<ompl::base::SE3StateSpace::StateType>()->getZ();
 
-    if (goal_regions_[i].roll.free_value || goal_regions_[i].pitch.free_value || goal_regions_[i].yaw.free_value)
+    if (workspace_goal_regions_[i].roll.free_value || workspace_goal_regions_[i].pitch.free_value ||
+        workspace_goal_regions_[i].yaw.free_value)
     {
       // sampled orientation
       tf::Quaternion q_sampled = tf::Quaternion(state->as<ompl::base::SE3StateSpace::StateType>()->rotation().x,
@@ -157,9 +185,10 @@ bool ompl_interface::GoalRegionSampler::sampleUsingConstraintSampler(const ompl:
       roation_initial_goal.getRPY(roll, pitch, yaw);
 
       // new orientation
-      tf::Quaternion q_new = tf::createQuaternionFromRPY(goal_regions_[i].roll.free_value ? roll_sampled : roll,
-                                                         goal_regions_[i].pitch.free_value ? pitch_sampled : pitch,
-                                                         goal_regions_[i].yaw.free_value ? yaw_sampled : yaw);
+      tf::Quaternion q_new =
+          tf::createQuaternionFromRPY(workspace_goal_regions_[i].roll.free_value ? roll_sampled : roll,
+                                      workspace_goal_regions_[i].pitch.free_value ? pitch_sampled : pitch,
+                                      workspace_goal_regions_[i].yaw.free_value ? yaw_sampled : yaw);
 
       // new orientation constraints
       constrs_[i].orientation_constraints[0].orientation.x = q_new[0];
@@ -288,7 +317,7 @@ void ompl_interface::GoalRegionSampler::clear()
   std::lock_guard<std::mutex> slock(lock_);
   WeightedGoalRegionSampler::clear();
   constrs_.clear();
-  goal_regions_.clear();
+  workspace_goal_regions_.clear();
   se3_samplers_.clear();
   se3_spaces_.clear();
 }

@@ -1,36 +1,36 @@
 /*********************************************************************
-* Software License Agreement (BSD License)
-*
-*  Copyright (c) 2010, Rice University
-*  All rights reserved.
-*
-*  Redistribution and use in source and binary forms, with or without
-*  modification, are permitted provided that the following conditions
-*  are met:
-*
-*   * Redistributions of source code must retain the above copyright
-*     notice, this list of conditions and the following disclaimer.
-*   * Redistributions in binary form must reproduce the above
-*     copyright notice, this list of conditions and the following
-*     disclaimer in the documentation and/or other materials provided
-*     with the distribution.
-*   * Neither the name of the Rice University nor the names of its
-*     contributors may be used to endorse or promote products derived
-*     from this software without specific prior written permission.
-*
-*  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-*  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-*  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
-*  FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
-*  COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-*  INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-*  BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-*  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-*  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
-*  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
-*  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-*  POSSIBILITY OF SUCH DAMAGE.
-*********************************************************************/
+ * Software License Agreement (BSD License)
+ *
+ *  Copyright (c) 2010, Rice University
+ *  All rights reserved.
+ *
+ *  Redistribution and use in source and binary forms, with or without
+ *  modification, are permitted provided that the following conditions
+ *  are met:
+ *
+ *   * Redistributions of source code must retain the above copyright
+ *     notice, this list of conditions and the following disclaimer.
+ *   * Redistributions in binary form must reproduce the above
+ *     copyright notice, this list of conditions and the following
+ *     disclaimer in the documentation and/or other materials provided
+ *     with the distribution.
+ *   * Neither the name of the Rice University nor the names of its
+ *     contributors may be used to endorse or promote products derived
+ *     from this software without specific prior written permission.
+ *
+ *  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ *  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ *  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ *  FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ *  COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+ *  INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+ *  BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ *  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ *  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ *  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+ *  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ *  POSSIBILITY OF SUCH DAMAGE.
+ *********************************************************************/
 
 /* Author: Ioan Sucan */
 /* Modified by: Juan David Hernandez Vega */
@@ -48,7 +48,9 @@ ompl::base::WeightedGoalRegionSampler::WeightedGoalRegionSampler(const SpaceInfo
   : GoalStates(si)
   , samplerFunc_(std::move(samplerFunc))
   , terminateSamplingThread_(false)
+  , terminateGrowingRoadmapThread_(false)
   , samplingThread_(nullptr)
+  , growingRoadmapThread_(nullptr)
   , samplingAttempts_(0)
   , minDist_(minDist)
   , max_sampled_goals_(max_sampled_goals)
@@ -63,6 +65,7 @@ ompl::base::WeightedGoalRegionSampler::WeightedGoalRegionSampler(const SpaceInfo
 ompl::base::WeightedGoalRegionSampler::~WeightedGoalRegionSampler()
 {
   stopSampling();
+  stopGrowingRoadmap();
 }
 
 void ompl::base::WeightedGoalRegionSampler::startSampling()
@@ -94,6 +97,38 @@ void ompl::base::WeightedGoalRegionSampler::stopSampling()
     samplingThread_->join();
     delete samplingThread_;
     samplingThread_ = nullptr;
+  }
+}
+
+void ompl::base::WeightedGoalRegionSampler::startGrowingRoadmap()
+{
+  std::lock_guard<std::mutex> slock(lock_);
+  if (growingRoadmapThread_ == nullptr)
+  {
+    OMPL_DEBUG("Starting roadmap growing thread");
+    terminateGrowingRoadmapThread_ = false;
+    growingRoadmapThread_ = new std::thread(&WeightedGoalRegionSampler::roadmapGrowingThread, this);
+  }
+}
+
+void ompl::base::WeightedGoalRegionSampler::stopGrowingRoadmap()
+{
+  /* Set termination flag */
+  {
+    std::lock_guard<std::mutex> slock(lock_);
+    if (!terminateGrowingRoadmapThread_)
+    {
+      OMPL_DEBUG("Attempting to stop roadmap growing thread...");
+      terminateGrowingRoadmapThread_ = true;
+    }
+  }
+
+  /* Join thread */
+  if (growingRoadmapThread_ != nullptr)
+  {
+    growingRoadmapThread_->join();
+    delete growingRoadmapThread_;
+    growingRoadmapThread_ = nullptr;
   }
 }
 
@@ -156,8 +191,9 @@ void ompl::base::WeightedGoalRegionSampler::goalSamplingThread()
   }
   else
     OMPL_WARN("Goal sampling thread never did any work.%s",
-              samplerFunc_ ? (si_->isSetup() ? "" : " Space information not set up.") : " No sampling function "
-                                                                                        "set.");
+              samplerFunc_ ? (si_->isSetup() ? "" : " Space information not set up.") :
+                             " No sampling function "
+                             "set.");
   {
     std::lock_guard<std::mutex> slock(lock_);
     terminateSamplingThread_ = true;
@@ -166,10 +202,30 @@ void ompl::base::WeightedGoalRegionSampler::goalSamplingThread()
   OMPL_DEBUG("Stopped goal sampling thread after %u sampling attempts", samplingAttempts_ - prevsa);
 }
 
+void ompl::base::WeightedGoalRegionSampler::roadmapGrowingThread()
+{
+  while (isGrowingRoadmap())
+    prm_planner_->as<ompl::geometric::PRMMod>()->growRoadmap(0.1);
+
+  {
+    std::lock_guard<std::mutex> slock(lock_);
+    terminateGrowingRoadmapThread_ = true;
+  }
+  OMPL_DEBUG("Stopped roadmap growing thread with %u nodes and %u edges",
+             prm_planner_->as<ompl::geometric::PRMMod>()->milestoneCount(),
+             prm_planner_->as<ompl::geometric::PRMMod>()->edgeCount());
+}
+
 bool ompl::base::WeightedGoalRegionSampler::isSampling() const
 {
   std::lock_guard<std::mutex> slock(lock_);
   return !terminateSamplingThread_ && samplingThread_ != nullptr;
+}
+
+bool ompl::base::WeightedGoalRegionSampler::isGrowingRoadmap() const
+{
+  std::lock_guard<std::mutex> slock(lock_);
+  return !terminateGrowingRoadmapThread_ && growingRoadmapThread_ != nullptr;
 }
 
 bool ompl::base::WeightedGoalRegionSampler::couldSample() const

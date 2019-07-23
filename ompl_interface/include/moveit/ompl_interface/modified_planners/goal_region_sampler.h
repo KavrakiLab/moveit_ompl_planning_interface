@@ -1,36 +1,36 @@
 /*********************************************************************
-* Software License Agreement (BSD License)
-*
-*  Copyright (c) 2011, Willow Garage, Inc.
-*  All rights reserved.
-*
-*  Redistribution and use in source and binary forms, with or without
-*  modification, are permitted provided that the following conditions
-*  are met:
-*
-*   * Redistributions of source code must retain the above copyright
-*     notice, this list of conditions and the following disclaimer.
-*   * Redistributions in binary form must reproduce the above
-*     copyright notice, this list of conditions and the following
-*     disclaimer in the documentation and/or other materials provided
-*     with the distribution.
-*   * Neither the name of Willow Garage nor the names of its
-*     contributors may be used to endorse or promote products derived
-*     from this software without specific prior written permission.
-*
-*  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-*  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-*  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
-*  FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
-*  COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-*  INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-*  BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-*  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-*  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
-*  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
-*  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-*  POSSIBILITY OF SUCH DAMAGE.
-*********************************************************************/
+ * Software License Agreement (BSD License)
+ *
+ *  Copyright (c) 2011, Willow Garage, Inc.
+ *  All rights reserved.
+ *
+ *  Redistribution and use in source and binary forms, with or without
+ *  modification, are permitted provided that the following conditions
+ *  are met:
+ *
+ *   * Redistributions of source code must retain the above copyright
+ *     notice, this list of conditions and the following disclaimer.
+ *   * Redistributions in binary form must reproduce the above
+ *     copyright notice, this list of conditions and the following
+ *     disclaimer in the documentation and/or other materials provided
+ *     with the distribution.
+ *   * Neither the name of Willow Garage nor the names of its
+ *     contributors may be used to endorse or promote products derived
+ *     from this software without specific prior written permission.
+ *
+ *  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ *  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ *  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ *  FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ *  COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+ *  INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+ *  BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ *  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ *  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ *  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+ *  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ *  POSSIBILITY OF SUCH DAMAGE.
+ *********************************************************************/
 
 /* Author: Juan David Hernandez Vega */
 /* Extension of constrained_goal_sampler by: (Ioan Sucan) */
@@ -41,9 +41,12 @@
 #include <moveit/constraint_samplers/constraint_sampler.h>
 #include <moveit/kinematic_constraints/kinematic_constraint.h>
 #include <moveit/ompl_interface/detail/constrained_sampler.h>
-#include <moveit/ompl_interface/modified_planners/weighted_goal_region_sampler.h>
 #include <ompl/base/goals/GoalLazySamples.h>
 #include <ompl/base/spaces/SE3StateSpace.h>
+
+#include <moveit/ompl_interface/modified_planners/PRMMod.h>
+#include <moveit/ompl_interface/modified_planners/goal_regions_state_sampler.h>
+#include <moveit/ompl_interface/modified_planners/weighted_goal_region_sampler.h>
 
 #include <moveit/robot_model/joint_model_group.h>
 #include <moveit/robot_state/robot_state.h>
@@ -59,12 +62,12 @@ class GoalRegionSampler : public ompl::base::WeightedGoalRegionSampler
 {
 public:
   GoalRegionSampler(const OMPLPlanningContext* pc, const std::string& group_name,
-                               const robot_model::RobotModelConstPtr& rm,
-                               const planning_scene::PlanningSceneConstPtr& ps,
-                               const std::vector<moveit_msgs::Constraints>& constrs,
-                               const std::vector<moveit_msgs::WorkspaceGoalRegion>& grs,
-                               constraint_samplers::ConstraintSamplerManagerPtr csm,
-                               const unsigned int max_sampled_goals = 10);
+                    const robot_model::RobotModelConstPtr& rm, const planning_scene::PlanningSceneConstPtr& ps,
+                    const std::vector<moveit_msgs::Constraints>& constrs,
+                    const std::vector<moveit_msgs::WorkspaceGoalRegion>& wsgrs,
+                    constraint_samplers::ConstraintSamplerManagerPtr csm, const unsigned int max_sampled_goals = 10);
+
+  void getBetterSolution(ompl::base::PathPtr solution_path);
 
   void clear() override;
 
@@ -89,10 +92,10 @@ private:
   std::vector<ompl::base::StateSamplerPtr> se3_samplers_;
   std::vector<ompl::base::StateSpacePtr> se3_spaces_;
   std::vector<moveit_msgs::Constraints> constrs_;
-  std::vector<moveit_msgs::WorkspaceGoalRegion> goal_regions_;
+  std::vector<moveit_msgs::WorkspaceGoalRegion> workspace_goal_regions_;
   constraint_samplers::ConstraintSamplerManagerPtr constraint_sampler_manager_;
   const std::string& group_name_;
 };
-}
+}  // namespace ompl_interface
 
 #endif
