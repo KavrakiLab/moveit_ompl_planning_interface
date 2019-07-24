@@ -100,10 +100,10 @@ ompl_interface::GoalRegionSampler::GoalRegionSampler(const OMPLPlanningContext* 
 
   OMPL_DEBUG("Creating PRM for Goal Regions");
   // construct the state space we are planning in
-  //  auto prm_space = std::make_shared<ompl::base::StateSpace>(planning_context_->getOMPLStateSpace());
-  //  // construct an instance of  space information from this state space
+  auto prm_space = planning_context_->getOMPLStateSpace();
+  // construct an instance of  space information from this state space
   auto prm_si(std::make_shared<ompl::base::SpaceInformation>(planning_context_->getOMPLStateSpace()));
-  //  // set state validity checking for this space
+  // set state validity checking for this space
   //  prm_si->setStateValidityChecker(
   //      std::make_shared<plan::ValidityChecker>(prm_si, std::make_shared<Box2DCollisionManager>(robot_)));
   // create a problem instance
@@ -113,10 +113,10 @@ ompl_interface::GoalRegionSampler::GoalRegionSampler(const OMPLPlanningContext* 
   // set the problem we are trying to solve for the planner
   prm_planner_->setProblemDefinition(prm_pdef);
   // perform setup steps for the planner
-  prm_planner_->setup();
+  prm_planner_->setup();/*
   // Set a goal regions state sampler
   prm_planner_->getSpaceInformation()->getStateSpace()->setStateSamplerAllocator(
-      std::bind(ob::newAllocStateSampler, std::placeholders::_1, this));
+      std::bind(ob::newAllocStateSampler, std::placeholders::_1, this));*/
 
   startSampling();
   //  startGrowingRoadmap();
