@@ -67,6 +67,7 @@ ompl_interface::GoalRegionSampler::GoalRegionSampler(const OMPLPlanningContext* 
   , planning_scene_(ps)
   , constraint_sampler_manager_(csm)
   , group_name_(group_name)
+  , workspace_goal_regions_(wsgrs)
 {
   // std::cout << "creating GoalRegionSampler! " << std::endl;
 
