@@ -46,8 +46,10 @@
 #include <ompl/base/State.h>
 #include <ompl/base/goals/GoalStates.h>
 #include <ompl/datastructures/BinaryHeap.h>
+#include <ompl/base/Planner.h>
 
 #include <moveit/ompl_interface/modified_planners/PRMMod.h>
+#include <moveit/ompl_interface/modified_planners/goal_regions_state_sampler.h>
 
 namespace ompl
 {

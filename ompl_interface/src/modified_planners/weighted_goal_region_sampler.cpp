@@ -73,7 +73,7 @@ void ompl::base::WeightedGoalRegionSampler::startSampling()
   std::lock_guard<std::mutex> slock(lock_);
   if (samplingThread_ == nullptr)
   {
-    OMPL_DEBUG("Starting goal sampling thread");
+    OMPL_DEBUG("Starting goal regions sampling thread");
     terminateSamplingThread_ = false;
     samplingThread_ = new std::thread(&WeightedGoalRegionSampler::goalSamplingThread, this);
   }
@@ -169,15 +169,17 @@ void ompl::base::WeightedGoalRegionSampler::goalSamplingThread()
           {
             increase_num_sampled_goals = true;
             ++num_sampled_goals_;
-            OMPL_DEBUG("Adding goal state");
+            // OMPL_DEBUG("Adding goal state. num_sampled_goals_: %d", num_sampled_goals_);
             // addStateIfDifferent(sampled_state, minDist_);
             std::lock_guard<std::mutex> slock(lock_);
             GoalStates::addState(sampled_state);
+            sampled_goal_states_.push_back(sampled_state);
+            // OMPL_DEBUG("sampled_goal_states_.size(): %d", sampled_goal_states_.size());
           }
-          else
-          {
-            OMPL_DEBUG("Invalid goal candidate");
-          }
+          //                    else
+          //                    {
+          //                        OMPL_DEBUG("Invalid goal candidate");
+          //                    }
         }
         if (num_sampled_goals_ >= max_sampled_goals_)
         {
