@@ -133,7 +133,7 @@ void ompl_interface::GoalRegionSampler::getBetterSolution(ompl::base::PathPtr so
   OMPL_INFORM("Getting better solution from goal regions roadmap");
   auto graph = prm_planner_->as<ompl::geometric::PRMMod>()->getRoadmap();
 
-  std::cout << "start_state_roadmap" << std::endl;
+  std::cout << "********* start_state from solution_path" << std::endl;
   ompl::base::State* start_state_roadmap = solution_path->as<ompl::geometric::PathGeometric>()->getStates().back();
   si_->getStateSpace()->printState(start_state_roadmap);
 
@@ -153,7 +153,7 @@ void ompl_interface::GoalRegionSampler::getBetterSolution(ompl::base::PathPtr so
   ompl::geometric::PRMMod::Vertex start_vertex;
   BOOST_FOREACH (ompl::geometric::PRMMod::Vertex v, boost::vertices(graph))
   {
-    si_->getStateSpace()->printState(prm_planner_->as<ompl::geometric::PRMMod>()->stateProperty_[v]);
+    // si_->getStateSpace()->printState(prm_planner_->as<ompl::geometric::PRMMod>()->stateProperty_[v]);
 
     // Solving FK
     std::vector<double> joint_values;
@@ -180,7 +180,7 @@ void ompl_interface::GoalRegionSampler::getBetterSolution(ompl::base::PathPtr so
                                 pow((workspace_goal_regions_[i].y.max + workspace_goal_regions_[i].y.min) / 2.0 -
                                         end_effector_state.translation().y(),
                                     2.0) +
-                                pow((workspace_goal_regions_[i].x.max + workspace_goal_regions_[i].z.min) / 2.0 -
+                                pow((workspace_goal_regions_[i].z.max + workspace_goal_regions_[i].z.min) / 2.0 -
                                         end_effector_state.translation().z(),
                                     2.0));
       // std::cout << "Distance to GR" << i << ": " << gr_distance << std::endl;
@@ -195,38 +195,49 @@ void ompl_interface::GoalRegionSampler::getBetterSolution(ompl::base::PathPtr so
     if (si_->getStateSpace()->equalStates(start_state_roadmap,
                                           prm_planner_->as<ompl::geometric::PRMMod>()->stateProperty_[v]))
     {
-      std::cout << "Start Vertex" << std::endl;
+      std::cout << "********* Start Vertex" << std::endl;
       start_vertex = v;
       si_->getStateSpace()->printState(prm_planner_->as<ompl::geometric::PRMMod>()->stateProperty_[start_vertex]);
+      break;
     }
   }
 
   lst.sort();
   // Find an internal connection to a lower cost node
-  ompl::base::PathPtr roadmap_internal_path;
+  ompl::base::PathPtr roadmap_internal_path = nullptr;
   for (auto& element : lst)
   {
     std::cout << "Distance: " << std::get<0>(element) << std::endl;
 
     if (prm_planner_->as<ompl::geometric::PRMMod>()->sameComponent(start_vertex, std::get<1>(element)))
     {
-      std::cout << "Goal Vertex" << std::endl;
+      std::cout << "********* Goal Vertex" << std::endl;
       si_->getStateSpace()->printState(
           prm_planner_->as<ompl::geometric::PRMMod>()->stateProperty_[std::get<1>(element)]);
-      roadmap_internal_path =
-          prm_planner_->as<ompl::geometric::PRMMod>()->constructSolution(start_vertex, std::get<1>(element));
-      roadmap_internal_path->print(std::cout);
+
+      if (!si_->getStateSpace()->equalStates(
+              prm_planner_->as<ompl::geometric::PRMMod>()->stateProperty_[start_vertex],
+              prm_planner_->as<ompl::geometric::PRMMod>()->stateProperty_[std::get<1>(element)]))
+      {
+        roadmap_internal_path =
+            prm_planner_->as<ompl::geometric::PRMMod>()->constructSolution(start_vertex, std::get<1>(element));
+        roadmap_internal_path->print(std::cout);
+      }
       break;
     }
   }
 
-  // Concatenate internal path to the solution path
-  std::cout << "Concatenating: " << std::endl;
-  for (unsigned int i = 1; i < roadmap_internal_path->as<ompl::geometric::PathGeometric>()->getStateCount(); i++)
+  if (roadmap_internal_path)
   {
-    si_->getStateSpace()->printState(roadmap_internal_path->as<ompl::geometric::PathGeometric>()->getState(i));
-    solution_path->as<ompl::geometric::PathGeometric>()->append(
-        roadmap_internal_path->as<ompl::geometric::PathGeometric>()->getState(i));
+    // Concatenate internal path to the solution path
+    std::cout << "Concatenating: " << roadmap_internal_path->as<ompl::geometric::PathGeometric>()->getStateCount()
+              << std::endl;
+    for (unsigned int i = 1; i < roadmap_internal_path->as<ompl::geometric::PathGeometric>()->getStateCount(); i++)
+    {
+      si_->getStateSpace()->printState(roadmap_internal_path->as<ompl::geometric::PathGeometric>()->getState(i));
+      solution_path->as<ompl::geometric::PathGeometric>()->append(
+          roadmap_internal_path->as<ompl::geometric::PathGeometric>()->getState(i));
+    }
   }
 }
 
@@ -317,7 +328,7 @@ bool ompl_interface::GoalRegionSampler::sampleUsingConstraintSampler(const ompl:
 
     // unsigned int max_attempts =
     // planning_context_->getMaximumGoalSamplingAttempts();
-    unsigned int max_attempts = 20;
+    unsigned int max_attempts = 2;
     unsigned int attempts_so_far = gls->samplingAttemptsCount();
 
     //    // terminate after too many attempts
@@ -357,7 +368,7 @@ bool ompl_interface::GoalRegionSampler::sampleUsingConstraintSampler(const ompl:
                         verbose);
         constraint_sampler_->setGroupStateValidityCallback(gsvcf);
 
-        unsigned int max_state_sampling_attempts = 4;
+        unsigned int max_state_sampling_attempts = 2;
         // if (constraint_sampler_->project(work_state_,
         // planning_context_->getMaximumStateSamplingAttempts()))
         if (constraint_sampler_->project(work_state_, max_state_sampling_attempts))
