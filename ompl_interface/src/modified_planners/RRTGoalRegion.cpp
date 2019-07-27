@@ -267,7 +267,7 @@ ompl::base::PlannerStatus ompl::geometric::RRTGoalRegion::solve(const base::Plan
     solved = true;
 
     /* Access to goal regions roadmap */
-    if (!goal_region->getsortRoadmapFuncStr().empty())
+    if (!goal_region->getSortRoadmapFuncStr().empty())
     {
       goal_region->stopSampling();
       goal_region->stopGrowingRoadmap();
