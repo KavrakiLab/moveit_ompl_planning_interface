@@ -54,13 +54,11 @@
 #include <boost/property_map/vector_property_map.hpp>
 #include <boost/foreach.hpp>
 
-ompl_interface::GoalRegionSampler::GoalRegionSampler(const OMPLPlanningContext* pc, const std::string& group_name,
-                                                     const robot_model::RobotModelConstPtr& rm,
-                                                     const planning_scene::PlanningSceneConstPtr& ps,
-                                                     const std::vector<moveit_msgs::Constraints>& constrs,
-                                                     const std::vector<moveit_msgs::WorkspaceGoalRegion>& wsgrs,
-                                                     constraint_samplers::ConstraintSamplerManagerPtr csm,
-                                                     const unsigned int max_sampled_goals)
+ompl_interface::GoalRegionSampler::GoalRegionSampler(
+    const OMPLPlanningContext* pc, const std::string& group_name, const robot_model::RobotModelConstPtr& rm,
+    const planning_scene::PlanningSceneConstPtr& ps, const std::vector<moveit_msgs::Constraints>& constrs,
+    const std::vector<moveit_msgs::WorkspaceGoalRegion>& wsgrs, const std::string& sort_roadmap_func_str,
+    constraint_samplers::ConstraintSamplerManagerPtr csm, const unsigned int max_sampled_goals)
   : ompl::base::WeightedGoalRegionSampler(pc->getOMPLSpaceInformation(),
                                           boost::bind(&GoalRegionSampler::sampleUsingConstraintSampler, this, _1, _2),
                                           max_sampled_goals, false)
@@ -73,6 +71,7 @@ ompl_interface::GoalRegionSampler::GoalRegionSampler(const OMPLPlanningContext* 
   , constraint_sampler_manager_(csm)
   , group_name_(group_name)
   , workspace_goal_regions_(wsgrs)
+  , sort_roadmap_func_str_(sort_roadmap_func_str)
 {
   // std::cout << "creating GoalRegionSampler! " << std::endl;
 
@@ -103,29 +102,37 @@ ompl_interface::GoalRegionSampler::GoalRegionSampler(const OMPLPlanningContext* 
   //
   kinematic_constraint_set_.reset(new kinematic_constraints::KinematicConstraintSet(rm));
 
-  OMPL_DEBUG("Creating PRM for Goal Regions");
-  // construct the state space we are planning in
-  ModelBasedStateSpacePtr prm_space(
-      new ModelBasedStateSpace(planning_context_->getOMPLStateSpace()->as<ModelBasedStateSpace>()->getSpecification()));
-  // construct an instance of  space information from this state space
-  auto prm_si(std::make_shared<ompl::base::SpaceInformation>(prm_space));
-  // set state validity checking for this space
-  prm_si->setStateValidityChecker(
-      ompl::base::StateValidityCheckerPtr(new ompl_interface::StateValidityChecker(planning_context_)));
-  // create a problem instance
-  auto prm_pdef(std::make_shared<ompl::base::ProblemDefinition>(prm_si));
-  // create a planner for the defined space
-  prm_planner_ = std::make_shared<ompl::geometric::PRMMod>(prm_si);
-  // set the problem we are trying to solve for the planner
-  prm_planner_->setProblemDefinition(prm_pdef);
-  // perform setup steps for the planner
-  prm_planner_->setup();
-  // Set a goal regions state sampler
-  prm_planner_->getSpaceInformation()->getStateSpace()->setStateSamplerAllocator(
-      std::bind(ob::newAllocStateSampler, std::placeholders::_1, this));
-
   startSampling();
-  startGrowingRoadmap();
+
+  if (!sort_roadmap_func_str_.empty())
+  {
+    OMPL_DEBUG("Creating PRM for Goal Regions");
+    // construct the state space we are planning in
+    ModelBasedStateSpacePtr prm_space(new ModelBasedStateSpace(
+        planning_context_->getOMPLStateSpace()->as<ModelBasedStateSpace>()->getSpecification()));
+    // construct an instance of  space information from this state space
+    auto prm_si(std::make_shared<ompl::base::SpaceInformation>(prm_space));
+    // set state validity checking for this space
+    prm_si->setStateValidityChecker(
+        ompl::base::StateValidityCheckerPtr(new ompl_interface::StateValidityChecker(planning_context_)));
+    // create a problem instance
+    auto prm_pdef(std::make_shared<ompl::base::ProblemDefinition>(prm_si));
+    // create a planner for the defined space
+    prm_planner_ = std::make_shared<ompl::geometric::PRMMod>(prm_si);
+    // set the problem we are trying to solve for the planner
+    prm_planner_->setProblemDefinition(prm_pdef);
+    // perform setup steps for the planner
+    prm_planner_->setup();
+    // Set a goal regions state sampler
+    prm_planner_->getSpaceInformation()->getStateSpace()->setStateSamplerAllocator(
+        std::bind(ob::newAllocStateSampler, std::placeholders::_1, this));
+    startGrowingRoadmap();
+  }
+}
+
+std::string ompl_interface::GoalRegionSampler::getSortRoadmapFuncStr()
+{
+  return sort_roadmap_func_str_;
 }
 
 void ompl_interface::GoalRegionSampler::getBetterSolution(ompl::base::PathPtr solution_path)

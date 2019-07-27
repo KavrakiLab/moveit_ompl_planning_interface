@@ -64,10 +64,11 @@ public:
   GoalRegionSampler(const OMPLPlanningContext* pc, const std::string& group_name,
                     const robot_model::RobotModelConstPtr& rm, const planning_scene::PlanningSceneConstPtr& ps,
                     const std::vector<moveit_msgs::Constraints>& constrs,
-                    const std::vector<moveit_msgs::WorkspaceGoalRegion>& wsgrs,
+                    const std::vector<moveit_msgs::WorkspaceGoalRegion>& wsgrs, const std::string& sort_roadmap_func_str,
                     constraint_samplers::ConstraintSamplerManagerPtr csm, const unsigned int max_sampled_goals = 10);
 
   void getBetterSolution(ompl::base::PathPtr solution_path);
+  std::string getSortRoadmapFuncStr();
 
   void clear() override;
 
@@ -93,6 +94,7 @@ private:
   std::vector<ompl::base::StateSpacePtr> se3_spaces_;
   std::vector<moveit_msgs::Constraints> constrs_;
   std::vector<moveit_msgs::WorkspaceGoalRegion> workspace_goal_regions_;
+  std::string sort_roadmap_func_str_;
   constraint_samplers::ConstraintSamplerManagerPtr constraint_sampler_manager_;
   const std::string& group_name_;
 };

@@ -267,9 +267,12 @@ ompl::base::PlannerStatus ompl::geometric::RRTGoalRegion::solve(const base::Plan
     solved = true;
 
     /* Access to goal regions roadmap */
-    goal_region->stopSampling();
-    goal_region->stopGrowingRoadmap();
-    goal_region->getBetterSolution(path);
+    if (!goal_region->getsortRoadmapFuncStr().empty())
+    {
+      goal_region->stopSampling();
+      goal_region->stopGrowingRoadmap();
+      goal_region->getBetterSolution(path);
+    }
   }
 
   si_->freeState(xstate);

@@ -803,6 +803,7 @@ void GeometricPlanningContext::setCompleteInitialRobotState(const robot_state::R
 
 bool GeometricPlanningContext::setGoalConstraints(const std::vector<moveit_msgs::Constraints>& goal_constraints,
                                                   const std::vector<moveit_msgs::WorkspaceGoalRegion>& goal_regions,
+                                                  const std::string& sort_roadmap_func_str,
                                                   moveit_msgs::MoveItErrorCodes* error)
 {
   if (goal_constraints.empty())
@@ -814,6 +815,7 @@ bool GeometricPlanningContext::setGoalConstraints(const std::vector<moveit_msgs:
   }
 
   // Get goal regions
+  sort_roadmap_func_str_ = sort_roadmap_func_str;
   goal_regions_.clear();
   for (const auto& goal_region : goal_regions)
   {
@@ -864,9 +866,9 @@ bool GeometricPlanningContext::setGoalConstraints(const std::vector<moveit_msgs:
 
   if (goal_regions_.size() > 0)
   {
-    ompl::base::GoalPtr g =
-        ompl::base::GoalPtr(new GoalRegionSampler(this, getGroupName(), getRobotModel(), getPlanningScene(),
-                                                  merged_constraints, goal_regions_, constraint_sampler_manager_, 30));
+    ompl::base::GoalPtr g = ompl::base::GoalPtr(
+        new GoalRegionSampler(this, getGroupName(), getRobotModel(), getPlanningScene(), merged_constraints,
+                              goal_regions_, sort_roadmap_func_str_, constraint_sampler_manager_, 30));
     goals.push_back(g);
   }
   else
