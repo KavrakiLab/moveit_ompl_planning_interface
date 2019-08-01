@@ -40,9 +40,6 @@
 #include <moveit/ompl_interface/detail/state_validity_checker.h>
 #include <moveit/ompl_interface/ompl_planning_context.h>
 #include <moveit/profiler/profiler.h>
-#include <moveit/robot_model_loader/robot_model_loader.h>
-#include <moveit/robot_model/robot_model.h>
-#include <moveit/robot_state/robot_state.h>
 
 #include <tf/tf.h>
 
@@ -72,7 +69,14 @@ ompl_interface::GoalRegionSampler::GoalRegionSampler(
   , group_name_(group_name)
   , workspace_goal_regions_(wsgrs)
   , sort_roadmap_func_str_(sort_roadmap_func_str)
+  , robot_model_loader_("robot_description")
 {
+  // Kinematics robot information
+  kinematic_model_ = robot_model_loader_.getModel();
+  kinematic_state_ = robot_state::RobotStatePtr(new robot_state::RobotState(kinematic_model_));
+  kinematic_state_->setToDefaultValues();
+  joint_model_group_ = kinematic_model_->getJointModelGroup(planning_context_->getGroupName());
+
   // std::cout << "creating GoalRegionSampler! " << std::endl;
 
   for (auto& constr : constrs)
@@ -135,6 +139,81 @@ std::string ompl_interface::GoalRegionSampler::getSortRoadmapFuncStr()
   return sort_roadmap_func_str_;
 }
 
+double ompl_interface::GoalRegionSampler::distanceGoal(const ompl::base::State* st) const
+{
+  // Solving FK
+  std::vector<double> joint_values;
+  for (unsigned int i = 0; i < si_->getStateDimension(); i++)
+    joint_values.push_back(st->as<ompl::base::RealVectorStateSpace::StateType>()->values[i]);
+
+  kinematic_state_->setJointGroupPositions(joint_model_group_, joint_values);
+  const Eigen::Affine3d& ee_pose = kinematic_state_->getGlobalLinkTransform("gripper_link");
+
+  // Distances to the goal regions
+  for (std::size_t i = 0; i < workspace_goal_regions_.size(); ++i)
+  {
+    if (ee_pose.translation().x() >= workspace_goal_regions_[i].x.min &&
+        ee_pose.translation().x() <= workspace_goal_regions_[i].x.max &&
+        ee_pose.translation().y() >= workspace_goal_regions_[i].y.min &&
+        ee_pose.translation().y() <= workspace_goal_regions_[i].y.max)
+    {
+      if (workspace_goal_regions_[i].roll.free_value && workspace_goal_regions_[i].pitch.free_value &&
+          workspace_goal_regions_[i].yaw.free_value)
+      {
+        std::cout << "Inside a goal region!!!!!!!!!" << std::endl;
+        return 0.0;
+      }
+
+      // orientation constraints
+      tf::Quaternion quaternion_constraints(
+          constrs_[i].orientation_constraints[0].orientation.x, constrs_[i].orientation_constraints[0].orientation.y,
+          constrs_[i].orientation_constraints[0].orientation.z, constrs_[i].orientation_constraints[0].orientation.w);
+      tf::Matrix3x3 roation_constraints(quaternion_constraints);
+      double constr_roll, constr_pitch, constr_yaw;
+      roation_constraints.getRPY(constr_roll, constr_pitch, constr_yaw);
+
+      // pose orientation
+      Eigen::Matrix3d pose_roation = ee_pose.rotation();
+      Eigen::Quaterniond pose_quaternion(pose_roation);
+      tf::Quaternion pose_quaternion_(pose_quaternion.x(), pose_quaternion.y(), pose_quaternion.z(),
+                                      pose_quaternion.w());
+
+      tf::Matrix3x3 pose_roation_(pose_quaternion_);
+      double pose_roll, pose_pitch, pose_yaw;
+      pose_roation_.getRPY(pose_roll, pose_pitch, pose_yaw);
+
+      bool meet_orientation_const = true;
+      if (!workspace_goal_regions_[i].roll.free_value && abs(constr_roll - pose_roll) > 0.02)
+        meet_orientation_const = false;
+      if (!workspace_goal_regions_[i].pitch.free_value && abs(constr_pitch - pose_pitch) > 0.02)
+        meet_orientation_const = false;
+      if (!workspace_goal_regions_[i].yaw.free_value && abs(constr_yaw - pose_yaw) > 0.02)
+        meet_orientation_const = false;
+
+      if (meet_orientation_const)
+      {
+        std::cout << "Inside a goal region!!!!!!!!!" << std::endl;
+        return 0.0;
+      }
+    }
+  }
+
+  return ompl::base::WeightedGoalRegionSampler::distanceGoal(st);
+}
+
+void ompl_interface::GoalRegionSampler::addState(const ompl::base::State* st)
+{
+  ompl::base::State* new_goal = si_->allocState();
+  si_->copyState(new_goal, st);
+
+  WeightedGoal* weighted_state = new WeightedGoal;
+  weighted_state->state_ = new_goal;
+  weighted_state->weight_ = 1.0;
+  weighted_state->heap_element_ = goals_priority_queue_.insert(weighted_state);
+
+  ompl::base::WeightedGoalRegionSampler::addState(st);
+}
+
 void ompl_interface::GoalRegionSampler::getBetterSolution(ompl::base::PathPtr solution_path)
 {
   OMPL_INFORM("Getting better solution from goal regions roadmap");
@@ -147,17 +226,10 @@ void ompl_interface::GoalRegionSampler::getBetterSolution(ompl::base::PathPtr so
   // Create the list of states
   std::list<std::tuple<double, ompl::geometric::PRMMod::Vertex>> lst;
 
-  // Kinematics robot information
-  robot_model_loader::RobotModelLoader robot_model_loader("robot_description");
-  robot_model::RobotModelPtr kinematic_model = robot_model_loader.getModel();
-  ROS_INFO("Model frame: %s", kinematic_model->getModelFrame().c_str());
-  robot_state::RobotStatePtr kinematic_state(new robot_state::RobotState(kinematic_model));
-  kinematic_state->setToDefaultValues();
-  const robot_state::JointModelGroup* joint_model_group =
-      kinematic_model->getJointModelGroup(planning_context_->getGroupName());
-
   // Create list of roadmap nodes and distances to the center of the goal region
   ompl::geometric::PRMMod::Vertex start_vertex;
+  bool start_vertex_found(false);
+  double start_distance;
   BOOST_FOREACH (ompl::geometric::PRMMod::Vertex v, boost::vertices(graph))
   {
     // si_->getStateSpace()->printState(prm_planner_->as<ompl::geometric::PRMMod>()->stateProperty_[v]);
@@ -170,8 +242,8 @@ void ompl_interface::GoalRegionSampler::getBetterSolution(ompl::base::PathPtr so
                                  ->as<ompl::base::RealVectorStateSpace::StateType>()
                                  ->values[i]);
 
-    kinematic_state->setJointGroupPositions(joint_model_group, joint_values);
-    const Eigen::Affine3d& end_effector_state = kinematic_state->getGlobalLinkTransform("gripper_link");
+    kinematic_state_->setJointGroupPositions(joint_model_group_, joint_values);
+    const Eigen::Affine3d& ee_pose = kinematic_state_->getGlobalLinkTransform("gripper_link");
 
     /* Print end-effector pose. Remember that this is in the model frame */
     //    ROS_INFO_STREAM("Translation: " << end_effector_state.translation());
@@ -181,15 +253,13 @@ void ompl_interface::GoalRegionSampler::getBetterSolution(ompl::base::PathPtr so
     double distance = std::numeric_limits<double>::infinity();
     for (std::size_t i = 0; i < workspace_goal_regions_.size(); ++i)
     {
-      double gr_distance = sqrt(pow((workspace_goal_regions_[i].x.max + workspace_goal_regions_[i].x.min) / 2.0 -
-                                        end_effector_state.translation().x(),
-                                    2.0) +
-                                pow((workspace_goal_regions_[i].y.max + workspace_goal_regions_[i].y.min) / 2.0 -
-                                        end_effector_state.translation().y(),
-                                    2.0) +
-                                pow((workspace_goal_regions_[i].z.max + workspace_goal_regions_[i].z.min) / 2.0 -
-                                        end_effector_state.translation().z(),
-                                    2.0));
+      double gr_distance = sqrt(
+          pow((workspace_goal_regions_[i].x.max + workspace_goal_regions_[i].x.min) / 2.0 - ee_pose.translation().x(),
+              2.0) +
+          pow((workspace_goal_regions_[i].y.max + workspace_goal_regions_[i].y.min) / 2.0 - ee_pose.translation().y(),
+              2.0) +
+          pow((workspace_goal_regions_[i].z.max + workspace_goal_regions_[i].z.min) / 2.0 - ee_pose.translation().z(),
+              2.0));
       // std::cout << "Distance to GR" << i << ": " << gr_distance << std::endl;
       if (gr_distance < distance)
         distance = gr_distance;
@@ -202,48 +272,53 @@ void ompl_interface::GoalRegionSampler::getBetterSolution(ompl::base::PathPtr so
     if (si_->getStateSpace()->equalStates(start_state_roadmap,
                                           prm_planner_->as<ompl::geometric::PRMMod>()->stateProperty_[v]))
     {
-      std::cout << "********* Start Vertex" << std::endl;
+      start_vertex_found = true;
+      start_distance = distance;
+      std::cout << "********* Start Vertex, distance: " << start_distance << std::endl;
       start_vertex = v;
       si_->getStateSpace()->printState(prm_planner_->as<ompl::geometric::PRMMod>()->stateProperty_[start_vertex]);
       break;
     }
   }
 
-  lst.sort();
-  // Find an internal connection to a lower cost node
-  ompl::base::PathPtr roadmap_internal_path = nullptr;
-  for (auto& element : lst)
+  if (start_vertex_found)
   {
-    std::cout << "Distance: " << std::get<0>(element) << std::endl;
-
-    if (prm_planner_->as<ompl::geometric::PRMMod>()->sameComponent(start_vertex, std::get<1>(element)))
+    lst.sort();
+    // Find an internal connection to a lower cost node
+    ompl::base::PathPtr roadmap_internal_path = nullptr;
+    for (auto& element : lst)
     {
-      std::cout << "********* Goal Vertex" << std::endl;
-      si_->getStateSpace()->printState(
-          prm_planner_->as<ompl::geometric::PRMMod>()->stateProperty_[std::get<1>(element)]);
+      std::cout << "Distance: " << std::get<0>(element) << std::endl;
 
-      if (!si_->getStateSpace()->equalStates(
-              prm_planner_->as<ompl::geometric::PRMMod>()->stateProperty_[start_vertex],
-              prm_planner_->as<ompl::geometric::PRMMod>()->stateProperty_[std::get<1>(element)]))
+      if (prm_planner_->as<ompl::geometric::PRMMod>()->sameComponent(start_vertex, std::get<1>(element)))
       {
-        roadmap_internal_path =
-            prm_planner_->as<ompl::geometric::PRMMod>()->constructSolution(start_vertex, std::get<1>(element));
-        roadmap_internal_path->print(std::cout);
-      }
-      break;
-    }
-  }
+        std::cout << "********* Goal Vertex" << std::endl;
+        si_->getStateSpace()->printState(
+            prm_planner_->as<ompl::geometric::PRMMod>()->stateProperty_[std::get<1>(element)]);
 
-  if (roadmap_internal_path)
-  {
-    // Concatenate internal path to the solution path
-    std::cout << "Concatenating: " << roadmap_internal_path->as<ompl::geometric::PathGeometric>()->getStateCount()
-              << std::endl;
-    for (unsigned int i = 1; i < roadmap_internal_path->as<ompl::geometric::PathGeometric>()->getStateCount(); i++)
+        if (!si_->getStateSpace()->equalStates(
+                prm_planner_->as<ompl::geometric::PRMMod>()->stateProperty_[start_vertex],
+                prm_planner_->as<ompl::geometric::PRMMod>()->stateProperty_[std::get<1>(element)]))
+        {
+          roadmap_internal_path =
+              prm_planner_->as<ompl::geometric::PRMMod>()->constructSolution(start_vertex, std::get<1>(element));
+          roadmap_internal_path->print(std::cout);
+        }
+        break;
+      }
+    }
+
+    if (roadmap_internal_path)
     {
-      si_->getStateSpace()->printState(roadmap_internal_path->as<ompl::geometric::PathGeometric>()->getState(i));
-      solution_path->as<ompl::geometric::PathGeometric>()->append(
-          roadmap_internal_path->as<ompl::geometric::PathGeometric>()->getState(i));
+      // Concatenate internal path to the solution path
+      std::cout << "Concatenating: " << roadmap_internal_path->as<ompl::geometric::PathGeometric>()->getStateCount()
+                << std::endl;
+      for (unsigned int i = 1; i < roadmap_internal_path->as<ompl::geometric::PathGeometric>()->getStateCount(); i++)
+      {
+        si_->getStateSpace()->printState(roadmap_internal_path->as<ompl::geometric::PathGeometric>()->getState(i));
+        solution_path->as<ompl::geometric::PathGeometric>()->append(
+            roadmap_internal_path->as<ompl::geometric::PathGeometric>()->getState(i));
+      }
     }
   }
 }

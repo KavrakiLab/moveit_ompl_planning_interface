@@ -171,9 +171,9 @@ void ompl::base::WeightedGoalRegionSampler::goalSamplingThread()
             ++num_sampled_goals_;
             // OMPL_DEBUG("Adding goal state. num_sampled_goals_: %d", num_sampled_goals_);
             // addStateIfDifferent(sampled_state, minDist_);
-            std::lock_guard<std::mutex> slock(lock_);
-            GoalStates::addState(sampled_state);
-            sampled_goal_states_.push_back(sampled_state);
+            // std::lock_guard<std::mutex> slock(lock_);
+            addState(sampled_state);
+
             // OMPL_DEBUG("sampled_goal_states_.size(): %d", sampled_goal_states_.size());
           }
           //                    else
@@ -263,6 +263,7 @@ void ompl::base::WeightedGoalRegionSampler::addState(const State* st)
 {
   std::lock_guard<std::mutex> slock(lock_);
   GoalStates::addState(st);
+  sampled_goal_states_.push_back(st);
 }
 
 const ompl::base::State* ompl::base::WeightedGoalRegionSampler::getState(unsigned int index) const

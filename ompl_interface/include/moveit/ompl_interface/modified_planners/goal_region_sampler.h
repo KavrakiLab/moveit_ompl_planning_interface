@@ -38,6 +38,10 @@
 #ifndef MOVEIT_OMPL_INTERFACE_DETAIL_CONSTRAINED_GOAL_REGION_SAMPLER_
 #define MOVEIT_OMPL_INTERFACE_DETAIL_CONSTRAINED_GOAL_REGION_SAMPLER_
 
+#include <moveit/robot_model_loader/robot_model_loader.h>
+#include <moveit/robot_model/robot_model.h>
+#include <moveit/robot_state/robot_state.h>
+
 #include <moveit/constraint_samplers/constraint_sampler.h>
 #include <moveit/kinematic_constraints/kinematic_constraint.h>
 #include <moveit/ompl_interface/detail/constrained_sampler.h>
@@ -64,11 +68,15 @@ public:
   GoalRegionSampler(const OMPLPlanningContext* pc, const std::string& group_name,
                     const robot_model::RobotModelConstPtr& rm, const planning_scene::PlanningSceneConstPtr& ps,
                     const std::vector<moveit_msgs::Constraints>& constrs,
-                    const std::vector<moveit_msgs::WorkspaceGoalRegion>& wsgrs, const std::string& sort_roadmap_func_str,
-                    constraint_samplers::ConstraintSamplerManagerPtr csm, const unsigned int max_sampled_goals = 10);
+                    const std::vector<moveit_msgs::WorkspaceGoalRegion>& wsgrs,
+                    const std::string& sort_roadmap_func_str, constraint_samplers::ConstraintSamplerManagerPtr csm,
+                    const unsigned int max_sampled_goals = 10);
 
   void getBetterSolution(ompl::base::PathPtr solution_path);
   std::string getSortRoadmapFuncStr();
+
+  double distanceGoal(const ompl::base::State* st) const override;
+  void addState(const ompl::base::State* st) override;
 
   void clear() override;
 
@@ -97,6 +105,12 @@ private:
   std::string sort_roadmap_func_str_;
   constraint_samplers::ConstraintSamplerManagerPtr constraint_sampler_manager_;
   const std::string& group_name_;
+
+  // Kinematics
+  robot_model_loader::RobotModelLoader robot_model_loader_;
+  robot_model::RobotModelPtr kinematic_model_;
+  robot_state::RobotStatePtr kinematic_state_;
+  const robot_state::JointModelGroup* joint_model_group_;
 };
 }  // namespace ompl_interface
 

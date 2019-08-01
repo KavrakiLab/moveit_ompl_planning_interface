@@ -195,6 +195,10 @@ ompl::base::PlannerStatus ompl::geometric::RRTGoalRegion::solve(const base::Plan
           approxdif = dist;
           solution = motion;
 
+          goal_region->addState(motion->state);
+          std::cout << "Inside a goal region (RRT)!!!!!!!!!" << std::endl;
+          si_->printState(motion->state);
+
           break;
         }
         if (dist < approxdif)
@@ -229,6 +233,11 @@ ompl::base::PlannerStatus ompl::geometric::RRTGoalRegion::solve(const base::Plan
       {
         approxdif = dist;
         solution = motion;
+
+        goal_region->addState(motion->state);
+        std::cout << "Inside a goal region (RRT)2!!!!!!!!!" << std::endl;
+        si_->printState(motion->state);
+
         break;
       }
       if (dist < approxdif)
