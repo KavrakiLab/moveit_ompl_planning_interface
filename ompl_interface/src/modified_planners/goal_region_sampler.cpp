@@ -290,7 +290,8 @@ void ompl_interface::GoalRegionSampler::getBetterSolution(ompl::base::PathPtr so
     {
       std::cout << "Distance: " << std::get<0>(element) << std::endl;
 
-      if (prm_planner_->as<ompl::geometric::PRMMod>()->sameComponent(start_vertex, std::get<1>(element)))
+      if (std::get<0>(element) < start_distance &&
+          prm_planner_->as<ompl::geometric::PRMMod>()->sameComponent(start_vertex, std::get<1>(element)))
       {
         std::cout << "********* Goal Vertex" << std::endl;
         si_->getStateSpace()->printState(
@@ -311,7 +312,7 @@ void ompl_interface::GoalRegionSampler::getBetterSolution(ompl::base::PathPtr so
     if (roadmap_internal_path)
     {
       // Concatenate internal path to the solution path
-      std::cout << "Concatenating: " << roadmap_internal_path->as<ompl::geometric::PathGeometric>()->getStateCount()
+      std::cout << "Concatenating: " << roadmap_internal_path->as<ompl::geometric::PathGeometric>()->getStateCount() - 1
                 << std::endl;
       for (unsigned int i = 1; i < roadmap_internal_path->as<ompl::geometric::PathGeometric>()->getStateCount(); i++)
       {
