@@ -868,7 +868,7 @@ bool GeometricPlanningContext::setGoalConstraints(const std::vector<moveit_msgs:
   {
     ompl::base::GoalPtr g = ompl::base::GoalPtr(
         new GoalRegionSampler(this, getGroupName(), getRobotModel(), getPlanningScene(), merged_constraints,
-                              goal_regions_, sort_roadmap_func_str_, constraint_sampler_manager_, 30));
+                              goal_regions_, sort_roadmap_func_str_, constraint_sampler_manager_, 100));
     goals.push_back(g);
   }
   else

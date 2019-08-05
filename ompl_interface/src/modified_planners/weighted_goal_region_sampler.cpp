@@ -56,6 +56,7 @@ ompl::base::WeightedGoalRegionSampler::WeightedGoalRegionSampler(const SpaceInfo
   , max_sampled_goals_(max_sampled_goals)
   , sample_goals_(true)
   , num_sampled_goals_(0)
+  , prm_planner_(nullptr)
 {
   type_ = GOAL_LAZY_SAMPLES;
   if (autoStart)
@@ -113,22 +114,32 @@ void ompl::base::WeightedGoalRegionSampler::startGrowingRoadmap()
 
 void ompl::base::WeightedGoalRegionSampler::stopGrowingRoadmap()
 {
-  /* Set termination flag */
+  if (prm_planner_)
   {
-    std::lock_guard<std::mutex> slock(lock_);
-    if (!terminateGrowingRoadmapThread_)
+    while (prm_planner_->as<ompl::geometric::PRMMod>()->milestoneCount() < sampled_goal_states_.size())
     {
-      OMPL_DEBUG("Attempting to stop roadmap growing thread...");
-      terminateGrowingRoadmapThread_ = true;
+      std::cout << "attempting to stop, milestones: " << prm_planner_->as<ompl::geometric::PRMMod>()->milestoneCount()
+                << std::endl;
+      std::this_thread::sleep_for(time::seconds(0.01));
     }
-  }
 
-  /* Join thread */
-  if (growingRoadmapThread_ != nullptr)
-  {
-    growingRoadmapThread_->join();
-    delete growingRoadmapThread_;
-    growingRoadmapThread_ = nullptr;
+    /* Set termination flag */
+    {
+      std::lock_guard<std::mutex> slock(lock_);
+      if (!terminateGrowingRoadmapThread_)
+      {
+        OMPL_DEBUG("Attempting to stop roadmap growing thread...");
+        terminateGrowingRoadmapThread_ = true;
+      }
+    }
+
+    /* Join thread */
+    if (growingRoadmapThread_ != nullptr)
+    {
+      growingRoadmapThread_->join();
+      delete growingRoadmapThread_;
+      growingRoadmapThread_ = nullptr;
+    }
   }
 }
 
@@ -185,7 +196,7 @@ void ompl::base::WeightedGoalRegionSampler::goalSamplingThread()
         {
           sample_goals_ = false;
         }
-        // std::cout << "num_sampled_goals_ (after): " << num_sampled_goals_ << std::endl;
+        std::cout << "num_sampled_goals_ (after): " << num_sampled_goals_ << std::endl;
         if (increase_num_sampled_goals)
           ++samplingAttempts_;
       }
@@ -207,7 +218,7 @@ void ompl::base::WeightedGoalRegionSampler::goalSamplingThread()
 void ompl::base::WeightedGoalRegionSampler::roadmapGrowingThread()
 {
   while (isGrowingRoadmap())
-    prm_planner_->as<ompl::geometric::PRMMod>()->growRoadmap(0.1);
+    prm_planner_->as<ompl::geometric::PRMMod>()->growRoadmap(0.01);
 
   {
     std::lock_guard<std::mutex> slock(lock_);
