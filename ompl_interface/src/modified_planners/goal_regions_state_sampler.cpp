@@ -2,8 +2,8 @@
 
 #include <moveit/ompl_interface/modified_planners/goal_regions_state_sampler.h>
 
-ob::StateSamplerPtr ob::newAllocStateSampler(const ob::StateSpace* space,
-                                             const ob::WeightedGoalRegionSampler* weighted_goal_region_sampler)
+ob::StateSamplerPtr ob::newAllocGoalRegionStateSampler(
+    const ob::StateSpace* space, const ob::WeightedGoalRegionSampler* weighted_goal_region_sampler)
 {
   ob::GoalRegionsStateSampler* sampler =
       new ob::GoalRegionsStateSampler(space, space->allocDefaultStateSampler(), weighted_goal_region_sampler);
@@ -23,9 +23,10 @@ void ob::GoalRegionsStateSampler::sampleUniform(ob::State* state)
       std::lock_guard<std::mutex> slock(weighted_goal_region_sampler_->lock_);
       if (weighted_goal_region_sampler_->sampled_goal_states_.size() > sampled_goal_states_index_)
       {
-        std::cout << "***sampled_goal_states_.size(): " << weighted_goal_region_sampler_->sampled_goal_states_.size()
-                  << std::endl;
-        std::cout << "+++sampled_goal_states_index: " << sampled_goal_states_index_ << std::endl;
+        //        std::cout << "***sampled_goal_states_.size(): " <<
+        //        weighted_goal_region_sampler_->sampled_goal_states_.size()
+        //                  << std::endl;
+        //        std::cout << "+++sampled_goal_states_index: " << sampled_goal_states_index_ << std::endl;
         getNextSample(state);
         break;
       }

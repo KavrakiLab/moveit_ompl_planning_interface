@@ -196,8 +196,8 @@ ompl::base::PlannerStatus ompl::geometric::RRTGoalRegion::solve(const base::Plan
           solution = motion;
 
           goal_region->addState(motion->state);
-          std::cout << "Inside a goal region (RRT)!!!!!!!!!" << std::endl;
-          si_->printState(motion->state);
+          // std::cout << "Inside a goal region (RRT)!!!!!!!!!" << std::endl;
+          // si_->printState(motion->state);
 
           break;
         }
@@ -235,8 +235,8 @@ ompl::base::PlannerStatus ompl::geometric::RRTGoalRegion::solve(const base::Plan
         solution = motion;
 
         goal_region->addState(motion->state);
-        std::cout << "Inside a goal region (RRT)2!!!!!!!!!" << std::endl;
-        si_->printState(motion->state);
+        // std::cout << "Inside a goal region (RRT)2!!!!!!!!!" << std::endl;
+        // si_->printState(motion->state);
 
         break;
       }
@@ -276,12 +276,14 @@ ompl::base::PlannerStatus ompl::geometric::RRTGoalRegion::solve(const base::Plan
     solved = true;
 
     /* Access to goal regions roadmap */
-    if (!goal_region->getSortRoadmapFuncStr().empty())
+    if (!approximate && !goal_region->getSortRoadmapFuncStr().empty())
     {
       goal_region->stopSampling();
       goal_region->stopGrowingRoadmap();
       goal_region->getBetterSolution(path);
     }
+
+    OMPL_INFORM("%s: solution with %u states", getName().c_str(), path->getStateCount());
   }
 
   si_->freeState(xstate);

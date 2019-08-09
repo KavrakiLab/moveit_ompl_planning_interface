@@ -14,6 +14,7 @@ add_library(${MOVEIT_LIB_NAME}
   src/detail/threadsafe_state_storage.cpp
   src/modified_planners/RRTMod.cpp
   src/modified_planners/PRMMod.cpp
+  src/modified_planners/RRTstarMod.cpp
   src/modified_planners/RRTGoalRegion.cpp
   src/modified_planners/RRTGoalRegCons.cpp
   src/modified_planners/weighted_goal_region_sampler.cpp

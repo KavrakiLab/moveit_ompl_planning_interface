@@ -129,7 +129,7 @@ ompl_interface::GoalRegionSampler::GoalRegionSampler(
     prm_planner_->setup();
     // Set a goal regions state sampler
     prm_planner_->getSpaceInformation()->getStateSpace()->setStateSamplerAllocator(
-        std::bind(ob::newAllocStateSampler, std::placeholders::_1, this));
+        std::bind(ob::newAllocGoalRegionStateSampler, std::placeholders::_1, this));
     startGrowingRoadmap();
   }
 }
@@ -160,7 +160,7 @@ double ompl_interface::GoalRegionSampler::distanceGoal(const ompl::base::State* 
       if (workspace_goal_regions_[i].roll.free_value && workspace_goal_regions_[i].pitch.free_value &&
           workspace_goal_regions_[i].yaw.free_value)
       {
-        std::cout << "Inside a goal region!!!!!!!!!" << std::endl;
+        // std::cout << "Inside a goal region!!!!!!!!!" << std::endl;
         return 0.0;
       }
 
@@ -219,9 +219,9 @@ void ompl_interface::GoalRegionSampler::getBetterSolution(ompl::base::PathPtr so
   OMPL_INFORM("Getting better solution from goal regions roadmap");
   auto graph = prm_planner_->as<ompl::geometric::PRMMod>()->getRoadmap();
 
-  std::cout << "********* start_state from solution_path" << std::endl;
   ompl::base::State* start_state_roadmap = solution_path->as<ompl::geometric::PathGeometric>()->getStates().back();
-  si_->getStateSpace()->printState(start_state_roadmap);
+  //  std::cout << "********* start_state from solution_path" << std::endl;
+  //  si_->getStateSpace()->printState(start_state_roadmap);
 
   // Create the list of states
   std::list<std::tuple<double, ompl::geometric::PRMMod::Vertex>> lst;
@@ -274,9 +274,9 @@ void ompl_interface::GoalRegionSampler::getBetterSolution(ompl::base::PathPtr so
     {
       start_vertex_found = true;
       start_distance = distance;
-      std::cout << "********* Start Vertex, distance: " << start_distance << std::endl;
       start_vertex = v;
-      si_->getStateSpace()->printState(prm_planner_->as<ompl::geometric::PRMMod>()->stateProperty_[start_vertex]);
+      //      std::cout << "********* Start Vertex, distance: " << start_distance << std::endl;
+      //      si_->getStateSpace()->printState(prm_planner_->as<ompl::geometric::PRMMod>()->stateProperty_[start_vertex]);
       break;
     }
   }
@@ -288,14 +288,14 @@ void ompl_interface::GoalRegionSampler::getBetterSolution(ompl::base::PathPtr so
     ompl::base::PathPtr roadmap_internal_path = nullptr;
     for (auto& element : lst)
     {
-      std::cout << "Distance: " << std::get<0>(element) << std::endl;
+      //      std::cout << "Distance: " << std::get<0>(element) << std::endl;
 
       if (std::get<0>(element) < start_distance &&
           prm_planner_->as<ompl::geometric::PRMMod>()->sameComponent(start_vertex, std::get<1>(element)))
       {
-        std::cout << "********* Goal Vertex" << std::endl;
-        si_->getStateSpace()->printState(
-            prm_planner_->as<ompl::geometric::PRMMod>()->stateProperty_[std::get<1>(element)]);
+        //        std::cout << "********* Goal Vertex" << std::endl;
+        //        si_->getStateSpace()->printState(
+        //            prm_planner_->as<ompl::geometric::PRMMod>()->stateProperty_[std::get<1>(element)]);
 
         if (!si_->getStateSpace()->equalStates(
                 prm_planner_->as<ompl::geometric::PRMMod>()->stateProperty_[start_vertex],
@@ -303,7 +303,7 @@ void ompl_interface::GoalRegionSampler::getBetterSolution(ompl::base::PathPtr so
         {
           roadmap_internal_path =
               prm_planner_->as<ompl::geometric::PRMMod>()->constructSolution(start_vertex, std::get<1>(element));
-          roadmap_internal_path->print(std::cout);
+          // roadmap_internal_path->print(std::cout);
         }
         break;
       }
@@ -316,7 +316,7 @@ void ompl_interface::GoalRegionSampler::getBetterSolution(ompl::base::PathPtr so
                 << std::endl;
       for (unsigned int i = 1; i < roadmap_internal_path->as<ompl::geometric::PathGeometric>()->getStateCount(); i++)
       {
-        si_->getStateSpace()->printState(roadmap_internal_path->as<ompl::geometric::PathGeometric>()->getState(i));
+        //        si_->getStateSpace()->printState(roadmap_internal_path->as<ompl::geometric::PathGeometric>()->getState(i));
         solution_path->as<ompl::geometric::PathGeometric>()->append(
             roadmap_internal_path->as<ompl::geometric::PathGeometric>()->getState(i));
       }
@@ -523,4 +523,173 @@ void ompl_interface::GoalRegionSampler::clear()
   workspace_goal_regions_.clear();
   se3_samplers_.clear();
   se3_spaces_.clear();
+}
+
+//-----------
+
+ompl_interface::GoalRegionChecker::GoalRegionChecker(const OMPLPlanningContext* pc, const std::string& group_name,
+                                                     const robot_model::RobotModelConstPtr& rm,
+                                                     const planning_scene::PlanningSceneConstPtr& ps,
+                                                     const std::vector<moveit_msgs::Constraints>& constrs,
+                                                     const std::vector<moveit_msgs::WorkspaceGoalRegion>& wsgrs,
+                                                     const std::string& sort_roadmap_func_str,
+                                                     constraint_samplers::ConstraintSamplerManagerPtr csm)
+  : ompl::base::GoalStates(pc->getOMPLSpaceInformation())
+  , planning_context_(pc)
+  , work_state_(pc->getCompleteInitialRobotState())
+  , invalid_sampled_constraints_(0)
+  , warned_invalid_samples_(false)
+  , verbose_display_(0)
+  , planning_scene_(ps)
+  , constraint_sampler_manager_(csm)
+  , group_name_(group_name)
+  , workspace_goal_regions_(wsgrs)
+  , sort_roadmap_func_str_(sort_roadmap_func_str)
+  , robot_model_loader_("robot_description")
+{
+  // Kinematics robot information
+  kinematic_model_ = robot_model_loader_.getModel();
+  kinematic_state_ = robot_state::RobotStatePtr(new robot_state::RobotState(kinematic_model_));
+  kinematic_state_->setToDefaultValues();
+  joint_model_group_ = kinematic_model_->getJointModelGroup(planning_context_->getGroupName());
+  kinematic_constraint_set_.reset(new kinematic_constraints::KinematicConstraintSet(rm));
+
+  OMPL_DEBUG("Creating GoalRegionChecker");
+}
+
+double ompl_interface::GoalRegionChecker::distanceGoal(const ompl::base::State* st) const
+{
+  // Solving FK
+  std::vector<double> joint_values;
+  for (unsigned int i = 0; i < si_->getStateDimension(); i++)
+    joint_values.push_back(st->as<ompl::base::RealVectorStateSpace::StateType>()->values[i]);
+
+  kinematic_state_->setJointGroupPositions(joint_model_group_, joint_values);
+  const Eigen::Affine3d& ee_pose = kinematic_state_->getGlobalLinkTransform("gripper_link");
+
+  // Distances to the goal regions
+  for (std::size_t i = 0; i < workspace_goal_regions_.size(); ++i)
+  {
+    if (ee_pose.translation().x() >= workspace_goal_regions_[i].x.min &&
+        ee_pose.translation().x() <= workspace_goal_regions_[i].x.max &&
+        ee_pose.translation().y() >= workspace_goal_regions_[i].y.min &&
+        ee_pose.translation().y() <= workspace_goal_regions_[i].y.max)
+    {
+      if (workspace_goal_regions_[i].roll.free_value && workspace_goal_regions_[i].pitch.free_value &&
+          workspace_goal_regions_[i].yaw.free_value)
+      {
+        // std::cout << "Inside a goal region!!!!!!!!!" << std::endl;
+        return 0.0;
+      }
+
+      // orientation constraints
+      tf::Quaternion quaternion_constraints(
+          constrs_[i].orientation_constraints[0].orientation.x, constrs_[i].orientation_constraints[0].orientation.y,
+          constrs_[i].orientation_constraints[0].orientation.z, constrs_[i].orientation_constraints[0].orientation.w);
+      tf::Matrix3x3 roation_constraints(quaternion_constraints);
+      double constr_roll, constr_pitch, constr_yaw;
+      roation_constraints.getRPY(constr_roll, constr_pitch, constr_yaw);
+
+      // pose orientation
+      Eigen::Matrix3d pose_roation = ee_pose.rotation();
+      Eigen::Quaterniond pose_quaternion(pose_roation);
+      tf::Quaternion pose_quaternion_(pose_quaternion.x(), pose_quaternion.y(), pose_quaternion.z(),
+                                      pose_quaternion.w());
+
+      tf::Matrix3x3 pose_roation_(pose_quaternion_);
+      double pose_roll, pose_pitch, pose_yaw;
+      pose_roation_.getRPY(pose_roll, pose_pitch, pose_yaw);
+
+      bool meet_orientation_const = true;
+      if (!workspace_goal_regions_[i].roll.free_value && abs(constr_roll - pose_roll) > 0.02)
+        meet_orientation_const = false;
+      if (!workspace_goal_regions_[i].pitch.free_value && abs(constr_pitch - pose_pitch) > 0.02)
+        meet_orientation_const = false;
+      if (!workspace_goal_regions_[i].yaw.free_value && abs(constr_yaw - pose_yaw) > 0.02)
+        meet_orientation_const = false;
+
+      if (meet_orientation_const)
+      {
+        std::cout << "Inside a goal region!!!!!!!!!" << std::endl;
+        return 0.0;
+      }
+    }
+  }
+
+  return GoalStates::distanceGoal(st);
+}
+
+double ompl_interface::GoalRegionChecker::distanceToCenterOfGoalRegion(const ompl::base::State* st) const
+{
+  // Solving FK
+  std::vector<double> joint_values;
+  for (unsigned int i = 0; i < si_->getStateDimension(); i++)
+    joint_values.push_back(st->as<ompl::base::RealVectorStateSpace::StateType>()->values[i]);
+
+  kinematic_state_->setJointGroupPositions(joint_model_group_, joint_values);
+  const Eigen::Affine3d& ee_pose = kinematic_state_->getGlobalLinkTransform("gripper_link");
+
+  // Distances to the goal regions
+  for (std::size_t i = 0; i < workspace_goal_regions_.size(); ++i)
+  {
+    if (ee_pose.translation().x() >= workspace_goal_regions_[i].x.min &&
+        ee_pose.translation().x() <= workspace_goal_regions_[i].x.max &&
+        ee_pose.translation().y() >= workspace_goal_regions_[i].y.min &&
+        ee_pose.translation().y() <= workspace_goal_regions_[i].y.max)
+    {
+      if (workspace_goal_regions_[i].roll.free_value && workspace_goal_regions_[i].pitch.free_value &&
+          workspace_goal_regions_[i].yaw.free_value)
+      {
+        // std::cout << "Inside a goal region!!!!!!!!!" << std::endl;
+        return 0.0;
+      }
+
+      // orientation constraints
+      tf::Quaternion quaternion_constraints(
+          constrs_[i].orientation_constraints[0].orientation.x, constrs_[i].orientation_constraints[0].orientation.y,
+          constrs_[i].orientation_constraints[0].orientation.z, constrs_[i].orientation_constraints[0].orientation.w);
+      tf::Matrix3x3 roation_constraints(quaternion_constraints);
+      double constr_roll, constr_pitch, constr_yaw;
+      roation_constraints.getRPY(constr_roll, constr_pitch, constr_yaw);
+
+      // pose orientation
+      Eigen::Matrix3d pose_roation = ee_pose.rotation();
+      Eigen::Quaterniond pose_quaternion(pose_roation);
+      tf::Quaternion pose_quaternion_(pose_quaternion.x(), pose_quaternion.y(), pose_quaternion.z(),
+                                      pose_quaternion.w());
+
+      tf::Matrix3x3 pose_roation_(pose_quaternion_);
+      double pose_roll, pose_pitch, pose_yaw;
+      pose_roation_.getRPY(pose_roll, pose_pitch, pose_yaw);
+
+      bool meet_orientation_const = true;
+      if (!workspace_goal_regions_[i].roll.free_value && abs(constr_roll - pose_roll) > 0.02)
+        meet_orientation_const = false;
+      if (!workspace_goal_regions_[i].pitch.free_value && abs(constr_pitch - pose_pitch) > 0.02)
+        meet_orientation_const = false;
+      if (!workspace_goal_regions_[i].yaw.free_value && abs(constr_yaw - pose_yaw) > 0.02)
+        meet_orientation_const = false;
+
+      if (meet_orientation_const)
+      {
+        return sqrt(
+            pow(ee_pose.translation().x() - (workspace_goal_regions_[i].x.max - workspace_goal_regions_[i].x.min) / 2.0,
+                2.0) +
+            pow(ee_pose.translation().y() - (workspace_goal_regions_[i].y.max - workspace_goal_regions_[i].y.min) / 2.0,
+                2.0) +
+            pow(ee_pose.translation().z() - (workspace_goal_regions_[i].z.max - workspace_goal_regions_[i].z.min) / 2.0,
+                2.0));
+      }
+    }
+  }
+
+  return GoalStates::distanceGoal(st);
+}
+
+void ompl_interface::GoalRegionChecker::addState(const ompl::base::State* st)
+{
+  ompl::base::State* new_goal = si_->allocState();
+  si_->copyState(new_goal, st);
+
+  GoalStates::addState(st);
 }

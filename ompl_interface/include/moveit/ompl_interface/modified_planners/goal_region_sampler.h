@@ -61,7 +61,7 @@ namespace ompl_interface
 class OMPLPlanningContext;
 
 /** @class GoalRegionSampler
- *  An interface to the weighted goal region sampler*/
+ *  An interface to the goal region sampler*/
 class GoalRegionSampler : public ompl::base::WeightedGoalRegionSampler
 {
 public:
@@ -77,6 +77,60 @@ public:
 
   double distanceGoal(const ompl::base::State* st) const override;
   void addState(const ompl::base::State* st) override;
+
+  void clear() override;
+
+private:
+  bool sampleUsingConstraintSampler(const ompl::base::WeightedGoalRegionSampler* gls,
+                                    std::vector<ompl::base::State*>& sampled_states);
+  bool stateValidityCallback(ompl::base::State* new_goal, robot_state::RobotState const* state,
+                             const robot_model::JointModelGroup*, const double*, bool verbose = false) const;
+  bool checkStateValidity(ompl::base::State* new_goal, const robot_state::RobotState& state,
+                          bool verbose = false) const;
+
+  const OMPLPlanningContext* planning_context_;
+  kinematic_constraints::KinematicConstraintSetPtr kinematic_constraint_set_;
+  constraint_samplers::ConstraintSamplerPtr constraint_sampler_;
+  ompl::base::StateSamplerPtr default_sampler_;
+  robot_state::RobotState work_state_;
+  unsigned int invalid_sampled_constraints_;
+  bool warned_invalid_samples_;
+  unsigned int verbose_display_;
+
+  planning_scene::PlanningSceneConstPtr planning_scene_;
+  std::vector<ompl::base::StateSamplerPtr> se3_samplers_;
+  std::vector<ompl::base::StateSpacePtr> se3_spaces_;
+  std::vector<moveit_msgs::Constraints> constrs_;
+  std::vector<moveit_msgs::WorkspaceGoalRegion> workspace_goal_regions_;
+  std::string sort_roadmap_func_str_;
+  constraint_samplers::ConstraintSamplerManagerPtr constraint_sampler_manager_;
+  const std::string& group_name_;
+
+  // Kinematics
+  robot_model_loader::RobotModelLoader robot_model_loader_;
+  robot_model::RobotModelPtr kinematic_model_;
+  robot_state::RobotStatePtr kinematic_state_;
+  const robot_state::JointModelGroup* joint_model_group_;
+};
+
+/** @class GoalRegionSampler
+ *  An interface to the goal region checker*/
+class GoalRegionChecker : public ompl::base::GoalStates
+{
+public:
+  GoalRegionChecker(const OMPLPlanningContext* pc, const std::string& group_name,
+                    const robot_model::RobotModelConstPtr& rm, const planning_scene::PlanningSceneConstPtr& ps,
+                    const std::vector<moveit_msgs::Constraints>& constrs,
+                    const std::vector<moveit_msgs::WorkspaceGoalRegion>& wsgrs,
+                    const std::string& sort_roadmap_func_str, constraint_samplers::ConstraintSamplerManagerPtr csm);
+
+  void getBetterSolution(ompl::base::PathPtr solution_path);
+  std::string getSortRoadmapFuncStr();
+
+  double distanceGoal(const ompl::base::State* st) const override;
+  void addState(const ompl::base::State* st) override;
+
+  double distanceToCenterOfGoalRegion(const ompl::base::State* st) const;
 
   void clear() override;
 

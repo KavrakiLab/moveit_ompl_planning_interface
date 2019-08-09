@@ -32,8 +32,8 @@ namespace base
 {
 class WeightedGoalRegionSampler;
 
-ob::StateSamplerPtr newAllocStateSampler(const ob::StateSpace* space,
-                                         const ob::WeightedGoalRegionSampler* weighted_goal_region_sampler);
+ob::StateSamplerPtr newAllocGoalRegionStateSampler(const ob::StateSpace* space,
+                                                   const ob::WeightedGoalRegionSampler* weighted_goal_region_sampler);
 
 class GoalRegionsStateSampler;
 /** \brief Goal sampling function. Returns false when no further calls should be made to it.

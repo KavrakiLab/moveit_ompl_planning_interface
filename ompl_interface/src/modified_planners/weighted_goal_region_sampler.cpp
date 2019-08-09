@@ -118,9 +118,10 @@ void ompl::base::WeightedGoalRegionSampler::stopGrowingRoadmap()
   {
     while (prm_planner_->as<ompl::geometric::PRMMod>()->milestoneCount() < sampled_goal_states_.size())
     {
-      std::cout << "attempting to stop, milestones: " << prm_planner_->as<ompl::geometric::PRMMod>()->milestoneCount()
-                << std::endl;
-      std::this_thread::sleep_for(time::seconds(0.01));
+      //      std::cout << "attempting to stop, milestones: " <<
+      //      prm_planner_->as<ompl::geometric::PRMMod>()->milestoneCount()
+      //                << std::endl;
+      std::this_thread::sleep_for(time::seconds(0.001));
     }
 
     /* Set termination flag */
@@ -196,7 +197,7 @@ void ompl::base::WeightedGoalRegionSampler::goalSamplingThread()
         {
           sample_goals_ = false;
         }
-        std::cout << "num_sampled_goals_ (after): " << num_sampled_goals_ << std::endl;
+        // std::cout << "num_sampled_goals_ (after): " << num_sampled_goals_ << std::endl;
         if (increase_num_sampled_goals)
           ++samplingAttempts_;
       }
