@@ -1,36 +1,36 @@
 /*********************************************************************
-* Software License Agreement (BSD License)
-*
-*  Copyright (c) 2008, Willow Garage, Inc.
-*  All rights reserved.
-*
-*  Redistribution and use in source and binary forms, with or without
-*  modification, are permitted provided that the following conditions
-*  are met:
-*
-*   * Redistributions of source code must retain the above copyright
-*     notice, this list of conditions and the following disclaimer.
-*   * Redistributions in binary form must reproduce the above
-*     copyright notice, this list of conditions and the following
-*     disclaimer in the documentation and/or other materials provided
-*     with the distribution.
-*   * Neither the name of the Willow Garage nor the names of its
-*     contributors may be used to endorse or promote products derived
-*     from this software without specific prior written permission.
-*
-*  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-*  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-*  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
-*  FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
-*  COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-*  INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-*  BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-*  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-*  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
-*  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
-*  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-*  POSSIBILITY OF SUCH DAMAGE.
-*********************************************************************/
+ * Software License Agreement (BSD License)
+ *
+ *  Copyright (c) 2008, Willow Garage, Inc.
+ *  All rights reserved.
+ *
+ *  Redistribution and use in source and binary forms, with or without
+ *  modification, are permitted provided that the following conditions
+ *  are met:
+ *
+ *   * Redistributions of source code must retain the above copyright
+ *     notice, this list of conditions and the following disclaimer.
+ *   * Redistributions in binary form must reproduce the above
+ *     copyright notice, this list of conditions and the following
+ *     disclaimer in the documentation and/or other materials provided
+ *     with the distribution.
+ *   * Neither the name of the Willow Garage nor the names of its
+ *     contributors may be used to endorse or promote products derived
+ *     from this software without specific prior written permission.
+ *
+ *  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ *  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ *  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ *  FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ *  COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+ *  INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+ *  BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ *  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ *  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ *  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+ *  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ *  POSSIBILITY OF SUCH DAMAGE.
+ *********************************************************************/
 
 /* Author: Ioan Sucan */
 /* Modified by: Juan David Hernandez Vega */
@@ -46,10 +46,12 @@ ompl::geometric::RRTGoalRegCons::RRTGoalRegCons(const base::SpaceInformationPtr&
   specs_.approximateSolutions = true;
   specs_.directed = true;
 
-  Planner::declareParam<double>("range", this, &RRTGoalRegCons::setRange, &RRTGoalRegCons::getRange, "0.:1.:"
-                                                                                                     "10000.");
-  Planner::declareParam<double>("goal_bias", this, &RRTGoalRegCons::setGoalBias, &RRTGoalRegCons::getGoalBias, "0.:.05:"
-                                                                                                               "1.");
+  Planner::declareParam<double>("range", this, &RRTGoalRegCons::setRange, &RRTGoalRegCons::getRange,
+                                "0.:1.:"
+                                "10000.");
+  Planner::declareParam<double>("goal_bias", this, &RRTGoalRegCons::setGoalBias, &RRTGoalRegCons::getGoalBias,
+                                "0.:.05:"
+                                "1.");
 }
 
 ompl::geometric::RRTGoalRegCons::~RRTGoalRegCons()
@@ -128,7 +130,7 @@ ompl::base::PlannerStatus ompl::geometric::RRTGoalRegCons::solve(const base::Pla
   bool expansion_toward_goal;
 
   // maxDistance_ = 3.0;
-  //goalBias_ = 0.5;
+  // goalBias_ = 0.5;
 
   while (!ptc)
   {
@@ -140,8 +142,6 @@ ompl::base::PlannerStatus ompl::geometric::RRTGoalRegCons::solve(const base::Pla
 
       weighted_goal.state_ = rstate;
       goal_region->sampleConsecutiveGoal(weighted_goal);
-      //      std::cout << std::endl;
-      //      si_->printState(weighted_goal.state_);
     }
     else
       sampler_->sampleUniform(rstate);
@@ -166,9 +166,6 @@ ompl::base::PlannerStatus ompl::geometric::RRTGoalRegCons::solve(const base::Pla
     {
       if (last_valid.second > 0.0)
       {
-        // std::cout << "Expanding towards the goal: should NOT penalize!! " << std::endl;
-        // goal_region->rewardWeightedGoal(weighted_goal);
-
         si_->getStateSpace()->interpolate(nmotion->state, dstate, last_valid.second, xstate);
         dstate = xstate;
 
@@ -193,20 +190,9 @@ ompl::base::PlannerStatus ompl::geometric::RRTGoalRegCons::solve(const base::Pla
           approxsol = motion;
         }
       }
-      //      else
-      //      {
-      //        // std::cout << "Expanding towards the goal: should penalize " << std::endl;
-      //        goal_region->penalizeWeightedGoal(weighted_goal);
-      //      }
     }
     else if (expansion_result)
     {
-      //      if (expansion_toward_goal)
-      //      {
-      //        // std::cout << "Expanding towards the goal: should NOT penalize " << std::endl;
-      //        goal_region->rewardWeightedGoal(weighted_goal);
-      //      }
-
       /* create a motion */
       auto* motion = new Motion(si_);
       si_->copyState(motion->state, dstate);

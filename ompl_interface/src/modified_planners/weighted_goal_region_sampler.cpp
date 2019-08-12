@@ -118,9 +118,6 @@ void ompl::base::WeightedGoalRegionSampler::stopGrowingRoadmap()
   {
     while (prm_planner_->as<ompl::geometric::PRMMod>()->milestoneCount() < sampled_goal_states_.size())
     {
-      //      std::cout << "attempting to stop, milestones: " <<
-      //      prm_planner_->as<ompl::geometric::PRMMod>()->milestoneCount()
-      //                << std::endl;
       std::this_thread::sleep_for(time::seconds(0.001));
     }
 
@@ -169,14 +166,10 @@ void ompl::base::WeightedGoalRegionSampler::goalSamplingThread()
       if (num_sampled_goals_ < max_sampled_goals_)
       {
         samplerFunc_(this, sampled_states);
-        //        std::cout << "max_sampled_goals_: " << max_sampled_goals_ << std::endl;
-        //        std::cout << "num_sampled_goals_ (before): " << num_sampled_goals_ << std::endl;
-        //        std::cout << "sampled_states.size(): " << sampled_states.size() << std::endl;
 
         bool increase_num_sampled_goals = false;
         for (auto& sampled_state : sampled_states)
         {
-          // si_->printState(sampled_state->as<State>());
           if (si_->satisfiesBounds(sampled_state) && si_->isValid(sampled_state))
           {
             increase_num_sampled_goals = true;
@@ -326,11 +319,8 @@ bool ompl::base::WeightedGoalRegionSampler::addStateIfDifferent(const State* st,
 void ompl::base::WeightedGoalRegionSampler::penalizeWeightedGoal(WeightedGoal& weighted_goal)
 {
   double w = weighted_goal.heap_element_->data->weight_;
-  // std::cout << "penalize -> prev w: " << w << std::endl;
   weighted_goal.heap_element_->data->weight_ = w / (w + 1.);
   goals_priority_queue_.update(weighted_goal.heap_element_);
-
-  // std::cout << "penalize -> after w: " << weighted_goal.heap_element_->data->weight_ << std::endl;
 
   if (w < 0.2 && !sample_goals_)
   {
@@ -344,14 +334,12 @@ void ompl::base::WeightedGoalRegionSampler::penalizeWeightedGoal(WeightedGoal& w
 
     sample_goals_ = true;
     max_sampled_goals_ += 10;  // addSampledGoalStates();
-    // std::cout << "sample more goals !!!!!!!!!!!!!!!!!!!!!!!!!!!!" << std::endl;
   }
 }
 
 void ompl::base::WeightedGoalRegionSampler::rewardWeightedGoal(WeightedGoal& weighted_goal)
 {
   double w = weighted_goal.heap_element_->data->weight_;
-  // std::cout << "reward -> prev w: " << w << std::endl;
 
   if (w < 1.0)
   {
@@ -362,8 +350,6 @@ void ompl::base::WeightedGoalRegionSampler::rewardWeightedGoal(WeightedGoal& wei
 
     weighted_goal.heap_element_->data->weight_ = new_w;
     goals_priority_queue_.update(weighted_goal.heap_element_);
-
-    // std::cout << "reward -> after w: " << new_w << std::endl;
   }
 }
 
@@ -386,13 +372,4 @@ void ompl::base::WeightedGoalRegionSampler::sampleConsecutiveGoal(WeightedGoal& 
 
   //  std::lock_guard<std::mutex> slock(lock_);
   GoalStates::sampleGoal(weighted_goal.state_);
-
-  //  si_->printState(weighted_goal.state_);
-  //  std::cout << "this->num_sampled_goals_: " << this->num_sampled_goals_ << std::endl;
-  //
-  //  ompl::BinaryHeap<WeightedGoal*, WeightedGoalCompare>::Element* heap_element = goals_priority_queue_.top();
-  //
-  //  si_->copyState(weighted_goal.state_, heap_element->data->state_);
-  //  weighted_goal.weight_ = heap_element->data->weight_;
-  //  weighted_goal.heap_element_ = heap_element->data->heap_element_;
 }

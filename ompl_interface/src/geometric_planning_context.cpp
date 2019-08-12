@@ -43,6 +43,7 @@
 #include "moveit/ompl_interface/detail/state_validity_checker.h"
 #include "moveit/ompl_interface/modified_planners/RRTMod.h"
 #include "moveit/ompl_interface/modified_planners/RRTGoalRegion.h"
+#include "moveit/ompl_interface/modified_planners/RRTstarMod.h"
 #include "moveit/ompl_interface/modified_planners/RRTGoalRegCons.h"
 #include "moveit/ompl_interface/modified_planners/goal_region_sampler.h"
 
@@ -165,6 +166,9 @@ void GeometricPlanningContext::initializePlannerAllocators()
 
   registerPlannerAllocator("geometric::RRTMod", boost::bind(&allocatePlanner<og::RRTMod>, _1, _2, _3));
   registerPlannerAllocator("geometric::RRTGoalRegion", boost::bind(&allocatePlanner<og::RRTGoalRegion>, _1, _2, _3));
+  registerPlannerAllocator("geometric::RRTGoalRegionRRTstarMod",
+                           boost::bind(&allocatePlanner<og::RRTGoalRegion>, _1, _2, _3));
+  registerPlannerAllocator("geometric::RRTstarMod", boost::bind(&allocatePlanner<og::RRTstarMod>, _1, _2, _3));
   registerPlannerAllocator("geometric::RRTGoalRegCons", boost::bind(&allocatePlanner<og::RRTGoalRegCons>, _1, _2, _3));
 
   registerPlannerAllocator("geometric::BFMT", boost::bind(&allocatePlanner<og::BFMT>, _1, _2, _3));
@@ -415,7 +419,6 @@ void GeometricPlanningContext::useConfig()
   //                   name_.c_str(), type.c_str());
   //  }
 
-  std::cout << "setting params!!! " << std::endl;
   // call the setParams() after setup(), so we know what the params are
   simple_setup_->getSpaceInformation()->setup();
   simple_setup_->getSpaceInformation()->params().setParams(cfg, true);
@@ -632,14 +635,17 @@ bool GeometricPlanningContext::solve(double timeout, unsigned int count, double&
 
   bool result = false;
   total_time = 0.0;
+  double avilable_time = 0.0;
+  ompl::base::PlannerTerminationCondition ptc =
+      ompl::base::timedPlannerTerminationCondition(timeout - ompl::time::seconds(ompl::time::now() - start));
   if (count <= 1)
   {
-    ompl::base::PlannerTerminationCondition ptc =
-        ompl::base::timedPlannerTerminationCondition(timeout - ompl::time::seconds(ompl::time::now() - start));
+    ptc = ompl::base::timedPlannerTerminationCondition(timeout - ompl::time::seconds(ompl::time::now() - start));
     registerTerminationCondition(ptc);
     result = simple_setup_->solve(ptc) == ompl::base::PlannerStatus::EXACT_SOLUTION;
     total_time = simple_setup_->getLastPlanComputationTime();
     unregisterTerminationCondition();
+    avilable_time = timeout - total_time;
   }
   else  // attempt to solve in parallel
   {
@@ -714,6 +720,31 @@ bool GeometricPlanningContext::solve(double timeout, unsigned int count, double&
   }
 
   postSolve();
+
+  std::size_t found = planner_id_.find("RRTGoalRegionRRTstarMod");
+  // RRTstarMod after RRTGoalRegion
+  if (result && avilable_time > 0.1 && found != std::string::npos)
+  {
+    // Extract solution from RRTGoalRegion + Roadmap
+    std::vector<ob::State*> grs_solution_path_states = simple_setup_->getSolutionPath().getStates();
+    ompl::base::PlannerPtr planner = configurePlanner("geometric::RRTstarMod", spec_.config);
+    simple_setup_->setPlanner(planner);
+    // Set the goal regions checker
+    // std::vector<moveit_msgs::Constraints> merged_constraints;
+    ompl::base::GoalPtr g = ompl::base::GoalPtr(
+        new GoalRegionChecker(this, getGroupName(), getRobotModel(), getPlanningScene(), merged_constraints_,
+                              goal_regions_, sort_roadmap_func_str_, constraint_sampler_manager_));
+    simple_setup_->setGoal(g);
+    // Set previous solution to the a modified state sampler
+    simple_setup_->getPlanner()->as<og::RRTstarMod>()->setPreviousPath(grs_solution_path_states);
+
+    // Solve
+    ptc = ompl::base::timedPlannerTerminationCondition(avilable_time);
+    registerTerminationCondition(ptc);
+    result = simple_setup_->solve(ptc) == ompl::base::PlannerStatus::EXACT_SOLUTION;
+    total_time = simple_setup_->getLastPlanComputationTime();
+    unregisterTerminationCondition();
+  }
 
   return result;
 }
@@ -825,7 +856,8 @@ bool GeometricPlanningContext::setGoalConstraints(const std::vector<moveit_msgs:
 
   // Merge path constraints (if any) with goal constraints
   goal_constraints_.clear();
-  std::vector<moveit_msgs::Constraints> merged_constraints;
+  merged_constraints_.clear();
+  // std::vector<moveit_msgs::Constraints> merged_constraints;
   for (const auto& goal_constraint : goal_constraints)
   {
     // NOTE: This only "intelligently" merges joint constraints .  All other
@@ -846,7 +878,7 @@ bool GeometricPlanningContext::setGoalConstraints(const std::vector<moveit_msgs:
     }
 
     if (goal_regions_.size() > 0)
-      merged_constraints.push_back(constr);
+      merged_constraints_.push_back(constr);
 
     kinematic_constraints::KinematicConstraintSetPtr kset(
         new kinematic_constraints::KinematicConstraintSet(getRobotModel()));
@@ -866,9 +898,16 @@ bool GeometricPlanningContext::setGoalConstraints(const std::vector<moveit_msgs:
 
   if (goal_regions_.size() > 0)
   {
-    ompl::base::GoalPtr g = ompl::base::GoalPtr(
-        new GoalRegionSampler(this, getGroupName(), getRobotModel(), getPlanningScene(), merged_constraints,
-                              goal_regions_, sort_roadmap_func_str_, constraint_sampler_manager_, 100));
+    std::size_t found = planner_id_.find("RRTGoalRegion");
+    ompl::base::GoalPtr g;
+    if (found != std::string::npos)
+      g = ompl::base::GoalPtr(new GoalRegionSampler(this, getGroupName(), getRobotModel(), getPlanningScene(),
+                                                    merged_constraints_, goal_regions_, sort_roadmap_func_str_,
+                                                    constraint_sampler_manager_, 100));
+    else
+      g = ompl::base::GoalPtr(new GoalRegionChecker(this, getGroupName(), getRobotModel(), getPlanningScene(),
+                                                    merged_constraints_, goal_regions_, sort_roadmap_func_str_,
+                                                    constraint_sampler_manager_));
     goals.push_back(g);
   }
   else

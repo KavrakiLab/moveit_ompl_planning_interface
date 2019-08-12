@@ -77,8 +77,6 @@ ompl_interface::GoalRegionSampler::GoalRegionSampler(
   kinematic_state_->setToDefaultValues();
   joint_model_group_ = kinematic_model_->getJointModelGroup(planning_context_->getGroupName());
 
-  // std::cout << "creating GoalRegionSampler! " << std::endl;
-
   for (auto& constr : constrs)
     constrs_.push_back(moveit_msgs::Constraints(constr));
 
@@ -155,12 +153,13 @@ double ompl_interface::GoalRegionSampler::distanceGoal(const ompl::base::State* 
     if (ee_pose.translation().x() >= workspace_goal_regions_[i].x.min &&
         ee_pose.translation().x() <= workspace_goal_regions_[i].x.max &&
         ee_pose.translation().y() >= workspace_goal_regions_[i].y.min &&
-        ee_pose.translation().y() <= workspace_goal_regions_[i].y.max)
+        ee_pose.translation().y() <= workspace_goal_regions_[i].y.max &&
+        ee_pose.translation().z() >= workspace_goal_regions_[i].z.min &&
+        ee_pose.translation().z() <= workspace_goal_regions_[i].z.max)
     {
       if (workspace_goal_regions_[i].roll.free_value && workspace_goal_regions_[i].pitch.free_value &&
           workspace_goal_regions_[i].yaw.free_value)
       {
-        // std::cout << "Inside a goal region!!!!!!!!!" << std::endl;
         return 0.0;
       }
 
@@ -192,7 +191,6 @@ double ompl_interface::GoalRegionSampler::distanceGoal(const ompl::base::State* 
 
       if (meet_orientation_const)
       {
-        std::cout << "Inside a goal region!!!!!!!!!" << std::endl;
         return 0.0;
       }
     }
@@ -220,8 +218,6 @@ void ompl_interface::GoalRegionSampler::getBetterSolution(ompl::base::PathPtr so
   auto graph = prm_planner_->as<ompl::geometric::PRMMod>()->getRoadmap();
 
   ompl::base::State* start_state_roadmap = solution_path->as<ompl::geometric::PathGeometric>()->getStates().back();
-  //  std::cout << "********* start_state from solution_path" << std::endl;
-  //  si_->getStateSpace()->printState(start_state_roadmap);
 
   // Create the list of states
   std::list<std::tuple<double, ompl::geometric::PRMMod::Vertex>> lst;
@@ -260,7 +256,7 @@ void ompl_interface::GoalRegionSampler::getBetterSolution(ompl::base::PathPtr so
               2.0) +
           pow((workspace_goal_regions_[i].z.max + workspace_goal_regions_[i].z.min) / 2.0 - ee_pose.translation().z(),
               2.0));
-      // std::cout << "Distance to GR" << i << ": " << gr_distance << std::endl;
+
       if (gr_distance < distance)
         distance = gr_distance;
     }
@@ -275,8 +271,6 @@ void ompl_interface::GoalRegionSampler::getBetterSolution(ompl::base::PathPtr so
       start_vertex_found = true;
       start_distance = distance;
       start_vertex = v;
-      //      std::cout << "********* Start Vertex, distance: " << start_distance << std::endl;
-      //      si_->getStateSpace()->printState(prm_planner_->as<ompl::geometric::PRMMod>()->stateProperty_[start_vertex]);
       break;
     }
   }
@@ -288,22 +282,15 @@ void ompl_interface::GoalRegionSampler::getBetterSolution(ompl::base::PathPtr so
     ompl::base::PathPtr roadmap_internal_path = nullptr;
     for (auto& element : lst)
     {
-      //      std::cout << "Distance: " << std::get<0>(element) << std::endl;
-
       if (std::get<0>(element) < start_distance &&
           prm_planner_->as<ompl::geometric::PRMMod>()->sameComponent(start_vertex, std::get<1>(element)))
       {
-        //        std::cout << "********* Goal Vertex" << std::endl;
-        //        si_->getStateSpace()->printState(
-        //            prm_planner_->as<ompl::geometric::PRMMod>()->stateProperty_[std::get<1>(element)]);
-
         if (!si_->getStateSpace()->equalStates(
                 prm_planner_->as<ompl::geometric::PRMMod>()->stateProperty_[start_vertex],
                 prm_planner_->as<ompl::geometric::PRMMod>()->stateProperty_[std::get<1>(element)]))
         {
           roadmap_internal_path =
               prm_planner_->as<ompl::geometric::PRMMod>()->constructSolution(start_vertex, std::get<1>(element));
-          // roadmap_internal_path->print(std::cout);
         }
         break;
       }
@@ -316,7 +303,6 @@ void ompl_interface::GoalRegionSampler::getBetterSolution(ompl::base::PathPtr so
                 << std::endl;
       for (unsigned int i = 1; i < roadmap_internal_path->as<ompl::geometric::PathGeometric>()->getStateCount(); i++)
       {
-        //        si_->getStateSpace()->printState(roadmap_internal_path->as<ompl::geometric::PathGeometric>()->getState(i));
         solution_path->as<ompl::geometric::PathGeometric>()->append(
             roadmap_internal_path->as<ompl::geometric::PathGeometric>()->getState(i));
       }
@@ -351,12 +337,8 @@ bool ompl_interface::GoalRegionSampler::sampleUsingConstraintSampler(const ompl:
   for (std::size_t i = 0; i < workspace_goal_regions_.size(); ++i)
   {
     // Sampling an SE3 pose
-    //    std::cout << "sampling !!!!!:" << std::endl;
     ompl::base::State* state = se3_spaces_[i]->as<ompl::base::SE3StateSpace>()->allocState();
     se3_samplers_[i]->sampleUniform(state);
-
-    //    std::cout << "sampled SE3 pose:" << std::endl;
-    //    se3_spaces_[i]->as<ompl::base::SE3StateSpace>()->printState(state, std::cout);
 
     kinematic_constraint_set_->clear();
 
@@ -547,6 +529,9 @@ ompl_interface::GoalRegionChecker::GoalRegionChecker(const OMPLPlanningContext* 
   , sort_roadmap_func_str_(sort_roadmap_func_str)
   , robot_model_loader_("robot_description")
 {
+  for (auto& constr : constrs)
+    constrs_.push_back(moveit_msgs::Constraints(constr));
+
   // Kinematics robot information
   kinematic_model_ = robot_model_loader_.getModel();
   kinematic_state_ = robot_state::RobotStatePtr(new robot_state::RobotState(kinematic_model_));
@@ -570,15 +555,24 @@ double ompl_interface::GoalRegionChecker::distanceGoal(const ompl::base::State* 
   // Distances to the goal regions
   for (std::size_t i = 0; i < workspace_goal_regions_.size(); ++i)
   {
-    if (ee_pose.translation().x() >= workspace_goal_regions_[i].x.min &&
-        ee_pose.translation().x() <= workspace_goal_regions_[i].x.max &&
-        ee_pose.translation().y() >= workspace_goal_regions_[i].y.min &&
-        ee_pose.translation().y() <= workspace_goal_regions_[i].y.max)
+    const Eigen::Isometry3d wsgr_tf = planning_scene_->getFrameTransform(workspace_goal_regions_[i].header.frame_id);
+
+    if ((abs(ee_pose.translation().x() - wsgr_tf.translation().x() - workspace_goal_regions_[i].x.min) < 0.001 ||
+         ee_pose.translation().x() >= (wsgr_tf.translation().x() + workspace_goal_regions_[i].x.min)) &&
+        (abs(ee_pose.translation().x() - wsgr_tf.translation().x() - workspace_goal_regions_[i].x.max) < 0.001 ||
+         ee_pose.translation().x() <= (wsgr_tf.translation().x() + workspace_goal_regions_[i].x.max)) &&
+        (abs(ee_pose.translation().y() - wsgr_tf.translation().y() - workspace_goal_regions_[i].y.min) < 0.001 ||
+         ee_pose.translation().y() >= (wsgr_tf.translation().y() + workspace_goal_regions_[i].y.min)) &&
+        (abs(ee_pose.translation().y() - wsgr_tf.translation().y() - workspace_goal_regions_[i].y.max) < 0.001 ||
+         ee_pose.translation().y() <= (wsgr_tf.translation().y() + workspace_goal_regions_[i].y.max)) &&
+        (abs(ee_pose.translation().z() - wsgr_tf.translation().z() - workspace_goal_regions_[i].z.min) < 0.001 ||
+         ee_pose.translation().z() >= (wsgr_tf.translation().z() + workspace_goal_regions_[i].z.min)) &&
+        (abs(ee_pose.translation().z() - wsgr_tf.translation().z() - workspace_goal_regions_[i].z.max) < 0.001 ||
+         ee_pose.translation().z() <= (wsgr_tf.translation().z() + workspace_goal_regions_[i].z.max)))
     {
       if (workspace_goal_regions_[i].roll.free_value && workspace_goal_regions_[i].pitch.free_value &&
           workspace_goal_regions_[i].yaw.free_value)
       {
-        // std::cout << "Inside a goal region!!!!!!!!!" << std::endl;
         return 0.0;
       }
 
@@ -610,7 +604,6 @@ double ompl_interface::GoalRegionChecker::distanceGoal(const ompl::base::State* 
 
       if (meet_orientation_const)
       {
-        std::cout << "Inside a goal region!!!!!!!!!" << std::endl;
         return 0.0;
       }
     }
@@ -632,15 +625,24 @@ double ompl_interface::GoalRegionChecker::distanceToCenterOfGoalRegion(const omp
   // Distances to the goal regions
   for (std::size_t i = 0; i < workspace_goal_regions_.size(); ++i)
   {
-    if (ee_pose.translation().x() >= workspace_goal_regions_[i].x.min &&
-        ee_pose.translation().x() <= workspace_goal_regions_[i].x.max &&
-        ee_pose.translation().y() >= workspace_goal_regions_[i].y.min &&
-        ee_pose.translation().y() <= workspace_goal_regions_[i].y.max)
+    const Eigen::Isometry3d wsgr_tf = planning_scene_->getFrameTransform(workspace_goal_regions_[i].header.frame_id);
+
+    if ((abs(ee_pose.translation().x() - wsgr_tf.translation().x() - workspace_goal_regions_[i].x.min) < 0.001 ||
+         ee_pose.translation().x() >= (wsgr_tf.translation().x() + workspace_goal_regions_[i].x.min)) &&
+        (abs(ee_pose.translation().x() - wsgr_tf.translation().x() - workspace_goal_regions_[i].x.max) < 0.001 ||
+         ee_pose.translation().x() <= (wsgr_tf.translation().x() + workspace_goal_regions_[i].x.max)) &&
+        (abs(ee_pose.translation().y() - wsgr_tf.translation().y() - workspace_goal_regions_[i].y.min) < 0.001 ||
+         ee_pose.translation().y() >= (wsgr_tf.translation().y() + workspace_goal_regions_[i].y.min)) &&
+        (abs(ee_pose.translation().y() - wsgr_tf.translation().y() - workspace_goal_regions_[i].y.max) < 0.001 ||
+         ee_pose.translation().y() <= (wsgr_tf.translation().y() + workspace_goal_regions_[i].y.max)) &&
+        (abs(ee_pose.translation().z() - wsgr_tf.translation().z() - workspace_goal_regions_[i].z.min) < 0.001 ||
+         ee_pose.translation().z() >= (wsgr_tf.translation().z() + workspace_goal_regions_[i].z.min)) &&
+        (abs(ee_pose.translation().z() - wsgr_tf.translation().z() - workspace_goal_regions_[i].z.max) < 0.001 ||
+         ee_pose.translation().z() <= (wsgr_tf.translation().z() + workspace_goal_regions_[i].z.max)))
     {
       if (workspace_goal_regions_[i].roll.free_value && workspace_goal_regions_[i].pitch.free_value &&
           workspace_goal_regions_[i].yaw.free_value)
       {
-        // std::cout << "Inside a goal region!!!!!!!!!" << std::endl;
         return 0.0;
       }
 
@@ -692,4 +694,10 @@ void ompl_interface::GoalRegionChecker::addState(const ompl::base::State* st)
   si_->copyState(new_goal, st);
 
   GoalStates::addState(st);
+}
+
+void ompl_interface::GoalRegionChecker::clear()
+{
+  constrs_.clear();
+  workspace_goal_regions_.clear();
 }

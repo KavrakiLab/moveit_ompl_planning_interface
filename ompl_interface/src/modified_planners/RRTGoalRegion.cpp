@@ -144,16 +144,10 @@ ompl::base::PlannerStatus ompl::geometric::RRTGoalRegion::solve(const base::Plan
 
       weighted_goal.state_ = rstate;
       weighted_goal_region->sampleWeightedGoal(weighted_goal);
-
-      //      std::cout << "goal" << std::endl;
-      //      si_->printState(rstate);
     }
     else
     {
       sampler_->sampleUniform(rstate);
-
-      //      std::cout << "random" << std::endl;
-      //      si_->printState(rstate);
     }
 
     /* find closest state in the tree */
@@ -176,7 +170,6 @@ ompl::base::PlannerStatus ompl::geometric::RRTGoalRegion::solve(const base::Plan
     {
       if (last_valid.second > 0.0)
       {
-        // std::cout << "Expanding towards the goal: should NOT penalize!! " << std::endl;
         weighted_goal_region->rewardWeightedGoal(weighted_goal);
 
         si_->getStateSpace()->interpolate(nmotion->state, dstate, last_valid.second, xstate);
@@ -209,7 +202,6 @@ ompl::base::PlannerStatus ompl::geometric::RRTGoalRegion::solve(const base::Plan
       }
       else
       {
-        // std::cout << "Expanding towards the goal: should penalize " << std::endl;
         weighted_goal_region->penalizeWeightedGoal(weighted_goal);
       }
     }
@@ -217,7 +209,6 @@ ompl::base::PlannerStatus ompl::geometric::RRTGoalRegion::solve(const base::Plan
     {
       if (expansion_toward_goal)
       {
-        // std::cout << "Expanding towards the goal: should NOT penalize " << std::endl;
         weighted_goal_region->rewardWeightedGoal(weighted_goal);
       }
 

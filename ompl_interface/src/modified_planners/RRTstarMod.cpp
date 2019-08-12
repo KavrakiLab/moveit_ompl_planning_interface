@@ -188,7 +188,6 @@ void ompl::geometric::RRTstarMod::usePreviousPath()
   for (unsigned int i = 0; i < prev_solution_path_states_.size(); i++)
   {
     std::cout << "reusing state: " << std::endl;
-    // si_->printState(prev_solution_path_states_[i]);
     // create a motion
     auto* motion = new Motion(si_);
     si_->copyState(motion->state, prev_solution_path_states_[i]);
@@ -235,61 +234,34 @@ void ompl::geometric::RRTstarMod::usePreviousPath()
       updatedSolution = true;
       distanceToGoalRegion_ = goal_region->distanceToCenterOfGoalRegion(goalMotions_.front()->state);
 
-      // bestCost_ = base::Cost(0.5 * bestGoalMotion_->cost.value() + 10.0 * distanceToGoalRegion_);
       bestCost_ = base::Cost(distanceToGoalRegion_);
 
-      //            std::cout << "RRTstarMod (previous solution), distanceToGoalRegion: " <<
-      //            distanceToGoalRegion_
-      //                      << ", bestGoalMotion_->cost.value(): " << bestGoalMotion_->cost.value()
-      //                      << ", bestCost_.value(): " << bestCost_.value() << std::endl;
-
-      OMPL_INFORM("%s: (previous solution) Found an initial solution with a cost of %.2f in %u "
+      OMPL_INFORM("%s: Found an initial solution with a cost (path length) of %.2f and terminal cost of %.2f in %u "
                   "iterations (%u vertices in the graph)",
-                  getName().c_str(), bestCost_.value(), iterations_, nn_->size());
+                  getName().c_str(), bestGoalMotion_->cost.value(), bestCost_.value(), iterations_, nn_->size());
     }
     else
     {
       // We already have a solution, iterate through the list of goal vertices
       // and see if there's any improvement.
-      // std::cout << "Checking for: " << goalMotions_.size() << std::endl;
       for (auto& goalMotion : goalMotions_)
       {
         // Is this goal motion better than the (current) best?
         // if (opt_->isCostBetterThan(goalMotion->cost, bestCost_))
         double distanceToGoalRegion = goal_region->distanceToCenterOfGoalRegion(goalMotion->state);
 
-        //                std::cout << "RRTstarMod (previous solution), distanceToGoalRegion: " <<
-        //                distanceToGoalRegion
-        //                          << ", goalMotion->cost.value(): " << goalMotion->cost.value()
-        //                          << ", existing bestCost_.value(): " << bestCost_.value()
-        //                          << ", possible new bestCost_.value(): " << distanceToGoalRegion <<
-        //                          std::endl;
-        //<< 0.5 * goalMotion->cost.value() + 10.0 * distanceToGoalRegion << std::endl;
-
-        // if ((0.5 * goalMotion->cost.value() + 10.0 * distanceToGoalRegion) < bestCost_.value())
         if (distanceToGoalRegion < bestCost_.value())
         {
           distanceToGoalRegion_ = distanceToGoalRegion;
           bestGoalMotion_ = goalMotion;
-          // bestCost_ = bestGoalMotion_->cost;
-          // bestCost_ =
-          //    base::Cost(0.5 * bestGoalMotion_->cost.value() + 10.0 * distanceToGoalRegion_);
           bestCost_ = base::Cost(distanceToGoalRegion_);
           updatedSolution = true;
-
-          //                    std::cout << "Better solution found (previous solution)!!!
-          //                    distanceToGoalRegion: "
-          //                              << distanceToGoalRegion_
-          //                              << ", bestGoalMotion_->cost.value(): " <<
-          //                              bestGoalMotion_->cost.value()
-          //                              << ", bestCost_.value(): " << bestCost_.value() <<
-          //                              std::endl;
-          // si_->getStateSpace()->printState(goalMotion->state);
         }
       }
     }
     si_->freeState(prev_solution_path_states_[i]);
   }
+  std::cout << "finish setting prev solution: " << std::endl;
 }
 
 ompl::base::PlannerStatus ompl::geometric::RRTstarMod::solve(const base::PlannerTerminationCondition& ptc)
@@ -593,7 +565,6 @@ ompl::base::PlannerStatus ompl::geometric::RRTstarMod::solve(const base::Planner
         motion->inGoal = true;
         goalMotions_.push_back(motion);
         checkForSolution = true;
-        // std::cout << "Inside a goal region (RRTstarMod)!!!!!!!!!" << std::endl;
       }
 
       // Checking for solution or iterative improvement
@@ -607,62 +578,29 @@ ompl::base::PlannerStatus ompl::geometric::RRTstarMod::solve(const base::Planner
           bestGoalMotion_ = goalMotions_.front();
           updatedSolution = true;
           distanceToGoalRegion_ = goal_region->distanceToCenterOfGoalRegion(goalMotions_.front()->state);
-
-          // bestCost_ =
-          //    base::Cost(0.5 * bestGoalMotion_->cost.value() + 10.0 * distanceToGoalRegion_);
           bestCost_ = base::Cost(distanceToGoalRegion_);
 
-          /*std::cout << "RRTstarMod, distanceToGoalRegion: " << distanceToGoalRegion_
-                    << ", bestGoalMotion_->cost.value(): " << bestGoalMotion_->cost.value()
-                    << ", bestCost_.value(): " << bestCost_.value() << std::endl;*/
-
-          OMPL_INFORM("%s: Found an initial solution with a cost of %.2f in %u iterations (%u "
+          OMPL_INFORM("%s: Found an initial solution with a cost (path length) of %.2f and terminal cost of %.2f in %u "
+                      "iterations (%u "
                       "vertices in the graph)",
-                      getName().c_str(), bestCost_.value(), iterations_, nn_->size());
+                      getName().c_str(), bestGoalMotion_->cost.value(), bestCost_.value(), iterations_, nn_->size());
         }
         else
         {
           // We already have a solution, iterate through the list of goal vertices
           // and see if there's any improvement.
-          // std::cout << "Checking for: " << goalMotions_.size() << std::endl;
           for (auto& goalMotion : goalMotions_)
           {
             // Is this goal motion better than the (current) best?
             // if (opt_->isCostBetterThan(goalMotion->cost, bestCost_))
             double distanceToGoalRegion = goal_region->distanceToCenterOfGoalRegion(goalMotion->state);
 
-            //                        std::cout << "RRTstarMod, distanceToGoalRegion: " <<
-            //                        distanceToGoalRegion
-            //                                  << ", goalMotion->cost.value(): " <<
-            //                                  goalMotion->cost.value()
-            //                                  << ", existing bestCost_.value(): " <<
-            //                                  bestCost_.value()
-            //                                  << ", possible new bestCost_.value(): " <<
-            //                                  distanceToGoalRegion
-            //                                  << std::endl;
-            //<< 0.5 * goalMotion->cost.value() + 10.0 * distanceToGoalRegion
-            //<< std::endl;
-
-            // if ((0.5 * goalMotion->cost.value() + 10.0 * distanceToGoalRegion) <
-            //    bestCost_.value())
             if (distanceToGoalRegion < bestCost_.value())
             {
               distanceToGoalRegion_ = distanceToGoalRegion;
               bestGoalMotion_ = goalMotion;
-              // bestCost_ = bestGoalMotion_->cost;
-              // bestCost_ = base::Cost(0.5 * bestGoalMotion_->cost.value() +
-              //                       10.0 * distanceToGoalRegion_);
               bestCost_ = base::Cost(distanceToGoalRegion_);
               updatedSolution = true;
-
-              //                            std::cout
-              //                                << "Better solution found!!!
-              //                                distanceToGoalRegion: " << distanceToGoalRegion_
-              //                                << ", bestGoalMotion_->cost.value(): " <<
-              //                                bestGoalMotion_->cost.value()
-              //                                << ", bestCost_.value(): " << bestCost_.value()
-              //                                << std::endl;
-              // si_->getStateSpace()->printState(goalMotion->state);
 
               // Check if it satisfies the optimization objective, if it does, break the for
               // loop
@@ -763,9 +701,9 @@ ompl::base::PlannerStatus ompl::geometric::RRTstarMod::solve(const base::Planner
   delete rmotion;
 
   OMPL_INFORM("%s: Created %u new states. Checked %u rewire options. %u goal states in tree. Final "
-              "solution cost "
-              "%.3f",
-              getName().c_str(), statesGenerated, rewireTest, goalMotions_.size(), bestCost_.value());
+              "solution cost (path length) of %.3f and terminal cost of %.3f ",
+              getName().c_str(), statesGenerated, rewireTest, goalMotions_.size(), bestGoalMotion_->cost.value(),
+              bestCost_.value());
 
   // We've added a solution if newSolution == true, and it is an approximate solution if bestGoalMotion_ ==
   // false
@@ -808,9 +746,7 @@ void ompl::geometric::RRTstarMod::updateChildCosts(Motion* m)
     m->children[i]->cost = opt_->combineCosts(m->cost, m->children[i]->incCost);
     if (bestGoalMotion_ && si_->equalStates(bestGoalMotion_->state, m->children[i]->state))
     {
-      // bestCost_ = base::Cost(0.5 * bestGoalMotion_->cost.value() + 10.0 * distanceToGoalRegion_);
       bestCost_ = base::Cost(distanceToGoalRegion_);
-      // std::cout << "bestCost_ updated to: " << bestCost_ << std::endl;
     }
 
     updateChildCosts(m->children[i]);
