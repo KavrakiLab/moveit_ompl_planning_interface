@@ -256,7 +256,6 @@ void ompl_interface::GoalRegionSampler::getBetterSolution(ompl::base::PathPtr so
               2.0) +
           pow((workspace_goal_regions_[i].z.max + workspace_goal_regions_[i].z.min) / 2.0 - ee_pose.translation().z(),
               2.0));
-
       if (gr_distance < distance)
         distance = gr_distance;
     }
@@ -556,19 +555,58 @@ double ompl_interface::GoalRegionChecker::distanceGoal(const ompl::base::State* 
   for (std::size_t i = 0; i < workspace_goal_regions_.size(); ++i)
   {
     const Eigen::Isometry3d wsgr_tf = planning_scene_->getFrameTransform(workspace_goal_regions_[i].header.frame_id);
+    Eigen::Matrix3d rot(wsgr_tf.rotation());
+    Eigen::Vector3d wsgr_min(workspace_goal_regions_[i].x.min, workspace_goal_regions_[i].y.min,
+                             workspace_goal_regions_[i].z.min);
+    wsgr_min = rot * wsgr_min;
+    Eigen::Vector3d wsgr_max(workspace_goal_regions_[i].x.max, workspace_goal_regions_[i].y.max,
+                             workspace_goal_regions_[i].z.max);
+    wsgr_max = rot * wsgr_max;
 
-    if ((abs(ee_pose.translation().x() - wsgr_tf.translation().x() - workspace_goal_regions_[i].x.min) < 0.001 ||
-         ee_pose.translation().x() >= (wsgr_tf.translation().x() + workspace_goal_regions_[i].x.min)) &&
-        (abs(ee_pose.translation().x() - wsgr_tf.translation().x() - workspace_goal_regions_[i].x.max) < 0.001 ||
-         ee_pose.translation().x() <= (wsgr_tf.translation().x() + workspace_goal_regions_[i].x.max)) &&
-        (abs(ee_pose.translation().y() - wsgr_tf.translation().y() - workspace_goal_regions_[i].y.min) < 0.001 ||
-         ee_pose.translation().y() >= (wsgr_tf.translation().y() + workspace_goal_regions_[i].y.min)) &&
-        (abs(ee_pose.translation().y() - wsgr_tf.translation().y() - workspace_goal_regions_[i].y.max) < 0.001 ||
-         ee_pose.translation().y() <= (wsgr_tf.translation().y() + workspace_goal_regions_[i].y.max)) &&
-        (abs(ee_pose.translation().z() - wsgr_tf.translation().z() - workspace_goal_regions_[i].z.min) < 0.001 ||
-         ee_pose.translation().z() >= (wsgr_tf.translation().z() + workspace_goal_regions_[i].z.min)) &&
-        (abs(ee_pose.translation().z() - wsgr_tf.translation().z() - workspace_goal_regions_[i].z.max) < 0.001 ||
-         ee_pose.translation().z() <= (wsgr_tf.translation().z() + workspace_goal_regions_[i].z.max)))
+    double wsgr_min_x, wsgr_max_x, wsgr_min_y, wsgr_max_y, wsgr_min_z, wsgr_max_z;
+    if (wsgr_min.x() < wsgr_max.x())
+    {
+      wsgr_min_x = wsgr_min.x();
+      wsgr_max_x = wsgr_max.x();
+    }
+    else
+    {
+      wsgr_min_x = wsgr_max.x();
+      wsgr_max_x = wsgr_min.x();
+    }
+    if (wsgr_min.y() < wsgr_max.y())
+    {
+      wsgr_min_y = wsgr_min.y();
+      wsgr_max_y = wsgr_max.y();
+    }
+    else
+    {
+      wsgr_min_y = wsgr_max.y();
+      wsgr_max_y = wsgr_min.y();
+    }
+    if (wsgr_min.z() < wsgr_max.z())
+    {
+      wsgr_min_z = wsgr_min.z();
+      wsgr_max_z = wsgr_max.z();
+    }
+    else
+    {
+      wsgr_min_z = wsgr_max.z();
+      wsgr_max_z = wsgr_min.z();
+    }
+
+    if ((abs(ee_pose.translation().x() - wsgr_tf.translation().x() - wsgr_min_x) < 0.002 ||
+         ee_pose.translation().x() >= (wsgr_tf.translation().x() + wsgr_min_x)) &&
+        (abs(ee_pose.translation().x() - wsgr_tf.translation().x() - wsgr_max_x) < 0.002 ||
+         ee_pose.translation().x() <= (wsgr_tf.translation().x() + wsgr_max_x)) &&
+        (abs(ee_pose.translation().y() - wsgr_tf.translation().y() - wsgr_min_y) < 0.002 ||
+         ee_pose.translation().y() >= (wsgr_tf.translation().y() + wsgr_min_y)) &&
+        (abs(ee_pose.translation().y() - wsgr_tf.translation().y() - wsgr_max_y) < 0.002 ||
+         ee_pose.translation().y() <= (wsgr_tf.translation().y() + wsgr_max_y)) &&
+        (abs(ee_pose.translation().z() - wsgr_tf.translation().z() - wsgr_min_z) < 0.002 ||
+         ee_pose.translation().z() >= (wsgr_tf.translation().z() + wsgr_min_z)) &&
+        (abs(ee_pose.translation().z() - wsgr_tf.translation().z() - wsgr_max_z) < 0.002 ||
+         ee_pose.translation().z() <= (wsgr_tf.translation().z() + wsgr_max_z)))
     {
       if (workspace_goal_regions_[i].roll.free_value && workspace_goal_regions_[i].pitch.free_value &&
           workspace_goal_regions_[i].yaw.free_value)
@@ -626,19 +664,57 @@ double ompl_interface::GoalRegionChecker::distanceToCenterOfGoalRegion(const omp
   for (std::size_t i = 0; i < workspace_goal_regions_.size(); ++i)
   {
     const Eigen::Isometry3d wsgr_tf = planning_scene_->getFrameTransform(workspace_goal_regions_[i].header.frame_id);
+    Eigen::Matrix3d rot(wsgr_tf.rotation());
+    Eigen::Vector3d wsgr_min(workspace_goal_regions_[i].x.min, workspace_goal_regions_[i].y.min,
+                             workspace_goal_regions_[i].z.min);
+    wsgr_min = rot * wsgr_min;
+    Eigen::Vector3d wsgr_max(workspace_goal_regions_[i].x.max, workspace_goal_regions_[i].y.max,
+                             workspace_goal_regions_[i].z.max);
+    wsgr_max = rot * wsgr_max;
+    double wsgr_min_x, wsgr_max_x, wsgr_min_y, wsgr_max_y, wsgr_min_z, wsgr_max_z;
+    if (wsgr_min.x() < wsgr_max.x())
+    {
+      wsgr_min_x = wsgr_min.x();
+      wsgr_max_x = wsgr_max.x();
+    }
+    else
+    {
+      wsgr_min_x = wsgr_max.x();
+      wsgr_max_x = wsgr_min.x();
+    }
+    if (wsgr_min.y() < wsgr_max.y())
+    {
+      wsgr_min_y = wsgr_min.y();
+      wsgr_max_y = wsgr_max.y();
+    }
+    else
+    {
+      wsgr_min_y = wsgr_max.y();
+      wsgr_max_y = wsgr_min.y();
+    }
+    if (wsgr_min.z() < wsgr_max.z())
+    {
+      wsgr_min_z = wsgr_min.z();
+      wsgr_max_z = wsgr_max.z();
+    }
+    else
+    {
+      wsgr_min_z = wsgr_max.z();
+      wsgr_max_z = wsgr_min.z();
+    }
 
-    if ((abs(ee_pose.translation().x() - wsgr_tf.translation().x() - workspace_goal_regions_[i].x.min) < 0.001 ||
-         ee_pose.translation().x() >= (wsgr_tf.translation().x() + workspace_goal_regions_[i].x.min)) &&
-        (abs(ee_pose.translation().x() - wsgr_tf.translation().x() - workspace_goal_regions_[i].x.max) < 0.001 ||
-         ee_pose.translation().x() <= (wsgr_tf.translation().x() + workspace_goal_regions_[i].x.max)) &&
-        (abs(ee_pose.translation().y() - wsgr_tf.translation().y() - workspace_goal_regions_[i].y.min) < 0.001 ||
-         ee_pose.translation().y() >= (wsgr_tf.translation().y() + workspace_goal_regions_[i].y.min)) &&
-        (abs(ee_pose.translation().y() - wsgr_tf.translation().y() - workspace_goal_regions_[i].y.max) < 0.001 ||
-         ee_pose.translation().y() <= (wsgr_tf.translation().y() + workspace_goal_regions_[i].y.max)) &&
-        (abs(ee_pose.translation().z() - wsgr_tf.translation().z() - workspace_goal_regions_[i].z.min) < 0.001 ||
-         ee_pose.translation().z() >= (wsgr_tf.translation().z() + workspace_goal_regions_[i].z.min)) &&
-        (abs(ee_pose.translation().z() - wsgr_tf.translation().z() - workspace_goal_regions_[i].z.max) < 0.001 ||
-         ee_pose.translation().z() <= (wsgr_tf.translation().z() + workspace_goal_regions_[i].z.max)))
+    if ((abs(ee_pose.translation().x() - wsgr_tf.translation().x() - wsgr_min_x) < 0.002 ||
+         ee_pose.translation().x() >= (wsgr_tf.translation().x() + wsgr_min_x)) &&
+        (abs(ee_pose.translation().x() - wsgr_tf.translation().x() - wsgr_max_x) < 0.002 ||
+         ee_pose.translation().x() <= (wsgr_tf.translation().x() + wsgr_max_x)) &&
+        (abs(ee_pose.translation().y() - wsgr_tf.translation().y() - wsgr_min_y) < 0.002 ||
+         ee_pose.translation().y() >= (wsgr_tf.translation().y() + wsgr_min_y)) &&
+        (abs(ee_pose.translation().y() - wsgr_tf.translation().y() - wsgr_max_y) < 0.002 ||
+         ee_pose.translation().y() <= (wsgr_tf.translation().y() + wsgr_max_y)) &&
+        (abs(ee_pose.translation().z() - wsgr_tf.translation().z() - wsgr_min_z) < 0.002 ||
+         ee_pose.translation().z() >= (wsgr_tf.translation().z() + wsgr_min_z)) &&
+        (abs(ee_pose.translation().z() - wsgr_tf.translation().z() - wsgr_max_z) < 0.002 ||
+         ee_pose.translation().z() <= (wsgr_tf.translation().z() + wsgr_max_z)))
     {
       if (workspace_goal_regions_[i].roll.free_value && workspace_goal_regions_[i].pitch.free_value &&
           workspace_goal_regions_[i].yaw.free_value)
