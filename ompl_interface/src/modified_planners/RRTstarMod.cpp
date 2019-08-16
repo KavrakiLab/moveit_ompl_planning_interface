@@ -178,7 +178,8 @@ void ompl::geometric::RRTstarMod::setPreviousPath(std::vector<ob::State*>& grs_s
 
 void ompl::geometric::RRTstarMod::usePreviousPath()
 {
-  std::cout << "(previous solution)grs_solution_path_states.size(): " << prev_solution_path_states_.size() << std::endl;
+  // std::cout << "(previous solution)grs_solution_path_states.size(): " << prev_solution_path_states_.size() <<
+  // std::endl;
 
   base::Goal* goal = pdef_->getGoal().get();
   auto* goal_s = dynamic_cast<base::GoalSampleableRegion*>(goal);
@@ -187,7 +188,7 @@ void ompl::geometric::RRTstarMod::usePreviousPath()
   Motion* prev_motion;
   for (unsigned int i = 0; i < prev_solution_path_states_.size(); i++)
   {
-    std::cout << "reusing state: " << std::endl;
+    // std::cout << "reusing state: " << std::endl;
     // create a motion
     auto* motion = new Motion(si_);
     si_->copyState(motion->state, prev_solution_path_states_[i]);
@@ -222,7 +223,7 @@ void ompl::geometric::RRTstarMod::usePreviousPath()
       motion->inGoal = true;
       goalMotions_.push_back(motion);
       checkForSolution = true;
-      std::cout << "Inside a goal region (previous solution)!!!!!!!!!" << std::endl;
+      // std::cout << "Inside a goal region (previous solution)!!!!!!!!!" << std::endl;
     }
 
     bool updatedSolution = false;
@@ -236,9 +237,10 @@ void ompl::geometric::RRTstarMod::usePreviousPath()
 
       bestCost_ = base::Cost(distanceToGoalRegion_);
 
-      OMPL_INFORM("%s: Found an initial solution with a cost (path length) of %.2f and terminal cost of %.2f in %u "
-                  "iterations (%u vertices in the graph)",
-                  getName().c_str(), bestGoalMotion_->cost.value(), bestCost_.value(), iterations_, nn_->size());
+      OMPL_INFORM("%s: Found an initial solution after %.3f seconds, with a cost (path length) of %.2f and terminal "
+                  "cost of %.2f in %u iterations (%u vertices in the graph)",
+                  getName().c_str(), ompl::time::seconds(ompl::time::now() - start_solve_time_),
+                  bestGoalMotion_->cost.value(), bestCost_.value(), iterations_, nn_->size());
     }
     else
     {
@@ -266,6 +268,8 @@ void ompl::geometric::RRTstarMod::usePreviousPath()
 
 ompl::base::PlannerStatus ompl::geometric::RRTstarMod::solve(const base::PlannerTerminationCondition& ptc)
 {
+  start_solve_time_ = ompl::time::now();
+
   checkValidity();
   base::Goal* goal = pdef_->getGoal().get();
   auto* goal_s = dynamic_cast<base::GoalSampleableRegion*>(goal);
@@ -356,7 +360,9 @@ ompl::base::PlannerStatus ompl::geometric::RRTstarMod::solve(const base::Planner
     // sample random state (with goal biasing)
     // Goal samples are only sampled until maxSampleCount() goals are in the tree, to prohibit duplicate
     // goal states.
-    if (goal_s && goalMotions_.size() < goal_s->maxSampleCount() && rng_.uniform01() < goalBias_ && goal_s->canSample())
+    // if (goal_s && goalMotions_.size() < goal_s->maxSampleCount() && rng_.uniform01() < goalBias_ &&
+    // goal_s->canSample())
+    if (goal_s && rng_.uniform01() < goalBias_ && goal_s->canSample())
       goal_s->sampleGoal(rstate);
     else
     {
@@ -580,10 +586,10 @@ ompl::base::PlannerStatus ompl::geometric::RRTstarMod::solve(const base::Planner
           distanceToGoalRegion_ = goal_region->distanceToCenterOfGoalRegion(goalMotions_.front()->state);
           bestCost_ = base::Cost(distanceToGoalRegion_);
 
-          OMPL_INFORM("%s: Found an initial solution with a cost (path length) of %.2f and terminal cost of %.2f in %u "
-                      "iterations (%u "
-                      "vertices in the graph)",
-                      getName().c_str(), bestGoalMotion_->cost.value(), bestCost_.value(), iterations_, nn_->size());
+          OMPL_INFORM("%s: Found an initial solution after %.3f seconds, with a cost (path length) of %.2f and "
+                      "terminal cost of %.2f in %u iterations (%u vertices in the graph)",
+                      getName().c_str(), ompl::time::seconds(ompl::time::now() - start_solve_time_),
+                      bestGoalMotion_->cost.value(), bestCost_.value(), iterations_, nn_->size());
         }
         else
         {
@@ -700,10 +706,11 @@ ompl::base::PlannerStatus ompl::geometric::RRTstarMod::solve(const base::Planner
     si_->freeState(rmotion->state);
   delete rmotion;
 
-  OMPL_INFORM("%s: Created %u new states. Checked %u rewire options. %u goal states in tree. Final "
-              "solution cost (path length) of %.3f and terminal cost of %.3f ",
-              getName().c_str(), statesGenerated, rewireTest, goalMotions_.size(), bestGoalMotion_->cost.value(),
-              bestCost_.value());
+  if (bestGoalMotion_)
+    OMPL_INFORM("%s: Created %u new states. Checked %u rewire options. %u goal states in tree. Final "
+                "solution cost (path length) of %.3f and terminal cost of %.3f ",
+                getName().c_str(), statesGenerated, rewireTest, goalMotions_.size(), bestGoalMotion_->cost.value(),
+                bestCost_.value());
 
   // We've added a solution if newSolution == true, and it is an approximate solution if bestGoalMotion_ ==
   // false

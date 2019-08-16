@@ -98,6 +98,8 @@ void ompl::geometric::RRTGoalRegion::freeMemory()
 
 ompl::base::PlannerStatus ompl::geometric::RRTGoalRegion::solve(const base::PlannerTerminationCondition& ptc)
 {
+  start_solve_time_ = ompl::time::now();
+
   checkValidity();
   base::Goal* goal = pdef_->getGoal().get();
   auto* weighted_goal_region = dynamic_cast<base::WeightedGoalRegionSampler*>(goal);
@@ -132,7 +134,7 @@ ompl::base::PlannerStatus ompl::geometric::RRTGoalRegion::solve(const base::Plan
   bool expansion_toward_goal;
 
   // maxDistance_ = 3.0;
-  // goalBias_ = 0.5;
+  goalBias_ = 0.5;
 
   while (!ptc)
   {
@@ -187,11 +189,12 @@ ompl::base::PlannerStatus ompl::geometric::RRTGoalRegion::solve(const base::Plan
         {
           approxdif = dist;
           solution = motion;
-
           goal_region->addState(motion->state);
-          // std::cout << "Inside a goal region (RRT)!!!!!!!!!" << std::endl;
-          // si_->printState(motion->state);
 
+          double distanceToGoalRegion = goal_region->distanceToCenterOfGoalRegion(motion->state);
+          OMPL_INFORM("%s: Found a solution after %.3f seconds, terminal cost of %.2f (%u vertices in the graph)",
+                      getName().c_str(), ompl::time::seconds(ompl::time::now() - start_solve_time_),
+                      distanceToGoalRegion, nn_->size());
           break;
         }
         if (dist < approxdif)
@@ -224,11 +227,12 @@ ompl::base::PlannerStatus ompl::geometric::RRTGoalRegion::solve(const base::Plan
       {
         approxdif = dist;
         solution = motion;
-
         goal_region->addState(motion->state);
-        // std::cout << "Inside a goal region (RRT)2!!!!!!!!!" << std::endl;
-        // si_->printState(motion->state);
 
+        double distanceToGoalRegion = goal_region->distanceToCenterOfGoalRegion(motion->state);
+        OMPL_INFORM("%s: Found a solution after %.3f seconds, terminal cost of %.2f (%u vertices in the graph)",
+                    getName().c_str(), ompl::time::seconds(ompl::time::now() - start_solve_time_), distanceToGoalRegion,
+                    nn_->size());
         break;
       }
       if (dist < approxdif)
@@ -246,6 +250,9 @@ ompl::base::PlannerStatus ompl::geometric::RRTGoalRegion::solve(const base::Plan
     solution = approxsol;
     approximate = true;
   }
+  else
+    OMPL_INFORM("%s: Found an initial solution after %.3f seconds", getName().c_str(),
+                ompl::time::seconds(ompl::time::now() - start_solve_time_));
 
   if (solution != nullptr)
   {
@@ -271,7 +278,8 @@ ompl::base::PlannerStatus ompl::geometric::RRTGoalRegion::solve(const base::Plan
     {
       goal_region->stopSampling();
       goal_region->stopGrowingRoadmap();
-      goal_region->getBetterSolution(path);
+      goal_region->getBetterSolution(path, maxDistance_);
+      path->interpolate(int(path->length() / (maxDistance_ / 2.0)));
     }
 
     OMPL_INFORM("%s: solution with %u states", getName().c_str(), path->getStateCount());

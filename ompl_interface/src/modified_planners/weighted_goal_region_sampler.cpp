@@ -42,7 +42,7 @@
 #include <ompl/util/Time.h>
 
 ompl::base::WeightedGoalRegionSampler::WeightedGoalRegionSampler(const SpaceInformationPtr& si,
-                                                                 GoalRegionSamplingFn samplerFunc,
+                                                                 WeightedGoalRegionSamplingFn samplerFunc,
                                                                  const unsigned int max_sampled_goals, bool autoStart,
                                                                  double minDist)
   : GoalStates(si)
@@ -170,17 +170,17 @@ void ompl::base::WeightedGoalRegionSampler::goalSamplingThread()
         bool increase_num_sampled_goals = false;
         for (auto& sampled_state : sampled_states)
         {
-          if (si_->satisfiesBounds(sampled_state) && si_->isValid(sampled_state))
-          {
-            increase_num_sampled_goals = true;
-            ++num_sampled_goals_;
-            // OMPL_DEBUG("Adding goal state. num_sampled_goals_: %d", num_sampled_goals_);
-            // addStateIfDifferent(sampled_state, minDist_);
-            // std::lock_guard<std::mutex> slock(lock_);
-            addState(sampled_state);
+          //          if (si_->satisfiesBounds(sampled_state) && si_->isValid(sampled_state))
+          //          {
+          increase_num_sampled_goals = true;
+          ++num_sampled_goals_;
+          // OMPL_DEBUG("Adding goal state. num_sampled_goals_: %d", num_sampled_goals_);
+          // addStateIfDifferent(sampled_state, minDist_);
+          // std::lock_guard<std::mutex> slock(lock_);
+          addState(sampled_state);
 
-            // OMPL_DEBUG("sampled_goal_states_.size(): %d", sampled_goal_states_.size());
-          }
+          // OMPL_DEBUG("sampled_goal_states_.size(): %d", sampled_goal_states_.size());
+          //          }
           //                    else
           //                    {
           //                        OMPL_DEBUG("Invalid goal candidate");
@@ -372,4 +372,206 @@ void ompl::base::WeightedGoalRegionSampler::sampleConsecutiveGoal(WeightedGoal& 
 
   //  std::lock_guard<std::mutex> slock(lock_);
   GoalStates::sampleGoal(weighted_goal.state_);
+}
+
+//-----------------------
+
+ompl::base::RandomGoalRegionSampler::RandomGoalRegionSampler(const SpaceInformationPtr& si,
+                                                             RandomGoalRegionSamplingFn samplerFunc, bool autoStart,
+                                                             double minDist)
+  : GoalStates(si)
+  , samplerFunc_(std::move(samplerFunc))
+  , terminateSamplingThread_(false)
+  , samplingThread_(nullptr)
+  , samplingAttempts_(0)
+  , minDist_(minDist)
+  , sample_goals_(true)
+  , num_sampled_goals_(0)
+{
+  type_ = GOAL_LAZY_SAMPLES;
+  if (autoStart)
+    startSampling();
+}
+
+ompl::base::RandomGoalRegionSampler::~RandomGoalRegionSampler()
+{
+  stopSampling();
+}
+
+void ompl::base::RandomGoalRegionSampler::startSampling()
+{
+  std::lock_guard<std::mutex> slock(lock_);
+  if (samplingThread_ == nullptr)
+  {
+    OMPL_DEBUG("Starting goal regions sampling thread");
+    terminateSamplingThread_ = false;
+    samplingThread_ = new std::thread(&RandomGoalRegionSampler::goalSamplingThread, this);
+  }
+}
+
+void ompl::base::RandomGoalRegionSampler::stopSampling()
+{
+  /* Set termination flag */
+  {
+    std::lock_guard<std::mutex> slock(lock_);
+    if (!terminateSamplingThread_)
+    {
+      OMPL_DEBUG("Attempting to stop goal sampling thread...");
+      terminateSamplingThread_ = true;
+    }
+  }
+
+  /* Join thread */
+  if (samplingThread_ != nullptr)
+  {
+    samplingThread_->join();
+    delete samplingThread_;
+    samplingThread_ = nullptr;
+  }
+}
+
+void ompl::base::RandomGoalRegionSampler::goalSamplingThread()
+{
+  {
+    /* Wait for startSampling() to finish assignment
+     * samplingThread_ */
+    std::lock_guard<std::mutex> slock(lock_);
+  }
+
+  if (!si_->isSetup())  // this looks racy
+  {
+    OMPL_DEBUG("Waiting for space information to be set up before the sampling thread can begin computation...");
+    // wait for everything to be set up before performing computation
+    while (!terminateSamplingThread_ && !si_->isSetup())
+      std::this_thread::sleep_for(time::seconds(0.01));
+  }
+  unsigned int prevsa = samplingAttempts_;
+  if (isSampling() && samplerFunc_)
+  {
+    OMPL_DEBUG("Beginning sampling thread computation");
+    while (isSampling())
+    {
+      std::vector<State*> sampled_states;
+      samplerFunc_(this, sampled_states);
+      bool increase_num_sampled_goals = false;
+      for (auto& sampled_state : sampled_states)
+      {
+        //        if (si_->satisfiesBounds(sampled_state) && si_->isValid(sampled_state))
+        //        {
+        increase_num_sampled_goals = true;
+        ++num_sampled_goals_;
+        // OMPL_DEBUG("Adding goal state. num_sampled_goals_: %d", num_sampled_goals_);
+        // addStateIfDifferent(sampled_state, minDist_);
+        // std::lock_guard<std::mutex> slock(lock_);
+        addState(sampled_state);
+
+        // OMPL_DEBUG("sampled_goal_states_.size(): %d", sampled_goal_states_.size());
+        //        }
+        //                    else
+        //                    {
+        //                        OMPL_DEBUG("Invalid goal candidate");
+        //                    }
+      }
+      // std::cout << "num_sampled_goals_ (random after): " << num_sampled_goals_ << std::endl;
+      if (increase_num_sampled_goals)
+        ++samplingAttempts_;
+    }
+  }
+  else
+    OMPL_WARN("Goal sampling thread never did any work.%s",
+              samplerFunc_ ? (si_->isSetup() ? "" : " Space information not set up.") :
+                             " No sampling function "
+                             "set.");
+  {
+    std::lock_guard<std::mutex> slock(lock_);
+    terminateSamplingThread_ = true;
+  }
+
+  OMPL_DEBUG("Stopped goal sampling thread after %u sampling attempts", samplingAttempts_ - prevsa);
+}
+
+bool ompl::base::RandomGoalRegionSampler::isSampling() const
+{
+  std::lock_guard<std::mutex> slock(lock_);
+  return !terminateSamplingThread_ && samplingThread_ != nullptr;
+}
+
+bool ompl::base::RandomGoalRegionSampler::couldSample() const
+{
+  return canSample() || isSampling();
+}
+
+void ompl::base::RandomGoalRegionSampler::clear()
+{
+  std::lock_guard<std::mutex> slock(lock_);
+  GoalStates::clear();
+}
+
+double ompl::base::RandomGoalRegionSampler::distanceGoal(const State* st) const
+{
+  std::lock_guard<std::mutex> slock(lock_);
+  return GoalStates::distanceGoal(st);
+}
+
+void ompl::base::RandomGoalRegionSampler::sampleGoal(base::State* st) const
+{
+  std::lock_guard<std::mutex> slock(lock_);
+  GoalStates::sampleGoal(st);
+}
+
+void ompl::base::RandomGoalRegionSampler::setNewStateCallback(const NewStateCallbackFn& callback)
+{
+  callback_ = callback;
+}
+
+void ompl::base::RandomGoalRegionSampler::addState(const State* st)
+{
+  std::lock_guard<std::mutex> slock(lock_);
+  GoalStates::addState(st);
+  sampled_goal_states_.push_back(st);
+}
+
+const ompl::base::State* ompl::base::RandomGoalRegionSampler::getState(unsigned int index) const
+{
+  std::lock_guard<std::mutex> slock(lock_);
+  return GoalStates::getState(index);
+}
+
+bool ompl::base::RandomGoalRegionSampler::hasStates() const
+{
+  std::lock_guard<std::mutex> slock(lock_);
+  return GoalStates::hasStates();
+}
+
+std::size_t ompl::base::RandomGoalRegionSampler::getStateCount() const
+{
+  std::lock_guard<std::mutex> slock(lock_);
+  return GoalStates::getStateCount();
+}
+
+unsigned int ompl::base::RandomGoalRegionSampler::maxSampleCount() const
+{
+  std::lock_guard<std::mutex> slock(lock_);
+  return GoalStates::maxSampleCount();
+}
+
+bool ompl::base::RandomGoalRegionSampler::addStateIfDifferent(const State* st, double minDistance)
+{
+  const base::State* newState = nullptr;
+  bool added = false;
+  {
+    std::lock_guard<std::mutex> slock(lock_);
+    if (GoalStates::distanceGoal(st) > minDistance)
+    {
+      GoalStates::addState(st);
+      added = true;
+      if (callback_)
+        newState = states_.back();
+    }
+  }
+
+  // the lock is released at this; if needed, issue a call to the callback
+  if (newState != nullptr)
+    callback_(newState);
+  return added;
 }

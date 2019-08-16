@@ -76,7 +76,12 @@ public:
   std::string getSortRoadmapFuncStr();
 
   double distanceGoal(const ompl::base::State* st) const override;
+
+  double distanceToCenterOfGoalRegion(const ompl::base::State* st) const;
+
   void addState(const ompl::base::State* st) override;
+
+  const std::vector<ompl::base::State*> getGoalSamples() const;
 
   void clear() override;
 
@@ -115,7 +120,7 @@ private:
 
 /** @class GoalRegionSampler
  *  An interface to the goal region checker*/
-class GoalRegionChecker : public ompl::base::GoalStates
+class GoalRegionChecker : public ompl::base::RandomGoalRegionSampler
 {
 public:
   GoalRegionChecker(const OMPLPlanningContext* pc, const std::string& group_name,
@@ -124,18 +129,24 @@ public:
                     const std::vector<moveit_msgs::WorkspaceGoalRegion>& wsgrs,
                     const std::string& sort_roadmap_func_str, constraint_samplers::ConstraintSamplerManagerPtr csm);
 
+  GoalRegionChecker(const std::vector<ompl::base::State*> goal_samples, const OMPLPlanningContext* pc,
+                    const std::string& group_name, const robot_model::RobotModelConstPtr& rm,
+                    const planning_scene::PlanningSceneConstPtr& ps,
+                    const std::vector<moveit_msgs::Constraints>& constrs,
+                    const std::vector<moveit_msgs::WorkspaceGoalRegion>& wsgrs,
+                    const std::string& sort_roadmap_func_str, constraint_samplers::ConstraintSamplerManagerPtr csm);
+
   void getBetterSolution(ompl::base::PathPtr solution_path);
   std::string getSortRoadmapFuncStr();
 
   double distanceGoal(const ompl::base::State* st) const override;
-  void addState(const ompl::base::State* st) override;
 
   double distanceToCenterOfGoalRegion(const ompl::base::State* st) const;
 
   void clear() override;
 
 private:
-  bool sampleUsingConstraintSampler(const ompl::base::WeightedGoalRegionSampler* gls,
+  bool sampleUsingConstraintSampler(const ompl::base::RandomGoalRegionSampler* gls,
                                     std::vector<ompl::base::State*>& sampled_states);
   bool stateValidityCallback(ompl::base::State* new_goal, robot_state::RobotState const* state,
                              const robot_model::JointModelGroup*, const double*, bool verbose = false) const;
@@ -152,6 +163,8 @@ private:
   unsigned int verbose_display_;
 
   planning_scene::PlanningSceneConstPtr planning_scene_;
+  std::vector<ompl::base::StateSamplerPtr> se3_samplers_;
+  std::vector<ompl::base::StateSpacePtr> se3_spaces_;
   std::vector<moveit_msgs::Constraints> constrs_;
   std::vector<moveit_msgs::WorkspaceGoalRegion> workspace_goal_regions_;
   std::string sort_roadmap_func_str_;

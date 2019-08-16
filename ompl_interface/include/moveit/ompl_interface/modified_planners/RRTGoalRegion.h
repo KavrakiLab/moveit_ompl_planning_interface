@@ -201,6 +201,8 @@ protected:
 
   /** \brief The most recent goal motion.  Used for PlannerData computation */
   Motion* lastGoalMotion_{ nullptr };
+
+  ompl::time::point start_solve_time_;
 };
 }  // namespace geometric
 }  // namespace ompl

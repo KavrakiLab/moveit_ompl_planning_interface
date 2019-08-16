@@ -537,6 +537,8 @@ protected:
   {
     return std::to_string(bestCost().value());
   }
+
+  ompl::time::point start_solve_time_;
 };
 }  // namespace geometric
 }  // namespace ompl
