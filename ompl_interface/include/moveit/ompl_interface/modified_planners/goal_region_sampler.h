@@ -145,7 +145,7 @@ public:
 
   double distanceGoal(const ompl::base::State* st) const override;
 
-  double distanceToCenterOfGoalRegion(const ompl::base::State* st) const;
+  double distanceBestTerminalCost(const ompl::base::State* st) const;
 
   void clear() override;
 
@@ -156,6 +156,8 @@ private:
                              const robot_model::JointModelGroup*, const double*, bool verbose = false) const;
   bool checkStateValidity(ompl::base::State* new_goal, const robot_state::RobotState& state,
                           bool verbose = false) const;
+  double distanceToCenterOfGoalRegion(const Eigen::Affine3d& ee_pose) const;
+  double distanceToEdgeOfGoalRegion(const Eigen::Affine3d& ee_pose) const;
 
   const OMPLPlanningContext* planning_context_;
   kinematic_constraints::KinematicConstraintSetPtr kinematic_constraint_set_;

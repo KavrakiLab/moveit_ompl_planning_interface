@@ -983,7 +983,7 @@ double ompl_interface::GoalRegionChecker::distanceGoal(const ompl::base::State* 
   return GoalStates::distanceGoal(st);
 }
 
-double ompl_interface::GoalRegionChecker::distanceToCenterOfGoalRegion(const ompl::base::State* st) const
+double ompl_interface::GoalRegionChecker::distanceBestTerminalCost(const ompl::base::State* st) const
 {
   // Solving FK
   std::vector<double> joint_values;
@@ -1052,10 +1052,11 @@ double ompl_interface::GoalRegionChecker::distanceToCenterOfGoalRegion(const omp
       if (workspace_goal_regions_[i].roll.free_value && workspace_goal_regions_[i].pitch.free_value &&
           workspace_goal_regions_[i].yaw.free_value)
       {
-        return sqrt(pow(ee_pose.translation().x() - wsgr_tf.translation().x(), 2.0) +
-                    pow(ee_pose.translation().y() - wsgr_tf.translation().y(), 2.0)); /* +
-                                                                            pow(ee_pose.translation().z() -
-                                                                            wsgr_tf.translation().z(), 2.0));*/
+        if (sort_roadmap_func_str_.compare("Distance2Center") == 0)
+          return distanceToCenterOfGoalRegion(ee_pose);
+        else if (sort_roadmap_func_str_.compare("+x") == 0 || sort_roadmap_func_str_.compare("+y") == 0 ||
+                 sort_roadmap_func_str_.compare("-x") == 0 || sort_roadmap_func_str_.compare("-y") == 0)
+          return distanceToEdgeOfGoalRegion(ee_pose);
       }
 
       // orientation constraints
@@ -1086,15 +1087,105 @@ double ompl_interface::GoalRegionChecker::distanceToCenterOfGoalRegion(const omp
 
       if (meet_orientation_const)
       {
-        return sqrt(pow(ee_pose.translation().x() - wsgr_tf.translation().x(), 2.0) +
-                    pow(ee_pose.translation().y() - wsgr_tf.translation().y(), 2.0)); /* +
-                                                                            pow(ee_pose.translation().z() -
-                                                                            wsgr_tf.translation().z(), 2.0));*/
+        if (sort_roadmap_func_str_.compare("Distance2Center") == 0)
+          return distanceToCenterOfGoalRegion(ee_pose);
+        else if (sort_roadmap_func_str_.compare("+x") == 0 || sort_roadmap_func_str_.compare("+y") == 0 ||
+                 sort_roadmap_func_str_.compare("-x") == 0 || sort_roadmap_func_str_.compare("-y") == 0)
+          return distanceToEdgeOfGoalRegion(ee_pose);
       }
     }
   }
 
   return GoalStates::distanceGoal(st);
+}
+
+double ompl_interface::GoalRegionChecker::distanceToCenterOfGoalRegion(const Eigen::Affine3d& ee_pose) const
+{
+  // Distances to the goal regions
+  double distance = std::numeric_limits<double>::infinity();
+  for (std::size_t i = 0; i < workspace_goal_regions_.size(); ++i)
+  {
+    const Eigen::Isometry3d wsgr_tf = planning_scene_->getFrameTransform(workspace_goal_regions_[i].header.frame_id);
+
+    double gr_distance =
+        sqrt(pow(ee_pose.translation().x() - wsgr_tf.translation().x(), 2.0) +
+             pow(ee_pose.translation().y() - wsgr_tf.translation().y(), 2.0)); /* +
+                                                                     pow(ee_pose.translation().z() -
+                                                                     wsgr_tf.translation().z(), 2.0));*/
+
+    if (gr_distance < distance)
+      distance = gr_distance;
+  }
+  return distance;
+}
+
+double ompl_interface::GoalRegionChecker::distanceToEdgeOfGoalRegion(const Eigen::Affine3d& ee_pose) const
+{
+  // Distances to the goal regions
+  double distance = std::numeric_limits<double>::infinity();
+  for (std::size_t i = 0; i < workspace_goal_regions_.size(); ++i)
+  {
+    const Eigen::Isometry3d wsgr_tf = planning_scene_->getFrameTransform(workspace_goal_regions_[i].header.frame_id);
+    Eigen::Matrix3d rot(wsgr_tf.rotation());
+    Eigen::Vector3d wsgr_min(workspace_goal_regions_[i].x.min, workspace_goal_regions_[i].y.min,
+                             workspace_goal_regions_[i].z.min);
+    wsgr_min = rot * wsgr_min;
+    Eigen::Vector3d wsgr_max(workspace_goal_regions_[i].x.max, workspace_goal_regions_[i].y.max,
+                             workspace_goal_regions_[i].z.max);
+    wsgr_max = rot * wsgr_max;
+    double wsgr_min_x, wsgr_max_x, wsgr_min_y, wsgr_max_y, wsgr_min_z, wsgr_max_z;
+    if (wsgr_min.x() < wsgr_max.x())
+    {
+      wsgr_min_x = wsgr_min.x();
+      wsgr_max_x = wsgr_max.x();
+    }
+    else
+    {
+      wsgr_min_x = wsgr_max.x();
+      wsgr_max_x = wsgr_min.x();
+    }
+    if (wsgr_min.y() < wsgr_max.y())
+    {
+      wsgr_min_y = wsgr_min.y();
+      wsgr_max_y = wsgr_max.y();
+    }
+    else
+    {
+      wsgr_min_y = wsgr_max.y();
+      wsgr_max_y = wsgr_min.y();
+    }
+    if (wsgr_min.z() < wsgr_max.z())
+    {
+      wsgr_min_z = wsgr_min.z();
+      wsgr_max_z = wsgr_max.z();
+    }
+    else
+    {
+      wsgr_min_z = wsgr_max.z();
+      wsgr_max_z = wsgr_min.z();
+    }
+
+    double gr_distance = std::numeric_limits<double>::infinity();
+
+    if (sort_roadmap_func_str_.compare("+x") == 0)
+      gr_distance = (wsgr_tf.translation().x() + wsgr_max_x) - ee_pose.translation().x();
+    else if (sort_roadmap_func_str_.compare("-x") == 0)
+      gr_distance = ee_pose.translation().x() - (wsgr_tf.translation().x() + wsgr_min_x);
+    else if (sort_roadmap_func_str_.compare("+y") == 0)
+      gr_distance = (wsgr_tf.translation().y() + wsgr_max_y) - ee_pose.translation().y();
+    else if (sort_roadmap_func_str_.compare("-y") == 0)
+      gr_distance = ee_pose.translation().y() - (wsgr_tf.translation().y() + wsgr_min_y);
+
+    if (gr_distance < 0)
+    {
+      std::cout << "ERROR!!!!" << std::endl;
+      exit(0);
+    }
+
+    if (gr_distance < distance)
+      distance = gr_distance;
+  }
+  return distance;
 }
 
 bool ompl_interface::GoalRegionChecker::checkStateValidity(ompl::base::State* new_goal,

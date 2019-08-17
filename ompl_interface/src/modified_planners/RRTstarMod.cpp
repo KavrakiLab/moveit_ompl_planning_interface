@@ -233,7 +233,7 @@ void ompl::geometric::RRTstarMod::usePreviousPath()
       // vertex at a time, so there can only be one goal vertex at this moment.
       bestGoalMotion_ = goalMotions_.front();
       updatedSolution = true;
-      distanceToGoalRegion_ = goal_region->distanceToCenterOfGoalRegion(goalMotions_.front()->state);
+      distanceToGoalRegion_ = goal_region->distanceBestTerminalCost(goalMotions_.front()->state);
 
       bestCost_ = base::Cost(distanceToGoalRegion_);
 
@@ -250,7 +250,7 @@ void ompl::geometric::RRTstarMod::usePreviousPath()
       {
         // Is this goal motion better than the (current) best?
         // if (opt_->isCostBetterThan(goalMotion->cost, bestCost_))
-        double distanceToGoalRegion = goal_region->distanceToCenterOfGoalRegion(goalMotion->state);
+        double distanceToGoalRegion = goal_region->distanceBestTerminalCost(goalMotion->state);
 
         if (distanceToGoalRegion < bestCost_.value())
         {
@@ -583,7 +583,7 @@ ompl::base::PlannerStatus ompl::geometric::RRTstarMod::solve(const base::Planner
           // vertex at a time, so there can only be one goal vertex at this moment.
           bestGoalMotion_ = goalMotions_.front();
           updatedSolution = true;
-          distanceToGoalRegion_ = goal_region->distanceToCenterOfGoalRegion(goalMotions_.front()->state);
+          distanceToGoalRegion_ = goal_region->distanceBestTerminalCost(goalMotions_.front()->state);
           bestCost_ = base::Cost(distanceToGoalRegion_);
 
           OMPL_INFORM("%s: Found an initial solution after %.3f seconds, with a cost (path length) of %.2f and "
@@ -599,7 +599,7 @@ ompl::base::PlannerStatus ompl::geometric::RRTstarMod::solve(const base::Planner
           {
             // Is this goal motion better than the (current) best?
             // if (opt_->isCostBetterThan(goalMotion->cost, bestCost_))
-            double distanceToGoalRegion = goal_region->distanceToCenterOfGoalRegion(goalMotion->state);
+            double distanceToGoalRegion = goal_region->distanceBestTerminalCost(goalMotion->state);
 
             if (distanceToGoalRegion < bestCost_.value())
             {
