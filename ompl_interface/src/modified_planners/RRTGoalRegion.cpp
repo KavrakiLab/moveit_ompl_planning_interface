@@ -278,7 +278,7 @@ ompl::base::PlannerStatus ompl::geometric::RRTGoalRegion::solve(const base::Plan
     {
       goal_region->stopSampling();
       goal_region->stopGrowingRoadmap();
-      goal_region->getBetterSolution(path, maxDistance_);
+      goal_region->getBetterSolution(path);
       path->interpolate(int(path->length() / (maxDistance_ / 2.0)));
     }
 

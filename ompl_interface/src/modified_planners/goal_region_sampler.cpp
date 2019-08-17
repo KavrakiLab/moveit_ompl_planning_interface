@@ -394,8 +394,6 @@ void ompl_interface::GoalRegionSampler::getBetterSolution(ompl::base::PathPtr so
   double start_distance;
   BOOST_FOREACH (ompl::geometric::PRMMod::Vertex v, boost::vertices(graph))
   {
-    // si_->getStateSpace()->printState(prm_planner_->as<ompl::geometric::PRMMod>()->stateProperty_[v]);
-
     // Solving FK
     std::vector<double> joint_values;
     for (unsigned int i = 0; i < si_->getStateDimension(); i++)
@@ -413,18 +411,11 @@ void ompl_interface::GoalRegionSampler::getBetterSolution(ompl::base::PathPtr so
 
     // Distances to the goal regions
     double distance = std::numeric_limits<double>::infinity();
-    for (std::size_t i = 0; i < workspace_goal_regions_.size(); ++i)
-    {
-      double gr_distance = sqrt(
-          pow((workspace_goal_regions_[i].x.max + workspace_goal_regions_[i].x.min) / 2.0 - ee_pose.translation().x(),
-              2.0) +
-          pow((workspace_goal_regions_[i].y.max + workspace_goal_regions_[i].y.min) / 2.0 - ee_pose.translation().y(),
-              2.0)); /* +
-           pow((workspace_goal_regions_[i].z.max + workspace_goal_regions_[i].z.min) / 2.0 - ee_pose.translation().z(),
-               2.0));*/
-      if (gr_distance < distance)
-        distance = gr_distance;
-    }
+    if (sort_roadmap_func_str_.compare("Distance2Center") == 0)
+      distance = distanceToCenterOfGoalRegion(ee_pose);
+    else if (sort_roadmap_func_str_.compare("+x") == 0 || sort_roadmap_func_str_.compare("+y") == 0 ||
+             sort_roadmap_func_str_.compare("-x") == 0 || sort_roadmap_func_str_.compare("-y") == 0)
+      distance = distanceToEdgeOfGoalRegion(ee_pose);
 
     // Adding the shortest distance and vertex to the list
     lst.push_back(std::make_tuple(distance, v));
@@ -473,6 +464,95 @@ void ompl_interface::GoalRegionSampler::getBetterSolution(ompl::base::PathPtr so
       }
     }
   }
+}
+
+double ompl_interface::GoalRegionSampler::distanceToCenterOfGoalRegion(const Eigen::Affine3d& ee_pose)
+{
+  // Distances to the goal regions
+  double distance = std::numeric_limits<double>::infinity();
+  for (std::size_t i = 0; i < workspace_goal_regions_.size(); ++i)
+  {
+    const Eigen::Isometry3d wsgr_tf = planning_scene_->getFrameTransform(workspace_goal_regions_[i].header.frame_id);
+
+    double gr_distance =
+        sqrt(pow(ee_pose.translation().x() - wsgr_tf.translation().x(), 2.0) +
+             pow(ee_pose.translation().y() - wsgr_tf.translation().y(), 2.0)); /* +
+                                                                     pow(ee_pose.translation().z() -
+                                                                     wsgr_tf.translation().z(), 2.0));*/
+
+    if (gr_distance < distance)
+      distance = gr_distance;
+  }
+  return distance;
+}
+
+double ompl_interface::GoalRegionSampler::distanceToEdgeOfGoalRegion(const Eigen::Affine3d& ee_pose)
+{
+  // Distances to the goal regions
+  double distance = std::numeric_limits<double>::infinity();
+  for (std::size_t i = 0; i < workspace_goal_regions_.size(); ++i)
+  {
+    const Eigen::Isometry3d wsgr_tf = planning_scene_->getFrameTransform(workspace_goal_regions_[i].header.frame_id);
+    Eigen::Matrix3d rot(wsgr_tf.rotation());
+    Eigen::Vector3d wsgr_min(workspace_goal_regions_[i].x.min, workspace_goal_regions_[i].y.min,
+                             workspace_goal_regions_[i].z.min);
+    wsgr_min = rot * wsgr_min;
+    Eigen::Vector3d wsgr_max(workspace_goal_regions_[i].x.max, workspace_goal_regions_[i].y.max,
+                             workspace_goal_regions_[i].z.max);
+    wsgr_max = rot * wsgr_max;
+    double wsgr_min_x, wsgr_max_x, wsgr_min_y, wsgr_max_y, wsgr_min_z, wsgr_max_z;
+    if (wsgr_min.x() < wsgr_max.x())
+    {
+      wsgr_min_x = wsgr_min.x();
+      wsgr_max_x = wsgr_max.x();
+    }
+    else
+    {
+      wsgr_min_x = wsgr_max.x();
+      wsgr_max_x = wsgr_min.x();
+    }
+    if (wsgr_min.y() < wsgr_max.y())
+    {
+      wsgr_min_y = wsgr_min.y();
+      wsgr_max_y = wsgr_max.y();
+    }
+    else
+    {
+      wsgr_min_y = wsgr_max.y();
+      wsgr_max_y = wsgr_min.y();
+    }
+    if (wsgr_min.z() < wsgr_max.z())
+    {
+      wsgr_min_z = wsgr_min.z();
+      wsgr_max_z = wsgr_max.z();
+    }
+    else
+    {
+      wsgr_min_z = wsgr_max.z();
+      wsgr_max_z = wsgr_min.z();
+    }
+
+    double gr_distance = std::numeric_limits<double>::infinity();
+
+    if (sort_roadmap_func_str_.compare("+x") == 0)
+      gr_distance = (wsgr_tf.translation().x() + wsgr_max_x) - ee_pose.translation().x();
+    else if (sort_roadmap_func_str_.compare("-x") == 0)
+      gr_distance = ee_pose.translation().x() - (wsgr_tf.translation().x() + wsgr_min_x);
+    else if (sort_roadmap_func_str_.compare("+y") == 0)
+      gr_distance = (wsgr_tf.translation().y() + wsgr_max_y) - ee_pose.translation().y();
+    else if (sort_roadmap_func_str_.compare("-y") == 0)
+      gr_distance = ee_pose.translation().y() - (wsgr_tf.translation().y() + wsgr_min_y);
+
+    if (gr_distance < 0)
+    {
+      std::cout << "ERROR!!!!" << std::endl;
+      exit(0);
+    }
+
+    if (gr_distance < distance)
+      distance = gr_distance;
+  }
+  return distance;
 }
 
 bool ompl_interface::GoalRegionSampler::checkStateValidity(ompl::base::State* new_goal,

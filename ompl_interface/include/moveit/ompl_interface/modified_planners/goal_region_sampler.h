@@ -93,6 +93,10 @@ private:
   bool checkStateValidity(ompl::base::State* new_goal, const robot_state::RobotState& state,
                           bool verbose = false) const;
 
+  double distanceToCenterOfGoalRegion(const Eigen::Affine3d& ee_pose);
+
+  double distanceToEdgeOfGoalRegion(const Eigen::Affine3d& ee_pose);
+
   const OMPLPlanningContext* planning_context_;
   kinematic_constraints::KinematicConstraintSetPtr kinematic_constraint_set_;
   constraint_samplers::ConstraintSamplerPtr constraint_sampler_;
