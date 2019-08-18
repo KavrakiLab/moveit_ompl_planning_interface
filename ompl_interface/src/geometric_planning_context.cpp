@@ -504,7 +504,7 @@ bool GeometricPlanningContext::solve(planning_interface::MotionPlanResponse& res
   if (result)
   {
     // Simplifying solution
-    if (simplify_)
+    if (simplify_ && planner_id_.find("RRTstarMod") == std::string::npos)
     {
       plan_time += simplifySolution(timeout);
     }
@@ -569,7 +569,7 @@ bool GeometricPlanningContext::solve(planning_interface::MotionPlanDetailedRespo
       res.trajectory_.back()->addSuffixWayPoint(ks, 0.0);
     }
 
-    if (simplify_)
+    if (simplify_ && planner_id_.find("RRTstarMod") == std::string::npos)
     {
       double simplify_time = plan_time;
 
@@ -754,6 +754,7 @@ bool GeometricPlanningContext::solve(double timeout, unsigned int count, double&
     // Set previous solution to the a modified state sampler
     simple_setup_->getPlanner()->as<og::RRTstarMod>()->setPreviousPath(grs_solution_path_states);
 
+    simple_setup_->getProblemDefinition()->clearSolutionPaths();
     // Solve
     ptc = ompl::base::timedPlannerTerminationCondition(avilable_time);
     registerTerminationCondition(ptc);
