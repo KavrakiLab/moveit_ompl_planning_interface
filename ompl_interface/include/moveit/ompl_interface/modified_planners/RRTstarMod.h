@@ -474,7 +474,7 @@ protected:
   /** \brief The best goal motion. */
   Motion* bestGoalMotion_{ nullptr };
 
-  double distanceToGoalRegion_{ std::numeric_limits<double>::quiet_NaN() };
+  double bestTerminalCost_{ std::numeric_limits<double>::quiet_NaN() };
 
   /** \brief A list of states in the tree that satisfy the goal condition */
   std::vector<Motion*> goalMotions_;

@@ -191,7 +191,7 @@ ompl::base::PlannerStatus ompl::geometric::RRTGoalRegion::solve(const base::Plan
           solution = motion;
           goal_region->addState(motion->state);
 
-          double distanceToGoalRegion = goal_region->distanceToCenterOfGoalRegion(motion->state);
+          double distanceToGoalRegion = goal_region->getTerminalCost(motion->state);
           OMPL_INFORM("%s: Found a solution after %.3f seconds, terminal cost of %.2f (%u vertices in the graph)",
                       getName().c_str(), ompl::time::seconds(ompl::time::now() - start_solve_time_),
                       distanceToGoalRegion, nn_->size());
@@ -229,9 +229,9 @@ ompl::base::PlannerStatus ompl::geometric::RRTGoalRegion::solve(const base::Plan
         solution = motion;
         goal_region->addState(motion->state);
 
-        double distanceToGoalRegion = goal_region->distanceToCenterOfGoalRegion(motion->state);
+        double terminalCost = goal_region->getTerminalCost(motion->state);
         OMPL_INFORM("%s: Found a solution after %.3f seconds, terminal cost of %.2f (%u vertices in the graph)",
-                    getName().c_str(), ompl::time::seconds(ompl::time::now() - start_solve_time_), distanceToGoalRegion,
+                    getName().c_str(), ompl::time::seconds(ompl::time::now() - start_solve_time_), terminalCost,
                     nn_->size());
         break;
       }

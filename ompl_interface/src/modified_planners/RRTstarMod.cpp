@@ -233,9 +233,9 @@ void ompl::geometric::RRTstarMod::usePreviousPath()
       // vertex at a time, so there can only be one goal vertex at this moment.
       bestGoalMotion_ = goalMotions_.front();
       updatedSolution = true;
-      distanceToGoalRegion_ = goal_region->distanceBestTerminalCost(goalMotions_.front()->state);
+      bestTerminalCost_ = goal_region->getTerminalCost(goalMotions_.front()->state);
 
-      bestCost_ = base::Cost(distanceToGoalRegion_);
+      bestCost_ = base::Cost(bestTerminalCost_);
 
       OMPL_INFORM("%s: Found an initial solution after %.3f seconds, with a cost (path length) of %.2f and terminal "
                   "cost of %.2f in %u iterations (%u vertices in the graph)",
@@ -250,14 +250,19 @@ void ompl::geometric::RRTstarMod::usePreviousPath()
       {
         // Is this goal motion better than the (current) best?
         // if (opt_->isCostBetterThan(goalMotion->cost, bestCost_))
-        double distanceToGoalRegion = goal_region->distanceBestTerminalCost(goalMotion->state);
+        double bestTerminalCost = goal_region->getTerminalCost(goalMotion->state);
 
-        if (distanceToGoalRegion < bestCost_.value())
+        if (bestTerminalCost < bestCost_.value())
         {
-          distanceToGoalRegion_ = distanceToGoalRegion;
+          bestTerminalCost_ = bestTerminalCost;
           bestGoalMotion_ = goalMotion;
-          bestCost_ = base::Cost(distanceToGoalRegion_);
+          bestCost_ = base::Cost(bestTerminalCost_);
           updatedSolution = true;
+
+          OMPL_INFORM("%s: Another solution after %.3f seconds, with a cost (path length) of %.2f and "
+                      "terminal cost of %.2f in %u iterations (%u vertices in the graph)",
+                      getName().c_str(), ompl::time::seconds(ompl::time::now() - start_solve_time_),
+                      bestGoalMotion_->cost.value(), bestCost_.value(), iterations_, nn_->size());
         }
       }
     }
@@ -583,8 +588,8 @@ ompl::base::PlannerStatus ompl::geometric::RRTstarMod::solve(const base::Planner
           // vertex at a time, so there can only be one goal vertex at this moment.
           bestGoalMotion_ = goalMotions_.front();
           updatedSolution = true;
-          distanceToGoalRegion_ = goal_region->distanceBestTerminalCost(goalMotions_.front()->state);
-          bestCost_ = base::Cost(distanceToGoalRegion_);
+          bestTerminalCost_ = goal_region->getTerminalCost(goalMotions_.front()->state);
+          bestCost_ = base::Cost(bestTerminalCost_);
 
           OMPL_INFORM("%s: Found an initial solution after %.3f seconds, with a cost (path length) of %.2f and "
                       "terminal cost of %.2f in %u iterations (%u vertices in the graph)",
@@ -599,13 +604,13 @@ ompl::base::PlannerStatus ompl::geometric::RRTstarMod::solve(const base::Planner
           {
             // Is this goal motion better than the (current) best?
             // if (opt_->isCostBetterThan(goalMotion->cost, bestCost_))
-            double distanceToGoalRegion = goal_region->distanceBestTerminalCost(goalMotion->state);
+            double bestTerminalCost = goal_region->getTerminalCost(goalMotion->state);
 
-            if (distanceToGoalRegion < bestCost_.value())
+            if (bestTerminalCost < bestCost_.value())
             {
-              distanceToGoalRegion_ = distanceToGoalRegion;
+              bestTerminalCost_ = bestTerminalCost;
               bestGoalMotion_ = goalMotion;
-              bestCost_ = base::Cost(distanceToGoalRegion_);
+              bestCost_ = base::Cost(bestTerminalCost_);
               updatedSolution = true;
 
               // Check if it satisfies the optimization objective, if it does, break the for
@@ -707,10 +712,13 @@ ompl::base::PlannerStatus ompl::geometric::RRTstarMod::solve(const base::Planner
   delete rmotion;
 
   if (bestGoalMotion_)
+  {
     OMPL_INFORM("%s: Created %u new states. Checked %u rewire options. %u goal states in tree. Final "
                 "solution cost (path length) of %.3f and terminal cost of %.3f ",
                 getName().c_str(), statesGenerated, rewireTest, goalMotions_.size(), bestGoalMotion_->cost.value(),
                 bestCost_.value());
+    std::cout << "Terminal cost: " << goal_region->getTerminalCost(bestGoalMotion_->state, true) << std::endl;
+  }
 
   // We've added a solution if newSolution == true, and it is an approximate solution if bestGoalMotion_ ==
   // false
@@ -753,7 +761,7 @@ void ompl::geometric::RRTstarMod::updateChildCosts(Motion* m)
     m->children[i]->cost = opt_->combineCosts(m->cost, m->children[i]->incCost);
     if (bestGoalMotion_ && si_->equalStates(bestGoalMotion_->state, m->children[i]->state))
     {
-      bestCost_ = base::Cost(distanceToGoalRegion_);
+      bestCost_ = base::Cost(bestTerminalCost_);
     }
 
     updateChildCosts(m->children[i]);
