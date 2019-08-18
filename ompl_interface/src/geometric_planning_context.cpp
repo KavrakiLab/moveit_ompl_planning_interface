@@ -504,7 +504,7 @@ bool GeometricPlanningContext::solve(planning_interface::MotionPlanResponse& res
   if (result)
   {
     // Simplifying solution
-    if (simplify_ && planner_id_.find("RRTstarMod") == std::string::npos)
+    if (simplify_)
     {
       plan_time += simplifySolution(timeout);
     }
@@ -569,7 +569,7 @@ bool GeometricPlanningContext::solve(planning_interface::MotionPlanDetailedRespo
       res.trajectory_.back()->addSuffixWayPoint(ks, 0.0);
     }
 
-    if (simplify_ && planner_id_.find("RRTstarMod") == std::string::npos)
+    if (simplify_)
     {
       double simplify_time = plan_time;
 
