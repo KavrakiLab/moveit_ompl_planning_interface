@@ -509,6 +509,7 @@ bool GeometricPlanningContext::solve(planning_interface::MotionPlanResponse& res
       plan_time += simplifySolution(timeout);
     }
     ompl::geometric::PathGeometric& pg = simple_setup_->getSolutionPath();
+    simple_setup_->getStateSpace()->printState(pg.getStates().back());
     // Interpolating the solution
     if (interpolate_)
     {
@@ -521,6 +522,7 @@ bool GeometricPlanningContext::solve(planning_interface::MotionPlanResponse& res
           std::max((unsigned int)floor(0.5 + pg.length() / max_segment_length), spec_.min_waypoint_count);
       interpolateSolution(pg, waypoint_count);
     }
+    simple_setup_->getStateSpace()->printState(pg.getStates().back());
 
     ROS_DEBUG("%s: Returning successful solution with %lu states", getName().c_str(), pg.getStateCount());
 

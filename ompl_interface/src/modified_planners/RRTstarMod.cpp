@@ -718,6 +718,7 @@ ompl::base::PlannerStatus ompl::geometric::RRTstarMod::solve(const base::Planner
                 getName().c_str(), statesGenerated, rewireTest, goalMotions_.size(), bestGoalMotion_->cost.value(),
                 bestCost_.value());
     std::cout << "Terminal cost: " << goal_region->getTerminalCost(bestGoalMotion_->state, true) << std::endl;
+    si_->printState(bestGoalMotion_->state);
   }
 
   // We've added a solution if newSolution == true, and it is an approximate solution if bestGoalMotion_ ==

@@ -95,6 +95,7 @@ private:
 
   double distanceToCenterOfGoalRegion(const Eigen::Affine3d& ee_pose) const;
   double distanceToEdgeOfGoalRegion(const Eigen::Affine3d& ee_pose) const;
+  double distanceToCornerOfGoalRegion(const Eigen::Affine3d& ee_pose) const;
 
   const OMPLPlanningContext* planning_context_;
   kinematic_constraints::KinematicConstraintSetPtr kinematic_constraint_set_;
@@ -157,6 +158,7 @@ private:
                           bool verbose = false) const;
   double distanceToCenterOfGoalRegion(const Eigen::Affine3d& ee_pose) const;
   double distanceToEdgeOfGoalRegion(const Eigen::Affine3d& ee_pose, bool debug_flag = false) const;
+  double distanceToCornerOfGoalRegion(const Eigen::Affine3d& ee_pose, bool debug_flag = false) const;
 
   const OMPLPlanningContext* planning_context_;
   kinematic_constraints::KinematicConstraintSetPtr kinematic_constraint_set_;
