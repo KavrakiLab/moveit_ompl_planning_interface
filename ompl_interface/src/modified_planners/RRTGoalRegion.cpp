@@ -282,7 +282,9 @@ ompl::base::PlannerStatus ompl::geometric::RRTGoalRegion::solve(const base::Plan
       path->interpolate(int(path->length() / (maxDistance_ / 2.0)));
     }
 
-    OMPL_INFORM("%s: solution with %u states", getName().c_str(), path->getStateCount());
+    OMPL_INFORM("%s: Final solution after %.3f seconds, with %u states and terminal cost %.2f", getName().c_str(),
+                ompl::time::seconds(ompl::time::now() - start_solve_time_), path->getStateCount(),
+                goal_region->getTerminalCost(path->getStates().back()));
   }
 
   si_->freeState(xstate);
