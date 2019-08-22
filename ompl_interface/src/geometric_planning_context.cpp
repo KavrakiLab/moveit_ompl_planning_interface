@@ -460,7 +460,7 @@ void GeometricPlanningContext::startGoalSampling()
     if (planner_id_.find("RRTGoalRegion") != std::string::npos)
       dynamic_cast<ompl::base::WeightedGoalRegionSampler*>(simple_setup_->getGoal().get())->startSampling();
     else if (planner_id_.find("RRTstarMod") != std::string::npos)
-      dynamic_cast<ompl::base::RandomGoalRegionSampler*>(simple_setup_->getGoal().get())->startSampling();
+      dynamic_cast<ompl::base::WeightedGoalRegionSampler*>(simple_setup_->getGoal().get())->startSampling();
   }
   else if (gls)
     dynamic_cast<ompl::base::GoalLazySamples*>(simple_setup_->getGoal().get())->startSampling();
@@ -477,7 +477,7 @@ void GeometricPlanningContext::stopGoalSampling()
     if (planner_id_.find("RRTGoalRegion") != std::string::npos)
       dynamic_cast<ompl::base::WeightedGoalRegionSampler*>(simple_setup_->getGoal().get())->stopSampling();
     else if (planner_id_.find("RRTstarMod") != std::string::npos)
-      dynamic_cast<ompl::base::RandomGoalRegionSampler*>(simple_setup_->getGoal().get())->stopSampling();
+      dynamic_cast<ompl::base::WeightedGoalRegionSampler*>(simple_setup_->getGoal().get())->stopSampling();
   }
   else if (gls)
     dynamic_cast<ompl::base::GoalLazySamples*>(simple_setup_->getGoal().get())->stopSampling();
@@ -509,7 +509,6 @@ bool GeometricPlanningContext::solve(planning_interface::MotionPlanResponse& res
       plan_time += simplifySolution(timeout);
     }
     ompl::geometric::PathGeometric& pg = simple_setup_->getSolutionPath();
-    simple_setup_->getStateSpace()->printState(pg.getStates().back());
     // Interpolating the solution
     if (interpolate_)
     {
@@ -522,7 +521,6 @@ bool GeometricPlanningContext::solve(planning_interface::MotionPlanResponse& res
           std::max((unsigned int)floor(0.5 + pg.length() / max_segment_length), spec_.min_waypoint_count);
       interpolateSolution(pg, waypoint_count);
     }
-    simple_setup_->getStateSpace()->printState(pg.getStates().back());
 
     ROS_DEBUG("%s: Returning successful solution with %lu states", getName().c_str(), pg.getStateCount());
 
@@ -729,7 +727,7 @@ bool GeometricPlanningContext::solve(double timeout, unsigned int count, double&
     }
   }
 
-  postSolve();
+  // postSolve();
 
   // RRTstarMod after RRTGoalRegion
   if (result && avilable_time > 0.1 && planner_id_.find("RRTGoalRegionRRTstarMod") != std::string::npos)
@@ -745,12 +743,15 @@ bool GeometricPlanningContext::solve(double timeout, unsigned int count, double&
     ompl::base::PlannerPtr planner = configurePlanner("geometric::RRTstarMod", spec_.config);
     simple_setup_->setPlanner(planner);
     // Set the goal regions checker
-    const std::vector<ompl::base::State*> goal_samples =
-        simple_setup_->getGoal()->as<GoalRegionSampler>()->getGoalSamples();
-    ompl::base::GoalPtr g = ompl::base::GoalPtr(
-        new GoalRegionChecker(goal_samples, this, getGroupName(), getRobotModel(), getPlanningScene(),
-                              merged_constraints_, goal_regions_, sort_roadmap_func_str_, constraint_sampler_manager_));
-    simple_setup_->setGoal(g);
+
+    //    const std::vector<ompl::base::State*> goal_samples =
+    //        simple_setup_->getGoal()->as<GoalRegionSampler>()->getGoalSamples();
+    //    ompl::base::GoalPtr g = ompl::base::GoalPtr(
+    //        new GoalRegionChecker(goal_samples, this, getGroupName(), getRobotModel(), getPlanningScene(),
+    //                              merged_constraints_, goal_regions_, sort_roadmap_func_str_,
+    //                              constraint_sampler_manager_));
+    //    simple_setup_->setGoal(g);
+
     // Set previous solution to the a modified state sampler
     simple_setup_->getPlanner()->as<og::RRTstarMod>()->setPreviousPath(grs_solution_path_states);
 
@@ -758,15 +759,19 @@ bool GeometricPlanningContext::solve(double timeout, unsigned int count, double&
     // Solve
     ptc = ompl::base::timedPlannerTerminationCondition(avilable_time);
     registerTerminationCondition(ptc);
+    dynamic_cast<ompl::base::WeightedGoalRegionSampler*>(simple_setup_->getGoal().get())->useMaxSampledGoals(false);
     result = simple_setup_->solve(ptc) == ompl::base::PlannerStatus::EXACT_SOLUTION;
     total_time = simple_setup_->getLastPlanComputationTime();
     unregisterTerminationCondition();
 
     // stopGoalSampling();
-    dynamic_cast<ompl::base::RandomGoalRegionSampler*>(simple_setup_->getGoal().get())->stopSampling();
+    dynamic_cast<ompl::base::WeightedGoalRegionSampler*>(simple_setup_->getGoal().get())->stopSampling();
+    dynamic_cast<ompl::base::WeightedGoalRegionSampler*>(simple_setup_->getGoal().get())->stopGrowingRoadmap();
     if (simple_setup_->getProblemDefinition()->hasApproximateSolution())
       ROS_WARN("Solution is approximate");
   }
+
+  postSolve();
 
   return result;
 }

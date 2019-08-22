@@ -139,6 +139,8 @@ public:
   /** \brief Return true if the growing thread is active */
   bool isGrowingRoadmap() const;
 
+  void useMaxSampledGoals(bool use_max_sampled_goals);
+
   /** \brief Set the minimum distance that a new state returned by the sampling thread needs to be away from
       previously added states, so that it is added to the list of goal states. */
   void setMinNewSampleDistance(double dist)
@@ -175,6 +177,7 @@ public:
   bool hasStates() const override;
   const State* getState(unsigned int index) const override;
   std::size_t getStateCount() const override;
+  unsigned long int getRoadmapEdgeCount() const;
 
   void penalizeWeightedGoal(WeightedGoal& weighted_goal);
 
@@ -195,7 +198,7 @@ public:
       // highest weight means highest score
       return goal1->weight_ > goal2->weight_;
     }
-  };
+  };  // namespace base
 
   struct WeightedGoal
   {
@@ -253,10 +256,11 @@ protected:
 
   // Maximum number of sampled goals per goal region
   unsigned int num_sampled_goals_;
+  bool use_max_sampled_goals_;
 
   ompl::BinaryHeap<WeightedGoal*, WeightedGoalCompare> goals_priority_queue_;
   ompl::base::PlannerPtr prm_planner_;
-};
+};  // namespace ompl
 
 //----------------------------------------
 class RandomGoalRegionSampler;

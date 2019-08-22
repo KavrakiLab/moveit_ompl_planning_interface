@@ -276,15 +276,17 @@ ompl::base::PlannerStatus ompl::geometric::RRTGoalRegion::solve(const base::Plan
     /* Access to goal regions roadmap */
     if (!approximate && !goal_region->getSortRoadmapFuncStr().empty())
     {
-      goal_region->stopSampling();
-      goal_region->stopGrowingRoadmap();
+      // goal_region->stopSampling();
+      // goal_region->stopGrowingRoadmap();
       goal_region->getBetterSolution(path);
       path->interpolate(int(path->length() / (maxDistance_ / 2.0)));
     }
 
-    OMPL_INFORM("%s: Final solution after %.3f seconds, with %u states and terminal cost %.2f", getName().c_str(),
-                ompl::time::seconds(ompl::time::now() - start_solve_time_), path->getStateCount(),
-                goal_region->getTerminalCost(path->getStates().back()));
+    OMPL_INFORM("%s: Final solution after %.3f seconds, with %u states and terminal cost %.2f. Roadmap with %d nodes "
+                "and %d edges",
+                getName().c_str(), ompl::time::seconds(ompl::time::now() - start_solve_time_), path->getStateCount(),
+                goal_region->getTerminalCost(path->getStates().back()), goal_region->getStateCount(),
+                goal_region->getRoadmapEdgeCount());
   }
 
   si_->freeState(xstate);

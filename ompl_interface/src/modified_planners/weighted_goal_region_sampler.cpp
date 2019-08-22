@@ -57,6 +57,7 @@ ompl::base::WeightedGoalRegionSampler::WeightedGoalRegionSampler(const SpaceInfo
   , sample_goals_(true)
   , num_sampled_goals_(0)
   , prm_planner_(nullptr)
+  , use_max_sampled_goals_(true)
 {
   type_ = GOAL_LAZY_SAMPLES;
   if (autoStart)
@@ -112,6 +113,13 @@ void ompl::base::WeightedGoalRegionSampler::startGrowingRoadmap()
   }
 }
 
+void ompl::base::WeightedGoalRegionSampler::useMaxSampledGoals(bool use_max_sampled_goals)
+{
+  use_max_sampled_goals_ = use_max_sampled_goals;
+  if (!use_max_sampled_goals_)
+    sample_goals_ = true;
+}
+
 void ompl::base::WeightedGoalRegionSampler::stopGrowingRoadmap()
 {
   if (prm_planner_)
@@ -163,7 +171,7 @@ void ompl::base::WeightedGoalRegionSampler::goalSamplingThread()
     while (isSampling())
     {
       std::vector<State*> sampled_states;
-      if (num_sampled_goals_ < max_sampled_goals_)
+      if (!use_max_sampled_goals_ || num_sampled_goals_ < max_sampled_goals_)
       {
         samplerFunc_(this, sampled_states);
 
@@ -186,7 +194,7 @@ void ompl::base::WeightedGoalRegionSampler::goalSamplingThread()
           //                        OMPL_DEBUG("Invalid goal candidate");
           //                    }
         }
-        if (num_sampled_goals_ >= max_sampled_goals_)
+        if (use_max_sampled_goals_ && num_sampled_goals_ >= max_sampled_goals_)
         {
           sample_goals_ = false;
         }
@@ -287,6 +295,17 @@ std::size_t ompl::base::WeightedGoalRegionSampler::getStateCount() const
 {
   std::lock_guard<std::mutex> slock(lock_);
   return GoalStates::getStateCount();
+}
+
+unsigned long int ompl::base::WeightedGoalRegionSampler::getRoadmapEdgeCount() const
+{
+  if (prm_planner_)
+  {
+    std::lock_guard<std::mutex> slock(lock_);
+    return prm_planner_->as<ompl::geometric::PRMMod>()->edgeCount();
+  }
+  else
+    return 0;
 }
 
 unsigned int ompl::base::WeightedGoalRegionSampler::maxSampleCount() const

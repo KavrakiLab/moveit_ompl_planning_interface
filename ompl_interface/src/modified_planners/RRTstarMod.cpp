@@ -183,7 +183,7 @@ void ompl::geometric::RRTstarMod::usePreviousPath()
 
   base::Goal* goal = pdef_->getGoal().get();
   auto* goal_s = dynamic_cast<base::GoalSampleableRegion*>(goal);
-  auto* goal_region = dynamic_cast<ompl_interface::GoalRegionChecker*>(goal);
+  auto* goal_region = dynamic_cast<ompl_interface::GoalRegionSampler*>(goal);
 
   Motion* prev_motion;
   for (unsigned int i = 0; i < prev_solution_path_states_.size(); i++)
@@ -278,7 +278,7 @@ ompl::base::PlannerStatus ompl::geometric::RRTstarMod::solve(const base::Planner
   checkValidity();
   base::Goal* goal = pdef_->getGoal().get();
   auto* goal_s = dynamic_cast<base::GoalSampleableRegion*>(goal);
-  auto* goal_region = dynamic_cast<ompl_interface::GoalRegionChecker*>(goal);
+  auto* goal_region = dynamic_cast<ompl_interface::GoalRegionSampler*>(goal);
 
   bool symCost = opt_->isSymmetric();
 
@@ -703,6 +703,15 @@ ompl::base::PlannerStatus ompl::geometric::RRTstarMod::solve(const base::Planner
     // Does the solution satisfy the optimization objective?
     psol.setOptimized(opt_, newSolution->cost, opt_->isSatisfied(bestCost_));
     pdef_->addSolutionPath(psol);
+
+    /* Access to goal regions roadmap */
+    if (bestGoalMotion_ && !goal_region->getSortRoadmapFuncStr().empty())
+    {
+      // goal_region->stopSampling();
+      // goal_region->stopGrowingRoadmap();
+      goal_region->getBetterSolution(path);
+      path->interpolate(int(path->length() / (maxDistance_ / 2.0)));
+    }
   }
   // No else, we have nothing
 
@@ -714,11 +723,10 @@ ompl::base::PlannerStatus ompl::geometric::RRTstarMod::solve(const base::Planner
   if (bestGoalMotion_)
   {
     OMPL_INFORM("%s: Created %u new states. Checked %u rewire options. %u goal states in tree. Final "
-                "solution cost (path length) of %.3f and terminal cost of %.3f ",
+                "solution cost (path length) of %.3f and terminal cost of %.3f. Roadmap with %d nodes and %d edges",
                 getName().c_str(), statesGenerated, rewireTest, goalMotions_.size(), bestGoalMotion_->cost.value(),
-                bestCost_.value());
-    std::cout << "Terminal cost: " << goal_region->getTerminalCost(bestGoalMotion_->state, true) << std::endl;
-    si_->printState(bestGoalMotion_->state);
+                bestCost_.value(), goal_region->getStateCount(), goal_region->getRoadmapEdgeCount());
+    std::cout << "Terminal cost: " << goal_region->getTerminalCost(bestGoalMotion_->state) << std::endl;
   }
 
   // We've added a solution if newSolution == true, and it is an approximate solution if bestGoalMotion_ ==

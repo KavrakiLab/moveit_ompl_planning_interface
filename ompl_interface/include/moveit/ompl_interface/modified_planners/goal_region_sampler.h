@@ -145,7 +145,7 @@ public:
 
   double distanceGoal(const ompl::base::State* st) const override;
 
-  double getTerminalCost(const ompl::base::State* st, bool debug_flag = false) const;
+  double getTerminalCost(const ompl::base::State* st) const;
 
   void clear() override;
 
@@ -157,8 +157,8 @@ private:
   bool checkStateValidity(ompl::base::State* new_goal, const robot_state::RobotState& state,
                           bool verbose = false) const;
   double distanceToCenterOfGoalRegion(const Eigen::Affine3d& ee_pose) const;
-  double distanceToEdgeOfGoalRegion(const Eigen::Affine3d& ee_pose, bool debug_flag = false) const;
-  double distanceToCornerOfGoalRegion(const Eigen::Affine3d& ee_pose, bool debug_flag = false) const;
+  double distanceToEdgeOfGoalRegion(const Eigen::Affine3d& ee_pose) const;
+  double distanceToCornerOfGoalRegion(const Eigen::Affine3d& ee_pose) const;
 
   const OMPLPlanningContext* planning_context_;
   kinematic_constraints::KinematicConstraintSetPtr kinematic_constraint_set_;
