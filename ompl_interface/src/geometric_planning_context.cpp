@@ -499,6 +499,7 @@ bool GeometricPlanningContext::solve(planning_interface::MotionPlanResponse& res
 
   double timeout = request_.allowed_planning_time;
   double plan_time = 0.0;
+  std::cout << "+*+*+* Solving a Query -*-*-*" << std::endl;
   bool result = solve(timeout, request_.num_planning_attempts, plan_time);
 
   if (result)
@@ -522,6 +523,7 @@ bool GeometricPlanningContext::solve(planning_interface::MotionPlanResponse& res
       interpolateSolution(pg, waypoint_count);
     }
 
+    std::cout << "+*+*+* Succeeded Solving a Query -*-*-*" << std::endl;
     ROS_DEBUG("%s: Returning successful solution with %lu states", getName().c_str(), pg.getStateCount());
 
     res.trajectory_.reset(new robot_trajectory::RobotTrajectory(getRobotModel(), getGroupName()));
@@ -538,6 +540,7 @@ bool GeometricPlanningContext::solve(planning_interface::MotionPlanResponse& res
   }
   else
   {
+    std::cout << "+*+*+* Failed Solving a Query -*-*-**" << std::endl;
     ROS_WARN("%s: Unable to solve the planning problem", getName().c_str());
     res.error_code_.val = moveit_msgs::MoveItErrorCodes::PLANNING_FAILED;
   }
@@ -929,11 +932,11 @@ bool GeometricPlanningContext::setGoalConstraints(const std::vector<moveit_msgs:
     if (planner_id_.find("RRTGoalRegion") != std::string::npos)
       g = ompl::base::GoalPtr(new GoalRegionSampler(this, getGroupName(), getRobotModel(), getPlanningScene(),
                                                     merged_constraints_, goal_regions_, sort_roadmap_func_str_,
-                                                    constraint_sampler_manager_, 100));
+                                                    constraint_sampler_manager_, true, 100));
     else
-      g = ompl::base::GoalPtr(new GoalRegionChecker(this, getGroupName(), getRobotModel(), getPlanningScene(),
+      g = ompl::base::GoalPtr(new GoalRegionSampler(this, getGroupName(), getRobotModel(), getPlanningScene(),
                                                     merged_constraints_, goal_regions_, sort_roadmap_func_str_,
-                                                    constraint_sampler_manager_));
+                                                    constraint_sampler_manager_, false, 100));
     goals.push_back(g);
   }
   else

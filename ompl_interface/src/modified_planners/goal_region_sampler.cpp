@@ -55,10 +55,11 @@ ompl_interface::GoalRegionSampler::GoalRegionSampler(
     const OMPLPlanningContext* pc, const std::string& group_name, const robot_model::RobotModelConstPtr& rm,
     const planning_scene::PlanningSceneConstPtr& ps, const std::vector<moveit_msgs::Constraints>& constrs,
     const std::vector<moveit_msgs::WorkspaceGoalRegion>& wsgrs, const std::string& sort_roadmap_func_str,
-    constraint_samplers::ConstraintSamplerManagerPtr csm, const unsigned int max_sampled_goals)
+    constraint_samplers::ConstraintSamplerManagerPtr csm, const bool use_max_sampled_goals,
+    const unsigned int max_sampled_goals)
   : ompl::base::WeightedGoalRegionSampler(pc->getOMPLSpaceInformation(),
                                           boost::bind(&GoalRegionSampler::sampleUsingConstraintSampler, this, _1, _2),
-                                          max_sampled_goals, false)
+                                          use_max_sampled_goals, max_sampled_goals, false)
   , planning_context_(pc)
   , work_state_(pc->getCompleteInitialRobotState())
   , invalid_sampled_constraints_(0)
@@ -449,7 +450,7 @@ void ompl_interface::GoalRegionSampler::getBetterSolution(ompl::base::PathPtr so
     ompl::base::PathPtr roadmap_internal_path = nullptr;
     for (auto& element : lst)
     {
-      std::cout << "distance: " << std::get<0>(element) << std::endl;
+      // std::cout << "distance: " << std::get<0>(element) << std::endl;
       if (std::get<0>(element) < start_distance &&
           prm_planner_->as<ompl::geometric::PRMMod>()->sameComponent(start_vertex, std::get<1>(element)))
       {

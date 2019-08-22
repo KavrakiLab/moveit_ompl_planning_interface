@@ -43,6 +43,7 @@
 
 ompl::base::WeightedGoalRegionSampler::WeightedGoalRegionSampler(const SpaceInformationPtr& si,
                                                                  WeightedGoalRegionSamplingFn samplerFunc,
+                                                                 const bool use_max_sampled_goals,
                                                                  const unsigned int max_sampled_goals, bool autoStart,
                                                                  double minDist)
   : GoalStates(si)
@@ -57,7 +58,7 @@ ompl::base::WeightedGoalRegionSampler::WeightedGoalRegionSampler(const SpaceInfo
   , sample_goals_(true)
   , num_sampled_goals_(0)
   , prm_planner_(nullptr)
-  , use_max_sampled_goals_(true)
+  , use_max_sampled_goals_(use_max_sampled_goals)
 {
   type_ = GOAL_LAZY_SAMPLES;
   if (autoStart)

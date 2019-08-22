@@ -70,7 +70,7 @@ public:
                     const std::vector<moveit_msgs::Constraints>& constrs,
                     const std::vector<moveit_msgs::WorkspaceGoalRegion>& wsgrs,
                     const std::string& sort_roadmap_func_str, constraint_samplers::ConstraintSamplerManagerPtr csm,
-                    const unsigned int max_sampled_goals = 10);
+                    const bool use_max_sampled_goals = true, const unsigned int max_sampled_goals = 10);
 
   void getBetterSolution(ompl::base::PathPtr solution_path);
   std::string getSortRoadmapFuncStr();

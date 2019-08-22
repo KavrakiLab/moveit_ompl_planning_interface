@@ -192,7 +192,8 @@ ompl::base::PlannerStatus ompl::geometric::RRTGoalRegion::solve(const base::Plan
           goal_region->addState(motion->state);
 
           double distanceToGoalRegion = goal_region->getTerminalCost(motion->state);
-          OMPL_INFORM("%s: Found a solution after %.3f seconds, terminal cost of %.2f (%u vertices in the graph)",
+          OMPL_INFORM("+*+*+* %s: Found a solution after %.3f seconds, terminal cost of %.3f (%u vertices in the "
+                      "graph) -*-*-*",
                       getName().c_str(), ompl::time::seconds(ompl::time::now() - start_solve_time_),
                       distanceToGoalRegion, nn_->size());
           break;
@@ -230,7 +231,8 @@ ompl::base::PlannerStatus ompl::geometric::RRTGoalRegion::solve(const base::Plan
         goal_region->addState(motion->state);
 
         double terminalCost = goal_region->getTerminalCost(motion->state);
-        OMPL_INFORM("%s: Found a solution after %.3f seconds, terminal cost of %.2f (%u vertices in the graph)",
+        OMPL_INFORM("+*+*+* %s: Found a solution after %.3f seconds, terminal cost of %.3f (%u vertices in the graph) "
+                    "-*-*-*",
                     getName().c_str(), ompl::time::seconds(ompl::time::now() - start_solve_time_), terminalCost,
                     nn_->size());
         break;
@@ -250,9 +252,6 @@ ompl::base::PlannerStatus ompl::geometric::RRTGoalRegion::solve(const base::Plan
     solution = approxsol;
     approximate = true;
   }
-  else
-    OMPL_INFORM("%s: Found an initial solution after %.3f seconds", getName().c_str(),
-                ompl::time::seconds(ompl::time::now() - start_solve_time_));
 
   if (solution != nullptr)
   {
@@ -282,8 +281,8 @@ ompl::base::PlannerStatus ompl::geometric::RRTGoalRegion::solve(const base::Plan
       path->interpolate(int(path->length() / (maxDistance_ / 2.0)));
     }
 
-    OMPL_INFORM("%s: Final solution after %.3f seconds, with %u states and terminal cost %.2f. Roadmap with %d nodes "
-                "and %d edges",
+    OMPL_INFORM("+*+*+* %s: Final solution after %.3f seconds, with %u states and terminal cost %.3f. Roadmap with %d "
+                "nodes and %d edges -*-*-*",
                 getName().c_str(), ompl::time::seconds(ompl::time::now() - start_solve_time_), path->getStateCount(),
                 goal_region->getTerminalCost(path->getStates().back()), goal_region->getStateCount(),
                 goal_region->getRoadmapEdgeCount());

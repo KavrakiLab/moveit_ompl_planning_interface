@@ -110,8 +110,8 @@ public:
       considered "sufficiently different" if it is at least
       \e minDist away from previously added states.  */
   WeightedGoalRegionSampler(const SpaceInformationPtr& si, WeightedGoalRegionSamplingFn samplerFunc,
-                            const unsigned int num_sampled_goals = 10, bool autoStart = true,
-                            double minDist = std::numeric_limits<double>::epsilon());
+                            const bool use_max_sampled_goals = true, const unsigned int num_sampled_goals = 10,
+                            bool autoStart = true, double minDist = std::numeric_limits<double>::epsilon());
 
   ~WeightedGoalRegionSampler() override;
 
