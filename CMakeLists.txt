@@ -6,9 +6,9 @@ if(NOT CMAKE_CONFIGURATION_TYPES AND NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
 endif()
 
+find_package(ompl)
 find_package(Boost REQUIRED system filesystem date_time thread serialization)
 find_package(catkin REQUIRED COMPONENTS
-  ompl
   moveit_core
   moveit_ros_planning
   moveit_msgs
@@ -28,7 +28,6 @@ catkin_package(
   INCLUDE_DIRS
     ompl_interface/include
   CATKIN_DEPENDS
-    ompl
     moveit_core
     moveit_ros_planning
     moveit_msgs
@@ -38,6 +37,8 @@ catkin_package(
     tf
     dynamic_reconfigure
     eigen_conversions
+  DEPENDS
+    ompl
 )
 
 link_directories(${Boost_LIBRARY_DIRS})
