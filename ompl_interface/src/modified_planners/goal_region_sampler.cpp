@@ -54,9 +54,9 @@
 ompl_interface::GoalRegionSampler::GoalRegionSampler(
     const OMPLPlanningContext* pc, const std::string& group_name, const robot_model::RobotModelConstPtr& rm,
     const planning_scene::PlanningSceneConstPtr& ps, const std::vector<moveit_msgs::Constraints>& constrs,
-    const std::vector<moveit_msgs::WorkspaceGoalRegion>& wsgrs, const std::string& sort_roadmap_func_str,
-    constraint_samplers::ConstraintSamplerManagerPtr csm, const bool use_max_sampled_goals,
-    const unsigned int max_sampled_goals)
+    const std::vector<moveit_msgs::WorkspaceGoalRegion>& wsgrs, const moveit_msgs::TransitionRegion& transition_region,
+    const std::string& sort_roadmap_func_str, constraint_samplers::ConstraintSamplerManagerPtr csm, 
+    const bool use_max_sampled_goals, const unsigned int max_sampled_goals)
   : ompl::base::WeightedGoalRegionSampler(pc->getOMPLSpaceInformation(),
                                           boost::bind(&GoalRegionSampler::sampleUsingConstraintSampler, this, _1, _2),
                                           use_max_sampled_goals, max_sampled_goals, false)
