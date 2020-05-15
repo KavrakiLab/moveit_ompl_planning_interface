@@ -116,6 +116,7 @@ public:
   /// in the motion plan request.
   virtual bool setGoalConstraints(const std::vector<moveit_msgs::Constraints>& goal_constraints,
                                   const std::vector<moveit_msgs::WorkspaceGoalRegion>& goal_regions,
+                                  const moveit_msgs::TransitionRegion &transition_region,
                                   const std::string& sort_roadmap_func_str, moveit_msgs::MoveItErrorCodes* error);
 
   /// \brief Return the set of constraints that must be satisfied along the
@@ -223,6 +224,10 @@ protected:
   /// \brief The set of goal regions
   std::vector<moveit_msgs::WorkspaceGoalRegion> goal_regions_;
   std::string sort_roadmap_func_str_;
+
+  /// \brief The set of Transition Points
+  moveit_msgs::TransitionRegion transition_region_;
+
 
   /// \brief The (possibly empty) set of constraints that must be satisfied
   /// along the entire path.

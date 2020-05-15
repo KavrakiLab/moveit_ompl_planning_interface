@@ -864,6 +864,7 @@ void GeometricPlanningContext::setCompleteInitialRobotState(const robot_state::R
 
 bool GeometricPlanningContext::setGoalConstraints(const std::vector<moveit_msgs::Constraints>& goal_constraints,
                                                   const std::vector<moveit_msgs::WorkspaceGoalRegion>& goal_regions,
+                                                  const moveit_msgs::TransitionRegion &transition_region,
                                                   const std::string& sort_roadmap_func_str,
                                                   moveit_msgs::MoveItErrorCodes* error)
 {
@@ -878,6 +879,8 @@ bool GeometricPlanningContext::setGoalConstraints(const std::vector<moveit_msgs:
   // Get goal regions
   sort_roadmap_func_str_ = sort_roadmap_func_str;
   goal_regions_.clear();
+  transition_region_ = transition_region;
+  
   for (const auto& goal_region : goal_regions)
   {
     // Setting goal_region

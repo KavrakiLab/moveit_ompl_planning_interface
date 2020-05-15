@@ -1,0 +1,45 @@
+{
+    "configurations": [
+        {
+            "browse": {
+                "databaseFilename": "",
+                "limitSymbolsToIncludedHeaders": true
+            },
+            "includePath": [
+                "/home/shloksobti/ros/melodic/system/devel/include/**",
+                "/opt/ros/melodic/include/**",
+                "/home/shloksobti/ros/melodic/system/src/ar_project_ros_common_bringup/include/**",
+                "/home/shloksobti/ros/melodic/system/src/moveit/moveit_planners/chomp/chomp_motion_planner/include/**",
+                "/home/shloksobti/ros/melodic/system/src/dmp/include/**",
+                "/home/shloksobti/ros/melodic/system/src/fetch_depth_layer/include/**",
+                "/home/shloksobti/ros/melodic/system/src/fetch_gazebo/include/**",
+                "/home/shloksobti/ros/melodic/system/src/fetch_ikfast_plugin/include/**",
+                "/home/shloksobti/ros/melodic/system/src/fetch_move_base_planning/include/**",
+                "/home/shloksobti/ros/melodic/system/src/gazebo_ros_link_attacher/include/**",
+                "/home/shloksobti/ros/melodic/system/src/hybrid_planner/include/**",
+                "/home/shloksobti/ros/melodic/system/src/moveit/moveit_planners/chomp/chomp_interface/include/**",
+                "/home/shloksobti/ros/melodic/system/src/moveit_resources/include/**",
+                "/home/shloksobti/ros/melodic/system/src/moveit/moveit_ros/benchmarks/include/**",
+                "/home/shloksobti/ros/melodic/system/src/moveit/moveit_plugins/moveit_ros_control_interface/include/**",
+                "/home/shloksobti/ros/melodic/system/src/moveit/moveit_ros/move_group/include/**",
+                "/home/shloksobti/ros/melodic/system/src/moveit/moveit_ros/occupancy_map_monitor/include/**",
+                "/home/shloksobti/ros/melodic/system/src/moveit/moveit_ros/robot_interaction/include/**",
+                "/home/shloksobti/ros/melodic/system/src/moveit/moveit_setup_assistant/include/**",
+                "/home/shloksobti/ros/melodic/system/src/moveit/moveit_plugins/moveit_simple_controller_manager/include/**",
+                "/home/shloksobti/ros/melodic/system/src/robot_controllers/include/**",
+                "/home/shloksobti/ros/melodic/system/src/robot_controllers_interface/include/**",
+                "/home/shloksobti/ros/melodic/system/src/robowflex_library/include/**",
+                "/home/shloksobti/ros/melodic/system/src/srdfdom/include/**",
+                "/home/shloksobti/ros/melodic/system/src/vicon_object_server_library/include/**",
+                "/home/shloksobti/ros/melodic/system/src/vicon_object_server_server/include/**",
+                "/usr/include/**"
+            ],
+            "name": "ROS",
+            "intelliSenseMode": "gcc-x64",
+            "compilerPath": "/usr/bin/gcc",
+            "cStandard": "gnu11",
+            "cppStandard": "gnu++14"
+        }
+    ],
+    "version": 4
+}
