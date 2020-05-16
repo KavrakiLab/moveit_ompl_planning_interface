@@ -84,6 +84,8 @@ ompl_interface::GoalRegionSampler::GoalRegionSampler(
 
 // THIS CREATES THE SAMPLER THAT SAMPLES FROM THE WORKSPACE
 // For each distinct region, he creates an SE3 sampler, i.e. workspace pose sampler.
+// I will instead create a ompl::base::PrecomputedStateSampler to sample from pre
+// computed states.
 
   for (std::size_t i = 0; i < workspace_goal_regions_.size(); ++i)
   {
