@@ -112,6 +112,7 @@ private:
   std::vector<ompl::base::StateSpacePtr> se3_spaces_;
   std::vector<moveit_msgs::Constraints> constrs_;
   std::vector<moveit_msgs::WorkspaceGoalRegion> workspace_goal_regions_;
+  moveit_msgs::TransitionRegion transition_region_;
   std::string sort_roadmap_func_str_;
   constraint_samplers::ConstraintSamplerManagerPtr constraint_sampler_manager_;
   const std::string& group_name_;
@@ -175,6 +176,7 @@ private:
   std::vector<ompl::base::StateSpacePtr> se3_spaces_;
   std::vector<moveit_msgs::Constraints> constrs_;
   std::vector<moveit_msgs::WorkspaceGoalRegion> workspace_goal_regions_;
+  moveit_msgs::TransitionRegion transition_region_;
   std::string sort_roadmap_func_str_;
   constraint_samplers::ConstraintSamplerManagerPtr constraint_sampler_manager_;
   const std::string& group_name_;

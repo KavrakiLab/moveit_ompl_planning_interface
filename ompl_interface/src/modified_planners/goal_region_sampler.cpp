@@ -69,6 +69,7 @@ ompl_interface::GoalRegionSampler::GoalRegionSampler(
   , constraint_sampler_manager_(csm)
   , group_name_(group_name)
   , workspace_goal_regions_(wsgrs)
+  , transition_region_(transition_region)
   , sort_roadmap_func_str_(sort_roadmap_func_str)
   , robot_model_loader_("robot_description")
 {
