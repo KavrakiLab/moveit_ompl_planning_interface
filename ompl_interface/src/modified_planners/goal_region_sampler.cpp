@@ -82,6 +82,9 @@ ompl_interface::GoalRegionSampler::GoalRegionSampler(
   for (auto& constr : constrs)
     constrs_.push_back(moveit_msgs::Constraints(constr));
 
+// THIS CREATES THE SAMPLER THAT SAMPLES FROM THE WORKSPACE
+// For each distinct region, he creates an SE3 sampler, i.e. workspace pose sampler.
+
   for (std::size_t i = 0; i < workspace_goal_regions_.size(); ++i)
   {
     // construct the se3 state space for sampling poses
@@ -863,6 +866,7 @@ ompl_interface::GoalRegionChecker::GoalRegionChecker(
     const std::vector<ompl::base::State*> goal_samples, const OMPLPlanningContext* pc, const std::string& group_name,
     const robot_model::RobotModelConstPtr& rm, const planning_scene::PlanningSceneConstPtr& ps,
     const std::vector<moveit_msgs::Constraints>& constrs, const std::vector<moveit_msgs::WorkspaceGoalRegion>& wsgrs,
+    const moveit_msgs::TransitionRegion& transition_region,
     const std::string& sort_roadmap_func_str, constraint_samplers::ConstraintSamplerManagerPtr csm)
   : ompl::base::RandomGoalRegionSampler(pc->getOMPLSpaceInformation(),
                                         boost::bind(&GoalRegionChecker::sampleUsingConstraintSampler, this, _1, _2),
@@ -876,6 +880,7 @@ ompl_interface::GoalRegionChecker::GoalRegionChecker(
   , constraint_sampler_manager_(csm)
   , group_name_(group_name)
   , workspace_goal_regions_(wsgrs)
+  , transition_region_(transition_region)
   , sort_roadmap_func_str_(sort_roadmap_func_str)
   , robot_model_loader_("robot_description")
 {
@@ -924,6 +929,7 @@ ompl_interface::GoalRegionChecker::GoalRegionChecker(const OMPLPlanningContext* 
                                                      const planning_scene::PlanningSceneConstPtr& ps,
                                                      const std::vector<moveit_msgs::Constraints>& constrs,
                                                      const std::vector<moveit_msgs::WorkspaceGoalRegion>& wsgrs,
+                                                     const moveit_msgs::TransitionRegion& transition_region,
                                                      const std::string& sort_roadmap_func_str,
                                                      constraint_samplers::ConstraintSamplerManagerPtr csm)
   : ompl::base::RandomGoalRegionSampler(pc->getOMPLSpaceInformation(),
@@ -938,6 +944,7 @@ ompl_interface::GoalRegionChecker::GoalRegionChecker(const OMPLPlanningContext* 
   , constraint_sampler_manager_(csm)
   , group_name_(group_name)
   , workspace_goal_regions_(wsgrs)
+  , transition_region_(transition_region)
   , sort_roadmap_func_str_(sort_roadmap_func_str)
   , robot_model_loader_("robot_description")
 {

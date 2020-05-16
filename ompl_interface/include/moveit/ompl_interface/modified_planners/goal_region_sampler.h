@@ -133,6 +133,7 @@ public:
                     const robot_model::RobotModelConstPtr& rm, const planning_scene::PlanningSceneConstPtr& ps,
                     const std::vector<moveit_msgs::Constraints>& constrs,
                     const std::vector<moveit_msgs::WorkspaceGoalRegion>& wsgrs,
+                    const moveit_msgs::TransitionRegion& transition_region,
                     const std::string& sort_roadmap_func_str, constraint_samplers::ConstraintSamplerManagerPtr csm);
 
   GoalRegionChecker(const std::vector<ompl::base::State*> goal_samples, const OMPLPlanningContext* pc,
@@ -140,6 +141,7 @@ public:
                     const planning_scene::PlanningSceneConstPtr& ps,
                     const std::vector<moveit_msgs::Constraints>& constrs,
                     const std::vector<moveit_msgs::WorkspaceGoalRegion>& wsgrs,
+                    const moveit_msgs::TransitionRegion& transition_region,
                     const std::string& sort_roadmap_func_str, constraint_samplers::ConstraintSamplerManagerPtr csm);
 
   void getBetterSolution(ompl::base::PathPtr solution_path);
