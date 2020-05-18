@@ -106,8 +106,8 @@ ompl_interface::GoalRegionSampler::GoalRegionSampler(
 
     OMPL_DEBUG("Creating SE3 workspace sampler for GoalRegion%d", i + 1);
   }
-  //
 
+  // MY DISCRETE SAMPLER
   ModelBasedStateSpaceSpecification state_space_spec(rm, group_name_);
   ModelBasedStateSpacePtr state_space_(new ModelBasedStateSpace(state_space_spec));
   ompl::base::StateSpacePtr ssptr = state_space_;
@@ -116,23 +116,20 @@ ompl_interface::GoalRegionSampler::GoalRegionSampler(
   for (auto &rstatemsg : transition_region_.transition_states)
   {
     ompl::base::State* ompl_state;
-
-    // convert rstate message to robowflex
     robot_state::RobotState rstate(rm);
     moveit::core::robotStateMsgToRobotState(rstatemsg.state, rstate);
     state_space_->copyToOMPLState(ompl_state, rstate);
     states.push_back(ompl_state);
   }
-  ompl::base::PrecomputedStateSampler discreteSampler(ssptr.get(), states);
-
-
-
+  discrete_sampler_ = std::make_shared<ompl::base::PrecomputedStateSampler>(ssptr.get(), states);
+  
   //
 
   kinematic_constraint_set_.reset(new kinematic_constraints::KinematicConstraintSet(rm));
 
   startSampling();
 
+ // I DONT THINK I NEED THIS
   if (!sort_roadmap_func_str_.empty())
   {
     OMPL_DEBUG("Creating PRM for Goal Regions");

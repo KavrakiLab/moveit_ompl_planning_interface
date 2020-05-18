@@ -114,6 +114,7 @@ private:
 
   planning_scene::PlanningSceneConstPtr planning_scene_;
   std::vector<ompl::base::StateSamplerPtr> se3_samplers_;
+  ompl::base::StateSamplerPtr discrete_sampler_;
   std::vector<ompl::base::StateSpacePtr> se3_spaces_;
   std::vector<moveit_msgs::Constraints> constrs_;
   std::vector<moveit_msgs::WorkspaceGoalRegion> workspace_goal_regions_;
@@ -180,6 +181,8 @@ private:
 
   planning_scene::PlanningSceneConstPtr planning_scene_;
   std::vector<ompl::base::StateSamplerPtr> se3_samplers_;
+  ompl::base::StateSamplerPtr discrete_sampler_;
+
   std::vector<ompl::base::StateSpacePtr> se3_spaces_;
   std::vector<moveit_msgs::Constraints> constrs_;
   std::vector<moveit_msgs::WorkspaceGoalRegion> workspace_goal_regions_;
