@@ -86,7 +86,6 @@ ompl_interface::GoalRegionSampler::GoalRegionSampler(
 // For each distinct region, he creates an SE3 sampler, i.e. workspace pose sampler.
 // I will instead create a ompl::base::PrecomputedStateSampler to sample from pre
 // computed states.
-
   for (std::size_t i = 0; i < workspace_goal_regions_.size(); ++i)
   {
     // construct the se3 state space for sampling poses
@@ -107,8 +106,29 @@ ompl_interface::GoalRegionSampler::GoalRegionSampler(
 
     OMPL_DEBUG("Creating SE3 workspace sampler for GoalRegion%d", i + 1);
   }
+  //
+
+  ModelBasedStateSpaceSpecification state_space_spec(rm, group_name_);
+  ModelBasedStateSpacePtr state_space_(new ModelBasedStateSpace(state_space_spec));
+  ompl::base::StateSpacePtr ssptr = state_space_;
+  auto states = std::vector<const ompl::base::State*>();
+ 
+  for (auto &rstatemsg : transition_region_.transition_states)
+  {
+    ompl::base::State* ompl_state;
+
+    // convert rstate message to robowflex
+    robot_state::RobotState rstate(rm);
+    moveit::core::robotStateMsgToRobotState(rstatemsg.state, rstate);
+    state_space_->copyToOMPLState(ompl_state, rstate);
+    states.push_back(ompl_state);
+  }
+  ompl::base::PrecomputedStateSampler discreteSampler(ssptr.get(), states);
+
+
 
   //
+
   kinematic_constraint_set_.reset(new kinematic_constraints::KinematicConstraintSet(rm));
 
   startSampling();

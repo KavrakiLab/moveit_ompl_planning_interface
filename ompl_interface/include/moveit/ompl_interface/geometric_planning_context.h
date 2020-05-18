@@ -228,7 +228,6 @@ protected:
   /// \brief The set of Transition Points
   moveit_msgs::TransitionRegion transition_region_;
 
-
   /// \brief The (possibly empty) set of constraints that must be satisfied
   /// along the entire path.
   kinematic_constraints::KinematicConstraintSetPtr path_constraints_;

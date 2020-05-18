@@ -47,14 +47,19 @@
 #include <moveit/ompl_interface/detail/constrained_sampler.h>
 #include <ompl/base/goals/GoalLazySamples.h>
 #include <ompl/base/spaces/SE3StateSpace.h>
+#include <ompl/base/PrecomputedStateSampler.h>
+
+
 
 #include <moveit/ompl_interface/modified_planners/PRMMod.h>
 #include <moveit/ompl_interface/modified_planners/goal_regions_state_sampler.h>
 #include <moveit/ompl_interface/modified_planners/weighted_goal_region_sampler.h>
+#include <moveit/robot_state/conversions.h>
 
 #include <moveit/robot_model/joint_model_group.h>
 #include <moveit/robot_state/robot_state.h>
 #include <moveit_msgs/WorkspaceGoalRegion.h>
+
 
 namespace ompl_interface
 {

@@ -933,6 +933,7 @@ bool GeometricPlanningContext::setGoalConstraints(const std::vector<moveit_msgs:
   std::vector<ompl::base::GoalPtr> goals;
 
 
+// Create an OMPL::BASE::GOALPTR from the tranisition/goal regions.
   if (transition_region_.transition_states.size() > 0)
   {
     ompl::base::GoalPtr g;
@@ -944,6 +945,7 @@ bool GeometricPlanningContext::setGoalConstraints(const std::vector<moveit_msgs:
       g = ompl::base::GoalPtr(new GoalRegionSampler(this, getGroupName(), getRobotModel(), getPlanningScene(),
                                                     merged_constraints_, goal_regions_, transition_region_, 
                                                     sort_roadmap_func_str_, constraint_sampler_manager_, false, 100));
+
     goals.push_back(g);
 
   }
