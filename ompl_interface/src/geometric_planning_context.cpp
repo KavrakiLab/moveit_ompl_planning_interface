@@ -46,6 +46,7 @@
 #include "moveit/ompl_interface/modified_planners/RRTstarMod.h"
 #include "moveit/ompl_interface/modified_planners/RRTGoalRegCons.h"
 #include "moveit/ompl_interface/modified_planners/goal_region_sampler.h"
+#include "moveit/ompl_interface/modified_planners/weighted_goal_region_sampler.h"
 
 #include <moveit/utils/lexical_casts.h>
 
@@ -933,22 +934,47 @@ bool GeometricPlanningContext::setGoalConstraints(const std::vector<moveit_msgs:
   std::vector<ompl::base::GoalPtr> goals;
 
 
-// Create an OMPL::BASE::GOALPTR from the tranisition/goal regions.
   if (transition_region_.transition_states.size() > 0)
   {
     ompl::base::GoalPtr g;
-    if (planner_id_.find("RRGoalRegion") != std::string::npos)
-      g = ompl::base::GoalPtr(new GoalRegionSampler(this, getGroupName(), getRobotModel(), getPlanningScene(),
-                                                    merged_constraints_, goal_regions_, transition_region_, 
-                                                    sort_roadmap_func_str_, constraint_sampler_manager_, true, 100));
-    else
-      g = ompl::base::GoalPtr(new GoalRegionSampler(this, getGroupName(), getRobotModel(), getPlanningScene(),
-                                                    merged_constraints_, goal_regions_, transition_region_, 
-                                                    sort_roadmap_func_str_, constraint_sampler_manager_, false, 100));
 
+    if (planner_id_.find("RRTGoalRegion") != std::string::npos)
+    {
+      ompl::base::WeightedGoalRegionSampler wgrs(this->getOMPLSpaceInformation(),);
+      // g = ompl::base::GoalPtr(new WeightedGoalRegionSampler();
+      // g.addWeightedState();
+    }
+    
+
+    // if (planner_id_.find("RRTGoalRegion") != std::string::npos)
+    //   g = ompl::base::GoalPtr(new GoalRegionSampler(this, getGroupName(), getRobotModel(), getPlanningScene(),
+    //                                                 merged_constraints_, goal_regions_, transition_region_, 
+    //                                                 sort_roadmap_func_str_, constraint_sampler_manager_, true, 100));
+    // else
+    //   g = ompl::base::GoalPtr(new GoalRegionSampler(this, getGroupName(), getRobotModel(), getPlanningScene(),
+    //                                                 merged_constraints_, goal_regions_, transition_region_, 
+    //                                                 sort_roadmap_func_str_, constraint_sampler_manager_, false, 100));
     goals.push_back(g);
 
   }
+
+
+
+
+
+  // if (goal_regions_.size() > 0)
+  // {
+  //   ompl::base::GoalPtr g;
+  //   if (planner_id_.find("RRTGoalRegion") != std::string::npos)
+  //     g = ompl::base::GoalPtr(new GoalRegionSampler(this, getGroupName(), getRobotModel(), getPlanningScene(),
+  //                                                   merged_constraints_, goal_regions_, sort_roadmap_func_str_,
+  //                                                   constraint_sampler_manager_, true, 100));
+  //   else
+  //     g = ompl::base::GoalPtr(new GoalRegionSampler(this, getGroupName(), getRobotModel(), getPlanningScene(),
+  //                                                   merged_constraints_, goal_regions_, sort_roadmap_func_str_,
+  //                                                   constraint_sampler_manager_, false, 100));
+  //   goals.push_back(g);
+  // }
   else
   {
     // Creating constraint sampler for each constraint

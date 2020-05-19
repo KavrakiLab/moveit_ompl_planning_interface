@@ -394,6 +394,20 @@ void ompl::base::WeightedGoalRegionSampler::sampleConsecutiveGoal(WeightedGoal& 
   GoalStates::sampleGoal(weighted_goal.state_);
 }
 
+bool ompl::base::WeightedGoalRegionSampler::addWeightedState(State* st, double weight)
+{
+  GoalStates::addState(st);
+  sampled_goal_states_.push_back(st);
+  WeightedGoal* weighted_state = new WeightedGoal;
+  weighted_state->state_ = st;
+  weighted_state->weight_ = weight;
+  weighted_state->heap_element_ = goals_priority_queue_.insert(weighted_state);
+
+  bool success = true;
+  return success;
+}
+
+
 //-----------------------
 
 ompl::base::RandomGoalRegionSampler::RandomGoalRegionSampler(const SpaceInformationPtr& si,

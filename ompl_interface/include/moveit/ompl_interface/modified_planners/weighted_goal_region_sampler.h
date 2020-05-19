@@ -187,6 +187,8 @@ public:
 
   void sampleConsecutiveGoal(WeightedGoal& weighted_goal);
 
+  bool addWeightedState(State* st, double weight);
+
   void clear() override;
 
   unsigned int maxSampleCount() const override;
