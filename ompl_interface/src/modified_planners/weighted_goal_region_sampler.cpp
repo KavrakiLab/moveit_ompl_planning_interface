@@ -407,6 +407,15 @@ bool ompl::base::WeightedGoalRegionSampler::addWeightedState(State* st, double w
   return success;
 }
 
+bool ompl::base::WeightedGoalRegionSampler::sampleGoals(const ompl::base::WeightedGoalRegionSampler* gls,
+                                                        std::vector<ompl::base::State*>& sampled_states)
+{
+  // Basically take the Transition Region, and output that list. Also add to each to heap.
+
+  
+}
+
+
 
 //-----------------------
 

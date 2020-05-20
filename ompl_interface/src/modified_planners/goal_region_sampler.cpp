@@ -108,20 +108,20 @@ ompl_interface::GoalRegionSampler::GoalRegionSampler(
   }
 
   // MY DISCRETE SAMPLER
-  ompl::base::StateSpacePtr ssptr = planning_context_->getOMPLStateSpace();
-  auto states = std::vector<const ompl::base::State*>();
+  // ompl::base::StateSpacePtr ssptr = planning_context_->getOMPLStateSpace();
+  // auto states = std::vector<const ompl::base::State*>();
  
-  for (auto &rstatemsg : transition_region_.transition_states)
-  {
-    ompl::base::State* ompl_state = si_->allocState();
-    robot_state::RobotState rstate(rm);
-    moveit::core::robotStateMsgToRobotState(rstatemsg.state, rstate);
-    planning_context_->copyToOMPLState(ompl_state, rstate);
-    states.push_back(ompl_state);
-  }
-  discrete_sampler_ = std::make_shared<ompl::base::PrecomputedStateSampler>(ssptr.get(), states);
+  // for (auto &rstatemsg : transition_region_.transition_states)
+  // {
+  //   ompl::base::State* ompl_state = si_->allocState();
+  //   robot_state::RobotState rstate(rm);
+  //   moveit::core::robotStateMsgToRobotState(rstatemsg.state, rstate);
+  //   planning_context_->copyToOMPLState(ompl_state, rstate);
+  //   states.push_back(ompl_state);
+  // }
+  // // discrete_sampler_ = std::make_shared<ompl::base::PrecomputedStateSampler>(ssptr.get(), states);
   
-  //
+  // //
 
   kinematic_constraint_set_.reset(new kinematic_constraints::KinematicConstraintSet(rm));
 
@@ -185,8 +185,8 @@ bool ompl_interface::GoalRegionSampler::sampleUsingConstraintSampler(const ompl:
                                                                      std::vector<ompl::base::State*>& sampled_states)
 {
   bool success = false;
-  ompl::base::State* state = planning_context_->getOMPLStateSpace()->allocState();
-  discrete_sampler_->sampleUniform(state);
+  // ompl::base::State* state = planning_context_->getOMPLStateSpace()->allocState();
+  // discrete_sampler_->sampleUniform(state);
 
 
   

@@ -50,7 +50,6 @@
 
 #include <moveit/ompl_interface/modified_planners/PRMMod.h>
 #include <moveit/ompl_interface/modified_planners/goal_regions_state_sampler.h>
-
 namespace ompl
 {
 namespace base
@@ -59,7 +58,7 @@ class WeightedGoalRegionSampler;
 
 /** \brief Goal sampling function. Returns false when no further calls should be made to it.
     Fills its second argument (the state) with the sampled goal state. This function need not
-    be thread safe. */
+    be thread safe. */ 
 typedef std::function<bool(const WeightedGoalRegionSampler*, std::vector<base::State*>&)> WeightedGoalRegionSamplingFn;
 
 /** \brief Definition of a goal region that can be sampled,
@@ -184,6 +183,9 @@ public:
   void rewardWeightedGoal(WeightedGoal& weighted_goal);
 
   void sampleWeightedGoal(WeightedGoal& weighted_goal);
+
+  bool sampleGoals(const ompl::base::WeightedGoalRegionSampler* gls,
+                           std::vector<ompl::base::State*>& sampled_states); 
 
   void sampleConsecutiveGoal(WeightedGoal& weighted_goal);
 

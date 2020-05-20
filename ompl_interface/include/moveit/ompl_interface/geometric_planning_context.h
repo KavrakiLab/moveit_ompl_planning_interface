@@ -115,7 +115,6 @@ public:
   /// These constraints are merged with any path constraints that are specified
   /// in the motion plan request.
   virtual bool setGoalConstraints(const std::vector<moveit_msgs::Constraints>& goal_constraints,
-                                  const std::vector<moveit_msgs::WorkspaceGoalRegion>& goal_regions,
                                   const moveit_msgs::TransitionRegion &transition_region,
                                   const std::string& sort_roadmap_func_str, moveit_msgs::MoveItErrorCodes* error);
 

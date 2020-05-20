@@ -18,6 +18,7 @@ add_library(${MOVEIT_LIB_NAME}
   src/modified_planners/RRTGoalRegion.cpp
   src/modified_planners/RRTGoalRegCons.cpp
   src/modified_planners/weighted_goal_region_sampler.cpp
+  src/modified_planners/transition_region_sampler.cpp
   src/modified_planners/goal_region_sampler.cpp
   src/modified_planners/goal_regions_state_sampler.cpp
 )

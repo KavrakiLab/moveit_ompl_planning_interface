@@ -47,7 +47,7 @@
 #include <moveit/ompl_interface/detail/constrained_sampler.h>
 #include <ompl/base/goals/GoalLazySamples.h>
 #include <ompl/base/spaces/SE3StateSpace.h>
-#include <ompl/base/PrecomputedStateSampler.h>
+// #include <ompl/base/PrecomputedStateSampler.h>
 
 
 

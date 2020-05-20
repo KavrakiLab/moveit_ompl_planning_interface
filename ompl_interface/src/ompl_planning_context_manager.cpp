@@ -190,7 +190,7 @@ planning_interface::PlanningContextPtr OMPLPlanningContextManager::getPlanningCo
     robot_state::RobotStatePtr start_state = planning_scene->getCurrentStateUpdated(req.start_state);
     context->setCompleteInitialRobotState(start_state);
 
-    if (!context->setGoalConstraints(req.goal_constraints, req.goal_regions, req.transition_region, req.sort_roadmap_func_str, &error_code))
+    if (!context->setGoalConstraints(req.goal_constraints, req.transition_region, req.sort_roadmap_func_str, &error_code))
       return planning_interface::PlanningContextPtr();
 
     try
