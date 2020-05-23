@@ -43,26 +43,19 @@ ompl_interface::TransitionRegionSampler::TransitionRegionSampler(
   for (auto& constr : constrs)
     constrs_.push_back(moveit_msgs::Constraints(constr));
 
-  // MY DISCRETE SAMPLER
   ompl::base::StateSpacePtr ssptr = planning_context_->getOMPLStateSpace();
-//   auto states = std::vector<const ompl::base::State*>();
 
   for (auto &rstatemsg : transition_region_.transition_states)
   {
     ompl::base::State* ompl_state = si_->allocState();
-    robot_state::RobotState rstate(rm);
+    robot_state::RobotState rstate(rm); // moveit::core::RobotState::RobotState 
     moveit::core::robotStateMsgToRobotState(rstatemsg.state, rstate);
     planning_context_->copyToOMPLState(ompl_state, rstate);
 
-    // state_weight_map_[ompl_state] = double(rstatemsg.score);
-
     weights_M.push_back( double(rstatemsg.score));
     states_M.push_back(ompl_state);
-
-    // states.push_back(ompl_state);
-
+    free(ompl_state);
   }
-//   discrete_sampler_ = std::make_shared<ompl::base::PrecomputedStateSampler>(ssptr.get(), states);
 
   kinematic_constraint_set_.reset(new kinematic_constraints::KinematicConstraintSet(rm));
   startSampling();
@@ -78,6 +71,9 @@ void ompl_interface::TransitionRegionSampler::addState(const ompl::base::State* 
   weighted_state->weight_ = 1.0;  
   weighted_state->heap_element_ = goals_priority_queue_.insert(weighted_state);
   ompl::base::WeightedGoalRegionSampler::addState(st);
+
+  free(new_goal);
+  free(weighted_state);
 }
 
 const std::vector<ompl::base::State*> ompl_interface::TransitionRegionSampler::getGoalSamples() const
@@ -111,6 +107,7 @@ bool ompl_interface::TransitionRegionSampler::sampleGoalsFromTransitionRegion(co
   bool success = false;
 
   ompl::base::State* goal = si_->allocState();
+  ompl::base::State* goalSample = si_->allocState();
   kinematic_constraint_set_->clear();
 
   unsigned int max_attempts = 2;
@@ -134,33 +131,98 @@ bool ompl_interface::TransitionRegionSampler::sampleGoalsFromTransitionRegion(co
     // discrete_sampler_->sampleUniform(goal);
     // Generate Random Number Uniformly
     int r = rng_.uniformInt(0, states_M.size()-1);
-    si_->copyState(goal, states_M[r]);
+    si_->copyState(goalSample, states_M[r]);
     double w = weights_M[r];
 
-    if (dynamic_cast<const StateValidityChecker*>(si_->getStateValidityChecker().get())->isValid(goal, verbose))
+    // Add sampled state to CONSTR_
+    for (unsigned int i = 0; i < si_->getStateDimension(); i++)
     {
-      planning_context_->copyToRobotState(work_state_, goal);
-      if (kinematic_constraint_set_->decide(work_state_, verbose).satisfied)
+      constrs_[0].joint_constraints[i].joint_name = joint_model_group_->getVariableNames()[i];
+      constrs_[0].joint_constraints[i].position = goalSample->as<ompl::base::RealVectorStateSpace::StateType>()->values[i];
+      constrs_[0].joint_constraints[i].tolerance_below = 0.01;
+      constrs_[0].joint_constraints[i].tolerance_above = 0.01;
+    }
+      
+    kinematic_constraint_set_->add(constrs_[0], planning_scene_->getTransforms());
+    constraint_sampler_ = constraint_sampler_manager_->selectSampler(planning_scene_, group_name_,
+                                                                     kinematic_constraint_set_->getAllConstraints());
+
+    if (constraint_sampler_)
+    {
+      // makes the constraint sampler also perform a validity callback
+        robot_state::GroupStateValidityCallbackFn gsvcf =
+            boost::bind(&ompl_interface::TransitionRegionSampler::stateValidityCallback, this, goal,
+                        _1,  // pointer to state
+                        _2,  // const* joint model group
+                        _3,  // double* of joint positions
+                        verbose);
+        constraint_sampler_->setGroupStateValidityCallback(gsvcf);
+
+        unsigned int max_state_sampling_attempts = 2;
+        // if (constraint_sampler_->project(work_state_,
+        // planning_context_->getMaximumStateSamplingAttempts()))
+        if (constraint_sampler_->project(work_state_, max_state_sampling_attempts))
+        {
+          work_state_.update();
+          if (kinematic_constraint_set_->decide(work_state_, verbose).satisfied)
+          {
+            if (checkStateValidity(goal, work_state_, verbose))
+            {
+              ompl::base::State* new_goal = si_->allocState();
+              si_->copyState(new_goal, goal);
+
+              sampled_states.push_back(new_goal);
+              WeightedGoal* weighted_state = new WeightedGoal;
+              weighted_state->state_ = new_goal;
+              weighted_state->weight_ = w;
+              weighted_state->heap_element_ = goals_priority_queue_.insert(weighted_state);
+              success = true;
+              break;  // return true;
+            }
+          }
+          else
+          {
+            invalid_sampled_constraints_++;
+            if (!warned_invalid_samples_ && invalid_sampled_constraints_ >= (attempts_so_far * 8) / 10)
+            {
+              warned_invalid_samples_ = true;
+              //              logWarn("More than 80%% of the sampled goal states fail to satisfy "
+              //                      "the constraints imposed on the goal "
+              //                      "sampler. Is the constrained sampler working correctly?");
+            }
+          }
+        }
+    }
+    else
+    {
+      default_sampler_->sampleUniform(goal);
+      if (dynamic_cast<const StateValidityChecker*>(si_->getStateValidityChecker().get())->isValid(goal, verbose))
       {
-        ompl::base::State* new_goal = si_->allocState();
-        si_->copyState(new_goal, goal);
-        sampled_states.push_back(new_goal);
+        planning_context_->copyToRobotState(work_state_, goal);
+        if (kinematic_constraint_set_->decide(work_state_, verbose).satisfied)
+        {
+          ompl::base::State* new_goal = si_->allocState();
+          si_->copyState(new_goal, goal);
 
-        WeightedGoal* weighted_state = new WeightedGoal;
-        weighted_state->state_ = new_goal;
-        weighted_state->weight_ = w; 
-
-        weighted_state->heap_element_ = goals_priority_queue_.insert(weighted_state);
-        free(weighted_state);
-        success = true;
-        break;
+          WeightedGoal* weighted_state = new WeightedGoal;
+          weighted_state->state_ = new_goal;
+          weighted_state->weight_ = w;
+          weighted_state->heap_element_ = goals_priority_queue_.insert(weighted_state);
+          success = true;
+          break;  // return true;
+        }
       }
     }
-  si_->freeState(goal);
-  
   }
-  return success;
+  si_->freeState(goal);
+  si_->freeState(goalSample);
+
+  if (success)
+    return true;
+  else
+    return false;
 }
+    
   
 void ompl_interface::TransitionRegionSampler::clear()
 {
