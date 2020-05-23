@@ -456,7 +456,7 @@ void GeometricPlanningContext::postSolve()
 void GeometricPlanningContext::startGoalSampling()
 {
   bool gls = simple_setup_->getGoal()->hasType(ompl::base::GOAL_LAZY_SAMPLES);
-  if (goal_regions_.size() > 0 && gls)
+  if (transition_region_.transition_states.size() > 0 && gls)
   {
     if (planner_id_.find("RRTGoalRegion") != std::string::npos)
       dynamic_cast<ompl::base::WeightedGoalRegionSampler*>(simple_setup_->getGoal().get())->startSampling();
@@ -473,7 +473,7 @@ void GeometricPlanningContext::startGoalSampling()
 void GeometricPlanningContext::stopGoalSampling()
 {
   bool gls = simple_setup_->getGoal()->hasType(ompl::base::GOAL_LAZY_SAMPLES);
-  if (goal_regions_.size() > 0 && gls)
+  if (transition_region_.transition_states.size() > 0 && gls)
   {
     if (planner_id_.find("RRTGoalRegion") != std::string::npos)
       dynamic_cast<ompl::base::WeightedGoalRegionSampler*>(simple_setup_->getGoal().get())->stopSampling();
@@ -887,13 +887,6 @@ bool GeometricPlanningContext::setGoalConstraints(const std::vector<moveit_msgs:
   // std::vector<moveit_msgs::Constraints> merged_constraints;
   for (const auto& goal_constraint : goal_constraints)
   {
-    // NOTE: This only "intelligently" merges joint constraints .  All other
-    // constraint types are simply concatenated.
-    // moveit_msgs::Constraints constr =
-    // kinematic_constraints::mergeConstraints(goal_constraints[i],
-    // request_.path_constraints);
-
-    // This will merge the path constraints with goal_constraints[i]
     moveit_msgs::Constraints constr;
     if (!mergeConstraints(goal_constraint, request_.path_constraints, constr))
     {
@@ -903,9 +896,6 @@ bool GeometricPlanningContext::setGoalConstraints(const std::vector<moveit_msgs:
         error->val = moveit_msgs::MoveItErrorCodes::INVALID_GOAL_CONSTRAINTS;
       return false;
     }
-
-    // if (goal_regions_.size() > 0)
-    //   merged_constraints_.push_back(constr);
 
     if (transition_region_.transition_states.size() > 0)
       merged_constraints_.push_back(constr);

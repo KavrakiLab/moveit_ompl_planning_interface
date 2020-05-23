@@ -104,6 +104,7 @@ ompl::base::PlannerStatus ompl::geometric::RRTGoalRegion::solve(const base::Plan
   base::Goal* goal = pdef_->getGoal().get();
   auto* weighted_goal_region = dynamic_cast<base::WeightedGoalRegionSampler*>(goal);
   auto* goal_region = dynamic_cast<ompl_interface::GoalRegionSampler*>(goal);
+  auto* transition_region = dynamic_cast<ompl_interface::TransitionRegionSampler*>(goal);
 
   while (const base::State* st = pis_.nextStart())
   {
@@ -189,9 +190,10 @@ ompl::base::PlannerStatus ompl::geometric::RRTGoalRegion::solve(const base::Plan
         {
           approxdif = dist;
           solution = motion;
-          goal_region->addState(motion->state);
+          // goal_region->addState(motion->state);
+          transition_region->addState(motion->state);
 
-          double distanceToGoalRegion = goal_region->getTerminalCost(motion->state);
+          double distanceToGoalRegion = transition_region->getTerminalCost(motion->state);
           OMPL_INFORM("+*+*+* %s: Found a solution after %.3f seconds, terminal cost of %.3f (%u vertices in the "
                       "graph) -*-*-*",
                       getName().c_str(), ompl::time::seconds(ompl::time::now() - start_solve_time_),
@@ -228,9 +230,10 @@ ompl::base::PlannerStatus ompl::geometric::RRTGoalRegion::solve(const base::Plan
       {
         approxdif = dist;
         solution = motion;
-        goal_region->addState(motion->state);
+        // goal_region->addState(motion->state);
+        transition_region->addState(motion->state);
 
-        double terminalCost = goal_region->getTerminalCost(motion->state);
+        double terminalCost = transition_region->getTerminalCost(motion->state);
         OMPL_INFORM("+*+*+* %s: Found a solution after %.3f seconds, terminal cost of %.3f (%u vertices in the graph) "
                     "-*-*-*",
                     getName().c_str(), ompl::time::seconds(ompl::time::now() - start_solve_time_), terminalCost,
@@ -273,19 +276,19 @@ ompl::base::PlannerStatus ompl::geometric::RRTGoalRegion::solve(const base::Plan
     solved = true;
 
     /* Access to goal regions roadmap */
-    if (!approximate && !goal_region->getSortRoadmapFuncStr().empty())
-    {
-      // goal_region->stopSampling();
-      // goal_region->stopGrowingRoadmap();
-      goal_region->getBetterSolution(path);
-      path->interpolate(int(path->length() / (maxDistance_ / 2.0)));
-    }
+    // if (!approximate && !goal_region->getSortRoadmapFuncStr().empty())
+    // {
+    //   // goal_region->stopSampling();
+    //   // goal_region->stopGrowingRoadmap();
+    //   goal_region->getBetterSolution(path);
+    //   path->interpolate(int(path->length() / (maxDistance_ / 2.0)));
+    // }
 
     OMPL_INFORM("+*+*+* %s: Final solution after %.3f seconds, with %u states and terminal cost %.3f. Roadmap with %d "
                 "nodes and %d edges -*-*-*",
                 getName().c_str(), ompl::time::seconds(ompl::time::now() - start_solve_time_), path->getStateCount(),
-                goal_region->getTerminalCost(path->getStates().back()), goal_region->getStateCount(),
-                goal_region->getRoadmapEdgeCount());
+                transition_region->getTerminalCost(path->getStates().back()), transition_region->getStateCount(),
+                transition_region->getRoadmapEdgeCount());
   }
 
   si_->freeState(xstate);

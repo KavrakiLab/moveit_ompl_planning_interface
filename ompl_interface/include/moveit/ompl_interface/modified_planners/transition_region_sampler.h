@@ -40,6 +40,10 @@ public:
                         constraint_samplers::ConstraintSamplerManagerPtr csm,
                         const bool use_max_sampled_goals = true, const unsigned int max_sampled_goals = 10);
 
+  double distanceGoal(const ompl::base::State* st) const override;
+
+  double getTerminalCost(const ompl::base::State* st) const;
+  
   void addState(const ompl::base::State* st) override;
 
   const std::vector<ompl::base::State*> getGoalSamples() const;

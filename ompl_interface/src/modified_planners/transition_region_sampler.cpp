@@ -61,6 +61,16 @@ ompl_interface::TransitionRegionSampler::TransitionRegionSampler(
   startSampling();
 }
 
+double ompl_interface::TransitionRegionSampler::distanceGoal(const ompl::base::State* st) const
+{
+  return GoalStates::distanceGoal(st);
+}
+
+double ompl_interface::TransitionRegionSampler::getTerminalCost(const ompl::base::State* st) const
+{
+  return GoalStates::distanceGoal(st);
+}
+
 void ompl_interface::TransitionRegionSampler::addState(const ompl::base::State* st) // Maybe add weight as argument!
 {
   ompl::base::State* new_goal = si_->allocState();
@@ -203,7 +213,7 @@ bool ompl_interface::TransitionRegionSampler::sampleGoalsFromTransitionRegion(co
         {
           ompl::base::State* new_goal = si_->allocState();
           si_->copyState(new_goal, goal);
-
+          sampled_states.push_back(new_goal);
           WeightedGoal* weighted_state = new WeightedGoal;
           weighted_state->state_ = new_goal;
           weighted_state->weight_ = w;

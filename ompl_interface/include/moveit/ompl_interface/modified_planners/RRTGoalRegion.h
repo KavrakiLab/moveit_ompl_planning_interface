@@ -40,6 +40,7 @@
 
 #include <moveit/ompl_interface/modified_planners/goal_region_sampler.h>
 #include <moveit/ompl_interface/modified_planners/weighted_goal_region_sampler.h>
+#include <moveit/ompl_interface/modified_planners/transition_region_sampler.h>
 
 #include <ompl/datastructures/NearestNeighbors.h>
 #include <ompl/geometric/planners/PlannerIncludes.h>
