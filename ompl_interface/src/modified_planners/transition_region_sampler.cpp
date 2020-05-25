@@ -35,10 +35,9 @@ ompl_interface::TransitionRegionSampler::TransitionRegionSampler(
   , robot_model_loader_("robot_description")
 {
   // I need to add action and object information here.
-
   auto &world = planning_scene_->getWorld();
   Eigen::Affine3d object_pose = world->getObject(object_)->shape_poses_[0];
-  // double xpos = object_pose.translation().x();
+  
   ompl::base::RealVectorBounds bounds(3);
   bounds.setLow(0, object_pose.translation().x() - 2);
   bounds.setLow(0, object_pose.translation().y() - 2);
@@ -48,12 +47,11 @@ ompl_interface::TransitionRegionSampler::TransitionRegionSampler(
   bounds.setHigh(0, object_pose.translation().y() + 2);
   bounds.setHigh(0, object_pose.translation().z() + 2);
 
-  
-  // Just set arbitrary bounds. We will use sampleUniformNear().
   se3_space_->as<ompl::base::SE3StateSpace>()->setBounds(bounds);
   transition_sampler_ = se3_space_->as<ompl::base::SE3StateSpace>()->allocStateSampler();
 
   // 
+
   kinematic_model_ = std::make_shared<robot_model::RobotModel>(rm->getURDF(), rm->getSRDF());
 
   kinematic_state_ = robot_state::RobotStatePtr(new robot_state::RobotState(kinematic_model_));

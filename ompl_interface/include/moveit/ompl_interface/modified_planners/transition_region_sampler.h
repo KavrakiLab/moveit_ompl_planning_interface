@@ -72,6 +72,7 @@ private:
 
   ompl::base::StateSamplerPtr transition_sampler_;
   ompl::base::StateSpacePtr se3_space_;
+  geometry_msgs::Pose center_pose_;
   std::string object_;
   std::string action_;
 
