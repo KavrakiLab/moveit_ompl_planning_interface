@@ -63,6 +63,8 @@ ompl::base::WeightedGoalRegionSampler::WeightedGoalRegionSampler(const SpaceInfo
   type_ = GOAL_LAZY_SAMPLES;
   if (autoStart)
     startSampling();
+  
+  // Setup Goals -> Without Goal sampling thread!
 }
 
 ompl::base::WeightedGoalRegionSampler::~WeightedGoalRegionSampler()

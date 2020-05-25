@@ -52,6 +52,7 @@ OMPLPlanningContextManager::OMPLPlanningContextManager() : planning_interface::P
 /// Assumed that any ROS functionalities are namespaced by ns
 bool OMPLPlanningContextManager::initialize(const robot_model::RobotModelConstPtr& model, const std::string& ns)
 {
+  ROS_INFO("OMPL Planning Context Manager Initializing");
   kmodel_ = model;
   ns_ = ns;
 
@@ -84,6 +85,7 @@ bool OMPLPlanningContextManager::initialize(const robot_model::RobotModelConstPt
   // read in planner configurations and group information from param server
   configurePlanningContexts();
 
+  ROS_INFO("OMPL Planning Context Manager Initialized");
   return planning_interface::PlannerManager::initialize(model, ns);
 }
 
@@ -94,16 +96,19 @@ std::string OMPLPlanningContextManager::getDescription() const
 
 void OMPLPlanningContextManager::getPlanningAlgorithms(std::vector<std::string>& algs) const
 {
+  ROS_INFO("OMPL Planning Context: Getting Planning Algorithms");
   algs.clear();
   algs.reserve(config_settings_.size());
   for (const auto& config_setting : config_settings_)
     algs.push_back(config_setting.first);
+  ROS_INFO("OMPL Planning Context: Gotten Planning Algorithms");
 }
 
 planning_interface::PlanningContextPtr OMPLPlanningContextManager::getPlanningContext(
     const planning_scene::PlanningSceneConstPtr& planning_scene, const planning_interface::MotionPlanRequest& req,
     moveit_msgs::MoveItErrorCodes& error_code) const
 {
+  ROS_INFO("OMPL Planning Context Manager: Getting Planning Context");
   if (req.group_name.empty())
   {
     ROS_ERROR("No group specified to plan for");
@@ -208,6 +213,8 @@ planning_interface::PlanningContextPtr OMPLPlanningContextManager::getPlanningCo
       //      context.reset();
     }
   }
+
+  ROS_INFO("OMPL Planning Context Manager: Gotten Planning Context");
   return context;
 }
 
@@ -215,6 +222,7 @@ planning_interface::PlanningContextPtr OMPLPlanningContextManager::getPlanningCo
 /// planning request
 bool OMPLPlanningContextManager::canServiceRequest(const planning_interface::MotionPlanRequest& req) const
 {
+  ROS_INFO("OMPL Planning Context Manager: Checking if Request Serviceable");
   // Trajectory constraints are not supported by OMPL planners
   return req.trajectory_constraints.constraints.empty();
 }
@@ -222,6 +230,7 @@ bool OMPLPlanningContextManager::canServiceRequest(const planning_interface::Mot
 std::shared_ptr<OMPLPlanningContext>
 OMPLPlanningContextManager::getPlanningContext(const planning_interface::PlannerConfigurationSettings& config) const
 {
+  ROS_INFO("Planning Context 2");
   // TODO: Cache contexts we have created before?
   auto config_it = config.config.find("plugin");
 
@@ -243,6 +252,7 @@ OMPLPlanningContextManager::getPlanningContext(const planning_interface::Planner
 
 void OMPLPlanningContextManager::configurePlanningContexts()
 {
+  ROS_INFO("OMPL Planning Context Manager: Configuring");
   const std::vector<std::string>& group_names = kmodel_->getJointModelGroupNames();
   planning_interface::PlannerConfigurationMap pconfig;
 
@@ -320,11 +330,14 @@ void OMPLPlanningContextManager::configurePlanningContexts()
       ROS_DEBUG_STREAM_NAMED("parameters", " - " << config_it->first << " = " << config_it->second);
   }
   setPlannerConfigurations(pconfig);
+  ROS_INFO("OMPL Planning Context Manager: Configured");
 }
 
 void OMPLPlanningContextManager::getGroupSpecificParameters(const std::string& group_name,
                                                             std::map<std::string, std::string>& specific_group_params)
 {
+  ROS_INFO("OMPL Planning Context Manager: Getting Group Specific Parameters");
+
   // the set of planning parameters that can be specific for the group
   // (inherited by configurations of that group)
   static const std::string KNOWN_GROUP_PARAMS[] = { "projection_evaluator", "longest_valid_segment_fraction" };
@@ -359,6 +372,7 @@ void OMPLPlanningContextManager::getGroupSpecificParameters(const std::string& g
       }
     }
   }
+  ROS_INFO("OMPL Planning Context Manager: Gotten Group Specific Parameters");
 }
 
 void OMPLPlanningContextManager::dynamicReconfigureCallback(

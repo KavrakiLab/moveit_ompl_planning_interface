@@ -868,6 +868,8 @@ bool GeometricPlanningContext::setGoalConstraints(const std::vector<moveit_msgs:
                                                   const std::string& sort_roadmap_func_str,
                                                   moveit_msgs::MoveItErrorCodes* error)
 {
+  ROS_INFO("Geometric Planning Context: Setting Goal Constraints");
+  
   if (goal_constraints.empty())
   {
     ROS_WARN("No goal constraints specified.  There is no problem to solve.");

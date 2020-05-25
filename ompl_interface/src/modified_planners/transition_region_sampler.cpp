@@ -35,7 +35,9 @@ ompl_interface::TransitionRegionSampler::TransitionRegionSampler(
   , robot_model_loader_("robot_description")
 {
   // Kinematics robot information
-  kinematic_model_ = robot_model_loader_.getModel();
+  // kinematic_model_ = robot_model_loader_.getModel();
+  kinematic_model_ = std::make_shared<robot_model::RobotModel>(rm->getURDF(), rm->getSRDF());
+
   kinematic_state_ = robot_state::RobotStatePtr(new robot_state::RobotState(kinematic_model_));
   kinematic_state_->setToDefaultValues();
   joint_model_group_ = kinematic_model_->getJointModelGroup(planning_context_->getGroupName());
@@ -45,17 +47,19 @@ ompl_interface::TransitionRegionSampler::TransitionRegionSampler(
 
   ompl::base::StateSpacePtr ssptr = planning_context_->getOMPLStateSpace();
 
+ 
   for (auto &rstatemsg : transition_region_.transition_states)
   {
     ompl::base::State* ompl_state = si_->allocState();
-    robot_state::RobotState rstate(rm); // moveit::core::RobotState::RobotState 
+    robot_state::RobotState rstate(rm); 
     moveit::core::robotStateMsgToRobotState(rstatemsg.state, rstate);
     planning_context_->copyToOMPLState(ompl_state, rstate);
 
-    weights_M.push_back( double(rstatemsg.score));
+    weights_M.push_back(double(rstatemsg.score));
     states_M.push_back(ompl_state);
-    free(ompl_state);
   }
+  
+  ROS_INFO("Transition Region Sampler: Number of States: %d", states_M.size());
 
   kinematic_constraint_set_.reset(new kinematic_constraints::KinematicConstraintSet(rm));
   startSampling();
@@ -82,8 +86,6 @@ void ompl_interface::TransitionRegionSampler::addState(const ompl::base::State* 
   weighted_state->heap_element_ = goals_priority_queue_.insert(weighted_state);
   ompl::base::WeightedGoalRegionSampler::addState(st);
 
-  free(new_goal);
-  free(weighted_state);
 }
 
 const std::vector<ompl::base::State*> ompl_interface::TransitionRegionSampler::getGoalSamples() const
@@ -110,14 +112,12 @@ bool ompl_interface::TransitionRegionSampler::stateValidityCallback(ompl::base::
   return checkStateValidity(new_goal, solution_state, verbose);
 }
 
-
 bool ompl_interface::TransitionRegionSampler::sampleGoalsFromTransitionRegion(const ompl::base::WeightedGoalRegionSampler* gls,
                                                                         std::vector<ompl::base::State*>& sampled_states)
 {
   bool success = false;
-
   ompl::base::State* goal = si_->allocState();
-  ompl::base::State* goalSample = si_->allocState();
+  // ompl::base::State* goalSample = si_->allocState();
   kinematic_constraint_set_->clear();
 
   unsigned int max_attempts = 2;
@@ -138,20 +138,20 @@ bool ompl_interface::TransitionRegionSampler::sampleGoalsFromTransitionRegion(co
           verbose_display_++;
         }
 
-    // discrete_sampler_->sampleUniform(goal);
-    // Generate Random Number Uniformly
+
     int r = rng_.uniformInt(0, states_M.size()-1);
-    si_->copyState(goalSample, states_M[r]);
     double w = weights_M[r];
 
+    // There are 5 constraints!!
+
     // Add sampled state to CONSTR_
-    for (unsigned int i = 0; i < si_->getStateDimension(); i++)
-    {
-      constrs_[0].joint_constraints[i].joint_name = joint_model_group_->getVariableNames()[i];
-      constrs_[0].joint_constraints[i].position = goalSample->as<ompl::base::RealVectorStateSpace::StateType>()->values[i];
-      constrs_[0].joint_constraints[i].tolerance_below = 0.01;
-      constrs_[0].joint_constraints[i].tolerance_above = 0.01;
-    }
+    // for (unsigned int i = 0; i < si_->getStateDimension(); i++)
+    // {
+    //   constrs_[0].joint_constraints[i].joint_name = joint_model_group_->getVariableNames()[i];
+    //   constrs_[0].joint_constraints[i].position = states_M[r]->as<ompl::base::RealVectorStateSpace::StateType>()->values[i];
+    //   constrs_[0].joint_constraints[i].tolerance_below = 0.01;
+    //   constrs_[0].joint_constraints[i].tolerance_above = 0.01; 
+    // }
       
     kinematic_constraint_set_->add(constrs_[0], planning_scene_->getTransforms());
     constraint_sampler_ = constraint_sampler_manager_->selectSampler(planning_scene_, group_name_,
@@ -178,9 +178,10 @@ bool ompl_interface::TransitionRegionSampler::sampleGoalsFromTransitionRegion(co
           {
             if (checkStateValidity(goal, work_state_, verbose))
             {
+              ROS_INFO("Sampled Collision Free Goal");
               ompl::base::State* new_goal = si_->allocState();
               si_->copyState(new_goal, goal);
-
+              si_->freeState(goal);
               sampled_states.push_back(new_goal);
               WeightedGoal* weighted_state = new WeightedGoal;
               weighted_state->state_ = new_goal;
@@ -192,6 +193,7 @@ bool ompl_interface::TransitionRegionSampler::sampleGoalsFromTransitionRegion(co
           }
           else
           {
+            ROS_INFO("Shouldn't be hitting this");
             invalid_sampled_constraints_++;
             if (!warned_invalid_samples_ && invalid_sampled_constraints_ >= (attempts_so_far * 8) / 10)
             {
@@ -205,6 +207,7 @@ bool ompl_interface::TransitionRegionSampler::sampleGoalsFromTransitionRegion(co
     }
     else
     {
+      ROS_INFO("Constraint Sampler is failing");
       default_sampler_->sampleUniform(goal);
       if (dynamic_cast<const StateValidityChecker*>(si_->getStateValidityChecker().get())->isValid(goal, verbose))
       {
@@ -213,6 +216,7 @@ bool ompl_interface::TransitionRegionSampler::sampleGoalsFromTransitionRegion(co
         {
           ompl::base::State* new_goal = si_->allocState();
           si_->copyState(new_goal, goal);
+          si_->freeState(goal);
           sampled_states.push_back(new_goal);
           WeightedGoal* weighted_state = new WeightedGoal;
           weighted_state->state_ = new_goal;
@@ -224,8 +228,6 @@ bool ompl_interface::TransitionRegionSampler::sampleGoalsFromTransitionRegion(co
       }
     }
   }
-  si_->freeState(goal);
-  si_->freeState(goalSample);
 
   if (success)
     return true;

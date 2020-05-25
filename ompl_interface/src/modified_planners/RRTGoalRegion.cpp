@@ -184,7 +184,7 @@ ompl::base::PlannerStatus ompl::geometric::RRTGoalRegion::solve(const base::Plan
         motion->parent = nmotion;
 
         nn_->add(motion);
-        double dist = 0.0;
+        double dist = 1.0;
         bool sat = goal->isSatisfied(motion->state, &dist);
         if (sat)
         {
@@ -224,7 +224,7 @@ ompl::base::PlannerStatus ompl::geometric::RRTGoalRegion::solve(const base::Plan
       motion->parent = nmotion;
 
       nn_->add(motion);
-      double dist = 0.0;
+      double dist = 1.0;
       bool sat = goal->isSatisfied(motion->state, &dist);
       if (sat)
       {
