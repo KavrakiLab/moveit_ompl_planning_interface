@@ -51,6 +51,9 @@ public:
   void clear() override;
 
 private:
+  bool sampleGoalsOnline(const ompl::base::WeightedGoalRegionSampler* gls, 
+                        std::vector<ompl::base::State*>& sampled_states);
+
   bool sampleGoalsFromTransitionRegion(const ompl::base::WeightedGoalRegionSampler* gls,
                                        std::vector<ompl::base::State*>& sampled_states);
   bool stateValidityCallback(ompl::base::State* new_goal, robot_state::RobotState const* state,
@@ -67,6 +70,11 @@ private:
   bool warned_invalid_samples_;
   unsigned int verbose_display_;
 
+  ompl::base::StateSamplerPtr transition_sampler_;
+  ompl::base::StateSpacePtr se3_space_;
+  std::string object_;
+  std::string action_;
+
   planning_scene::PlanningSceneConstPtr planning_scene_;
 //   ompl::base::StateSamplerPtr discrete_sampler_;
   std::vector<moveit_msgs::Constraints> constrs_;
@@ -74,7 +82,6 @@ private:
   constraint_samplers::ConstraintSamplerManagerPtr constraint_sampler_manager_;
   const std::string& group_name_;
 
-//   std::map<const ompl::base::State*, double> state_weight_map_;
   std::vector<double> weights_M;
   std::vector<ompl::base::State*> states_M;
 
