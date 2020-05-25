@@ -18,6 +18,7 @@ find_package(catkin REQUIRED COMPONENTS
   tf
   dynamic_reconfigure
   eigen_conversions
+  dmp
   )
 
 generate_dynamic_reconfigure_options("ompl_interface/cfg/OMPLDynamicReconfigure.cfg")
