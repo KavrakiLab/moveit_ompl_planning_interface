@@ -39,6 +39,7 @@ catkin_package(
     tf
     dynamic_reconfigure
     eigen_conversions
+    dmp
 )
 
 link_directories(${Boost_LIBRARY_DIRS})
