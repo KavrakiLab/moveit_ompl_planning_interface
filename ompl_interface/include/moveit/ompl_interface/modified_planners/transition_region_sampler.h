@@ -23,6 +23,13 @@
 #include <moveit/robot_state/robot_state.h>
 #include <moveit_msgs/WorkspaceGoalRegion.h>
 
+// DMP
+#include <dmp/DMPData.h>
+#include <dmp/DMPPoint.h>
+#include <dmp/DMPTraj.h>
+#include <dmp/GetDMPPlan.h>
+#include <dmp/LearnDMPFromDemo.h>
+#include <dmp/SetActiveDMP.h>
 
 namespace ompl_interface
 {
@@ -75,6 +82,7 @@ private:
   geometry_msgs::Pose center_pose_;
   std::string object_;
   std::string action_;
+  dmp::LearnDMPFromDemoResponse learnt_dmp_;
 
   planning_scene::PlanningSceneConstPtr planning_scene_;
 //   ompl::base::StateSamplerPtr discrete_sampler_;
