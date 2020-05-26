@@ -36,6 +36,7 @@ ompl_interface::TransitionRegionSampler::TransitionRegionSampler(
   , dmp_information_(dmp_information)
 {
   // I need to add action and object information here.
+  
   ompl::base::RealVectorBounds bounds(3);
   bounds.setLow(0, dmp_information_.center_point[0] - 1);
   bounds.setLow(0, dmp_information_.center_point[1] - 1);
@@ -47,7 +48,11 @@ ompl_interface::TransitionRegionSampler::TransitionRegionSampler(
 
   se3_space_->as<ompl::base::SE3StateSpace>()->setBounds(bounds);
   transition_sampler_ = se3_space_->as<ompl::base::SE3StateSpace>()->allocStateSampler();
-
+  center_state_ = se3_space_->as<ompl::base::SE3StateSpace>()->allocState();
+  center_state_->as<ompl::base::SE3StateSpace::StateType>()->setXYZ(
+                                  dmp_information_.center_point[0], 
+                                  dmp_information_.center_point[1],
+                                  dmp_information_.center_point[2]);
   // 
 
   kinematic_model_ = std::make_shared<robot_model::RobotModel>(rm->getURDF(), rm->getSRDF());
@@ -131,7 +136,7 @@ bool ompl_interface::TransitionRegionSampler::sampleGoalsOnline(const ompl::base
                                                                 std::vector<ompl::base::State*>& sampled_states)
 {
   /*
-  * The initial idea is to sample about 5 goals each iteration.
+  * The initial idea is to sample about 4 goals each iteration.
   * Sample SE3 Poses within a sphere around the object requested.
   * Using SE3 Poses, sample IK using constraint sampler.
   * Simulate and score DMPs.
@@ -139,10 +144,146 @@ bool ompl_interface::TransitionRegionSampler::sampleGoalsOnline(const ompl::base
   * Add the good points along with weight to sampled_states and heap.
   */
 
- bool success = false;
+  bool success = false;
 
 
+  // terminate the sampling thread when a solution has been found
+  // if (planning_context_->getOMPLProblemDefinition()->hasSolution())
+  //   return false;
+  
+  for (unsigned int i = 0; i < 4; i++)
+  {
+    // Sample SE3 Pose
+    ompl::base::State* state = se3_space_->as<ompl::base::SE3StateSpace>()->allocState();
+    transition_sampler_->sampleUniformNear(state, center_state_ ,1);
 
+    kinematic_constraint_set_->clear();
+
+    // IK Stuff
+    constrs_[0].position_constraints[0].constraint_region.primitive_poses[0].position.x =
+      state->as<ompl::base::SE3StateSpace::StateType>()->getX();
+    
+    constrs_[0].position_constraints[0].constraint_region.primitive_poses[0].position.y =
+      state->as<ompl::base::SE3StateSpace::StateType>()->getY();
+    
+    constrs_[0].position_constraints[0].constraint_region.primitive_poses[0].position.z =
+      state->as<ompl::base::SE3StateSpace::StateType>()->getZ();
+
+    
+    tf::Quaternion q_sampled = tf::Quaternion(state->as<ompl::base::SE3StateSpace::StateType>()->rotation().x,
+                                              state->as<ompl::base::SE3StateSpace::StateType>()->rotation().y,
+                                              state->as<ompl::base::SE3StateSpace::StateType>()->rotation().z,
+                                              state->as<ompl::base::SE3StateSpace::StateType>()->rotation().w);
+
+
+    
+    constrs_[0].orientation_constraints[0].orientation.x = state->as<ompl::base::SE3StateSpace::StateType>()->rotation().x;
+    constrs_[0].orientation_constraints[0].orientation.y = state->as<ompl::base::SE3StateSpace::StateType>()->rotation().y;
+    constrs_[0].orientation_constraints[0].orientation.z = state->as<ompl::base::SE3StateSpace::StateType>()->rotation().z;
+    constrs_[0].orientation_constraints[0].orientation.w = state->as<ompl::base::SE3StateSpace::StateType>()->rotation().w;
+
+    kinematic_constraint_set_->add(constrs_[0], planning_scene_->getTransforms());
+    constraint_sampler_ = constraint_sampler_manager_->selectSampler(planning_scene_, group_name_,
+                                                                     kinematic_constraint_set_->getAllConstraints());
+
+    se3_space_->freeState(state);
+
+    unsigned int max_attempts = 2;
+    unsigned int attempts_so_far = gls->samplingAttemptsCount();
+
+    ompl::base::State* goal = si_->allocState();
+    unsigned int max_attempts_div2 = max_attempts / 2;
+
+    if (planning_context_->getOMPLProblemDefinition()->hasSolution())
+      continue;  // return false;
+
+    for (unsigned int a = 0; a < max_attempts && gls->isSampling(); ++a)
+    {
+      bool verbose = false;
+      if (gls->getStateCount() == 0 && a >= max_attempts_div2)
+      {
+        if (verbose_display_ < 1)
+        {
+          verbose = true;
+          verbose_display_++;
+        }
+      }
+
+      if (constraint_sampler_)
+      {
+        robot_state::GroupStateValidityCallbackFn gsvcf =
+            boost::bind(&ompl_interface::TransitionRegionSampler::stateValidityCallback, this, goal,
+                        _1,  // pointer to state
+                        _2,  // const* joint model group
+                        _3,  // double* of joint positions
+                        verbose);
+        constraint_sampler_->setGroupStateValidityCallback(gsvcf);
+
+        unsigned int max_state_sampling_attempts = 2;
+
+        if (constraint_sampler_->project(work_state_, max_state_sampling_attempts))
+        {
+          work_state_.update();
+          if (kinematic_constraint_set_->decide(work_state_, verbose).satisfied)
+          {
+            if (checkStateValidity(goal, work_state_, verbose))
+            {
+              // This is a valid state. Now I need to simulate this bad boy.
+              ompl::base::State* new_goal = si_->allocState();
+              si_->copyState(new_goal, goal);
+
+              sampled_states.push_back(new_goal);
+              WeightedGoal* weighted_state = new WeightedGoal;
+              weighted_state->state_ = new_goal;
+              weighted_state->weight_ = 1.0;
+              weighted_state->heap_element_ = goals_priority_queue_.insert(weighted_state);
+              success = true;
+              break;  // return true;
+            }
+          }
+          else
+          {
+            invalid_sampled_constraints_++;
+            if (!warned_invalid_samples_ && invalid_sampled_constraints_ >= (attempts_so_far * 8) / 10)
+            {
+              warned_invalid_samples_ = true;
+              //              logWarn("More than 80%% of the sampled goal states fail to satisfy "
+              //                      "the constraints imposed on the goal "
+              //                      "sampler. Is the constrained sampler working correctly?");
+            }
+
+          }
+          
+        }
+
+      }
+      else
+      {
+        default_sampler_->sampleUniform(goal);
+        if (dynamic_cast<const StateValidityChecker*>(si_->getStateValidityChecker().get())->isValid(goal, verbose))
+        {
+          planning_context_->copyToRobotState(work_state_, goal);
+          if (kinematic_constraint_set_->decide(work_state_, verbose).satisfied)
+          {
+            ompl::base::State* new_goal = si_->allocState();
+            si_->copyState(new_goal, goal);
+
+            WeightedGoal* weighted_state = new WeightedGoal;
+            weighted_state->state_ = new_goal;
+            weighted_state->weight_ = 1.0;
+            weighted_state->heap_element_ = goals_priority_queue_.insert(weighted_state);
+            success = true;
+            break;  // return true;
+          }
+        }
+      }
+    }
+    si_->freeState(goal);
+  }
+  if (success)
+    return true;
+  else
+    return false;
 }
 
 bool ompl_interface::TransitionRegionSampler::sampleGoalsFromTransitionRegion(const ompl::base::WeightedGoalRegionSampler* gls,

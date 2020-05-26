@@ -86,6 +86,7 @@ private:
   std::string action_;
   dmp::LearnDMPFromDemoResponse learnt_dmp_;
   moveit_msgs::DMPSimulationInformation dmp_information_;
+  ompl::base::State* center_state_;
 // 
 
   planning_scene::PlanningSceneConstPtr planning_scene_;
