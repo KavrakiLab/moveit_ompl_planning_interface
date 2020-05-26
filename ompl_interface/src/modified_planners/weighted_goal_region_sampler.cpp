@@ -190,12 +190,7 @@ void ompl::base::WeightedGoalRegionSampler::goalSamplingThread()
           // std::lock_guard<std::mutex> slock(lock_);
           addState(sampled_state);
 
-          // OMPL_DEBUG("sampled_goal_states_.size(): %d", sampled_goal_states_.size());
-          //          }
-          //                    else
-          //                    {
-          //                        OMPL_DEBUG("Invalid goal candidate");
-          //                    }
+         
         }
         if (use_max_sampled_goals_ && num_sampled_goals_ >= max_sampled_goals_)
         {

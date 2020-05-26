@@ -44,6 +44,7 @@ public:
                         const robot_model::RobotModelConstPtr& rm, const planning_scene::PlanningSceneConstPtr& ps,
                         const std::vector<moveit_msgs::Constraints>& constrs,
                         const moveit_msgs::TransitionRegion& transition_region, 
+                        const moveit_msgs::DMPSimulationInformation& dmp_information, 
                         constraint_samplers::ConstraintSamplerManagerPtr csm,
                         const bool use_max_sampled_goals = true, const unsigned int max_sampled_goals = 10);
 
@@ -51,7 +52,7 @@ public:
 
   double getTerminalCost(const ompl::base::State* st) const;
   
-  void addState(const ompl::base::State* st) override;
+  // void addState(const ompl::base::State* st) override;
 
   const std::vector<ompl::base::State*> getGoalSamples() const;
 
@@ -77,15 +78,17 @@ private:
   bool warned_invalid_samples_;
   unsigned int verbose_display_;
 
+// DMP Stuff
   ompl::base::StateSamplerPtr transition_sampler_;
   ompl::base::StateSpacePtr se3_space_;
-  geometry_msgs::Pose center_pose_;
+  std::vector<double> center_pose_;
   std::string object_;
   std::string action_;
   dmp::LearnDMPFromDemoResponse learnt_dmp_;
+  moveit_msgs::DMPSimulationInformation dmp_information_;
+// 
 
   planning_scene::PlanningSceneConstPtr planning_scene_;
-//   ompl::base::StateSamplerPtr discrete_sampler_;
   std::vector<moveit_msgs::Constraints> constrs_;
   moveit_msgs::TransitionRegion transition_region_;
   constraint_samplers::ConstraintSamplerManagerPtr constraint_sampler_manager_;
@@ -98,7 +101,6 @@ private:
 
 
   // Kinematics
-  robot_model_loader::RobotModelLoader robot_model_loader_;
   robot_model::RobotModelPtr kinematic_model_;
   robot_state::RobotStatePtr kinematic_state_;
   const robot_state::JointModelGroup* joint_model_group_;

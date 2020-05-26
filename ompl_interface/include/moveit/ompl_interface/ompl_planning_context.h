@@ -145,6 +145,7 @@ public:
   /// \brief Set the goal state of the robot via a set of constraints
   virtual bool setGoalConstraints(const std::vector<moveit_msgs::Constraints>& goal_constraints,
                                   const moveit_msgs::TransitionRegion& transition_region,
+                                  const moveit_msgs::DMPSimulationInformation& dmp_information,
                                   const std::string& sort_roadmap_func_str, moveit_msgs::MoveItErrorCodes* error) = 0;
 
   /// \brief Return the set of constraints that must be satisfied along the

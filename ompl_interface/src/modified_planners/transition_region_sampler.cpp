@@ -18,7 +18,8 @@
 ompl_interface::TransitionRegionSampler::TransitionRegionSampler(
     const OMPLPlanningContext* pc, const std::string& group_name, const robot_model::RobotModelConstPtr& rm,
     const planning_scene::PlanningSceneConstPtr& ps, const std::vector<moveit_msgs::Constraints>& constrs,
-    const moveit_msgs::TransitionRegion& transition_region, constraint_samplers::ConstraintSamplerManagerPtr csm, 
+    const moveit_msgs::TransitionRegion& transition_region, const moveit_msgs::DMPSimulationInformation& dmp_information,
+    constraint_samplers::ConstraintSamplerManagerPtr csm, 
     const bool use_max_sampled_goals, const unsigned int max_sampled_goals)
   : ompl::base::WeightedGoalRegionSampler(pc->getOMPLSpaceInformation(),
                                           boost::bind(&TransitionRegionSampler::sampleGoalsFromTransitionRegion, this, _1, _2),
@@ -32,20 +33,17 @@ ompl_interface::TransitionRegionSampler::TransitionRegionSampler(
   , constraint_sampler_manager_(csm)
   , group_name_(group_name)
   , transition_region_(transition_region)
-  , robot_model_loader_("robot_description")
+  , dmp_information_(dmp_information)
 {
   // I need to add action and object information here.
-  auto &world = planning_scene_->getWorld();
-  Eigen::Affine3d object_pose = world->getObject(object_)->shape_poses_[0];
-  
   ompl::base::RealVectorBounds bounds(3);
-  bounds.setLow(0, object_pose.translation().x() - 2);
-  bounds.setLow(0, object_pose.translation().y() - 2);
-  bounds.setLow(0, object_pose.translation().z() - 2);
+  bounds.setLow(0, dmp_information_.center_point[0] - 1);
+  bounds.setLow(0, dmp_information_.center_point[1] - 1);
+  bounds.setLow(0, dmp_information_.center_point[2] - 1);
 
-  bounds.setHigh(0, object_pose.translation().x() + 2);
-  bounds.setHigh(0, object_pose.translation().y() + 2);
-  bounds.setHigh(0, object_pose.translation().z() + 2);
+  bounds.setHigh(0, dmp_information_.center_point[0] + 1);
+  bounds.setHigh(0, dmp_information_.center_point[1] + 1);
+  bounds.setHigh(0, dmp_information_.center_point[2] + 1);
 
   se3_space_->as<ompl::base::SE3StateSpace>()->setBounds(bounds);
   transition_sampler_ = se3_space_->as<ompl::base::SE3StateSpace>()->allocStateSampler();
@@ -91,18 +89,19 @@ double ompl_interface::TransitionRegionSampler::getTerminalCost(const ompl::base
   return GoalStates::distanceGoal(st);
 }
 
-void ompl_interface::TransitionRegionSampler::addState(const ompl::base::State* st) // Maybe add weight as argument!
-{
-  ompl::base::State* new_goal = si_->allocState();
-  si_->copyState(new_goal, st);
+// void ompl_interface::TransitionRegionSampler::addState(const ompl::base::State* st) // Maybe add weight as argument!
+// {
+//   // This should not be called
+//   ompl::base::State* new_goal = si_->allocState();
+//   si_->copyState(new_goal, st);
 
-  WeightedGoal* weighted_state = new WeightedGoal;
-  weighted_state->state_ = new_goal;
-  weighted_state->weight_ = 1.0;  
-  weighted_state->heap_element_ = goals_priority_queue_.insert(weighted_state);
-  ompl::base::WeightedGoalRegionSampler::addState(st);
+//   WeightedGoal* weighted_state = new WeightedGoal;
+//   weighted_state->state_ = new_goal;
+//   weighted_state->weight_ = 1.0;  
+//   weighted_state->heap_element_ = goals_priority_queue_.insert(weighted_state);
+//   ompl::base::WeightedGoalRegionSampler::addState(st);
 
-}
+// }
 
 const std::vector<ompl::base::State*> ompl_interface::TransitionRegionSampler::getGoalSamples() const
 {

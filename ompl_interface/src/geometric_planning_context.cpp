@@ -865,6 +865,7 @@ void GeometricPlanningContext::setCompleteInitialRobotState(const robot_state::R
 
 bool GeometricPlanningContext::setGoalConstraints(const std::vector<moveit_msgs::Constraints>& goal_constraints,
                                                   const moveit_msgs::TransitionRegion &transition_region,
+                                                  const moveit_msgs::DMPSimulationInformation& dmp_information,
                                                   const std::string& sort_roadmap_func_str,
                                                   moveit_msgs::MoveItErrorCodes* error)
 {
@@ -882,6 +883,7 @@ bool GeometricPlanningContext::setGoalConstraints(const std::vector<moveit_msgs:
   sort_roadmap_func_str_ = sort_roadmap_func_str;
   // goal_regions_.clear();
   transition_region_ = transition_region;
+  dmp_information_ = dmp_information;
 
   // Merge path constraints (if any) with goal constraints
   goal_constraints_.clear();
@@ -899,8 +901,7 @@ bool GeometricPlanningContext::setGoalConstraints(const std::vector<moveit_msgs:
       return false;
     }
 
-    if (transition_region_.transition_states.size() > 0)
-      merged_constraints_.push_back(constr);
+    merged_constraints_.push_back(constr);
 
     kinematic_constraints::KinematicConstraintSetPtr kset(
         new kinematic_constraints::KinematicConstraintSet(getRobotModel()));
@@ -925,13 +926,13 @@ bool GeometricPlanningContext::setGoalConstraints(const std::vector<moveit_msgs:
     if (planner_id_.find("RRTGoalRegion") != std::string::npos)
     {
       g = ompl::base::GoalPtr(new TransitionRegionSampler(this, getGroupName(), getRobotModel(), getPlanningScene(),
-                                                          merged_constraints_, transition_region_, 
+                                                          merged_constraints_, transition_region_, dmp_information_,
                                                           constraint_sampler_manager_, true, 100));
     }
     else
     {
       g = ompl::base::GoalPtr(new TransitionRegionSampler(this, getGroupName(), getRobotModel(), getPlanningScene(),
-                                                          merged_constraints_, transition_region_, 
+                                                          merged_constraints_, transition_region_, dmp_information_,
                                                           constraint_sampler_manager_, false, 100));
     }
     goals.push_back(g);
