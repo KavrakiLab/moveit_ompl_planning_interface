@@ -456,7 +456,7 @@ void GeometricPlanningContext::postSolve()
 void GeometricPlanningContext::startGoalSampling()
 {
   bool gls = simple_setup_->getGoal()->hasType(ompl::base::GOAL_LAZY_SAMPLES);
-  if (transition_region_.transition_states.size() > 0 && gls)
+  if (dmp_information_.center_point.size() > 0 && gls)
   {
     if (planner_id_.find("RRTGoalRegion") != std::string::npos)
       dynamic_cast<ompl::base::WeightedGoalRegionSampler*>(simple_setup_->getGoal().get())->startSampling();
@@ -473,7 +473,7 @@ void GeometricPlanningContext::startGoalSampling()
 void GeometricPlanningContext::stopGoalSampling()
 {
   bool gls = simple_setup_->getGoal()->hasType(ompl::base::GOAL_LAZY_SAMPLES);
-  if (transition_region_.transition_states.size() > 0 && gls)
+  if (dmp_information_.center_point.size() > 0 && gls)
   {
     if (planner_id_.find("RRTGoalRegion") != std::string::npos)
       dynamic_cast<ompl::base::WeightedGoalRegionSampler*>(simple_setup_->getGoal().get())->stopSampling();
@@ -864,7 +864,6 @@ void GeometricPlanningContext::setCompleteInitialRobotState(const robot_state::R
 }
 
 bool GeometricPlanningContext::setGoalConstraints(const std::vector<moveit_msgs::Constraints>& goal_constraints,
-                                                  const moveit_msgs::TransitionRegion &transition_region,
                                                   const moveit_msgs::DMPSimulationInformation& dmp_information,
                                                   const std::string& sort_roadmap_func_str,
                                                   moveit_msgs::MoveItErrorCodes* error)
@@ -882,7 +881,7 @@ bool GeometricPlanningContext::setGoalConstraints(const std::vector<moveit_msgs:
   // Get goal regions
   sort_roadmap_func_str_ = sort_roadmap_func_str;
   // goal_regions_.clear();
-  transition_region_ = transition_region;
+  // transition_region_ = transition_region;
   dmp_information_ = dmp_information;
 
   // Merge path constraints (if any) with goal constraints
@@ -919,20 +918,23 @@ bool GeometricPlanningContext::setGoalConstraints(const std::vector<moveit_msgs:
   }
   std::vector<ompl::base::GoalPtr> goals;
 
-  if (transition_region_.transition_states.size() > 0)
+  if (dmp_information_.center_point.size() > 0)
   {
+    ROS_INFO("Geometric Planning Context: About to create goals");
     ompl::base::GoalPtr g;
 
     if (planner_id_.find("RRTGoalRegion") != std::string::npos)
     {
+      ROS_INFO("Creating Transition Region Sampler");
       g = ompl::base::GoalPtr(new TransitionRegionSampler(this, getGroupName(), getRobotModel(), getPlanningScene(),
-                                                          merged_constraints_, transition_region_, dmp_information_,
-                                                          constraint_sampler_manager_, true, 100));
+                                                          merged_constraints_, dmp_information_,
+                                                          constraint_sampler_manager_, true, 100)); // SEG FAULTING
+      ROS_INFO("Created Transition Region Sampler");
     }
     else
     {
       g = ompl::base::GoalPtr(new TransitionRegionSampler(this, getGroupName(), getRobotModel(), getPlanningScene(),
-                                                          merged_constraints_, transition_region_, dmp_information_,
+                                                          merged_constraints_, dmp_information_,
                                                           constraint_sampler_manager_, false, 100));
     }
     goals.push_back(g);
@@ -972,6 +974,7 @@ bool GeometricPlanningContext::setGoalConstraints(const std::vector<moveit_msgs:
     }
 
     simple_setup_->setGoal(goal);
+    ROS_INFO("Geometric Planning Context: Set Goal Constraints");
     return true;
   }
 

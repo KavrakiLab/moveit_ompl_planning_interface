@@ -64,7 +64,6 @@ ompl::base::WeightedGoalRegionSampler::WeightedGoalRegionSampler(const SpaceInfo
   if (autoStart)
     startSampling();
   
-  // Setup Goals -> Without Goal sampling thread!
 }
 
 ompl::base::WeightedGoalRegionSampler::~WeightedGoalRegionSampler()
@@ -154,6 +153,7 @@ void ompl::base::WeightedGoalRegionSampler::stopGrowingRoadmap()
 
 void ompl::base::WeightedGoalRegionSampler::goalSamplingThread()
 {
+  OMPL_INFORM("Goal Sampling Thread");
   {
     /* Wait for startSampling() to finish assignment
      * samplingThread_ */

@@ -22,6 +22,9 @@
 #include <moveit/robot_model/joint_model_group.h>
 #include <moveit/robot_state/robot_state.h>
 #include <moveit_msgs/WorkspaceGoalRegion.h>
+#include <moveit/kinematic_constraints/utils.h>
+
+#include <ros/package.h>
 
 // DMP
 #include <dmp/DMPData.h>
@@ -30,6 +33,12 @@
 #include <dmp/GetDMPPlan.h>
 #include <dmp/LearnDMPFromDemo.h>
 #include <dmp/SetActiveDMP.h>
+
+// #include <hybrid_planner/hybridPlanner.h>
+
+#include <iostream>
+#include <fstream>
+#include <ros/ros.h>
 
 namespace ompl_interface
 {
@@ -43,7 +52,6 @@ public:
   TransitionRegionSampler(const OMPLPlanningContext* pc, const std::string& group_name,
                         const robot_model::RobotModelConstPtr& rm, const planning_scene::PlanningSceneConstPtr& ps,
                         const std::vector<moveit_msgs::Constraints>& constrs,
-                        const moveit_msgs::TransitionRegion& transition_region, 
                         const moveit_msgs::DMPSimulationInformation& dmp_information, 
                         constraint_samplers::ConstraintSamplerManagerPtr csm,
                         const bool use_max_sampled_goals = true, const unsigned int max_sampled_goals = 10);
@@ -52,8 +60,6 @@ public:
 
   double getTerminalCost(const ompl::base::State* st) const;
   
-  // void addState(const ompl::base::State* st) override;
-
   const std::vector<ompl::base::State*> getGoalSamples() const;
 
   void clear() override;
@@ -62,12 +68,32 @@ private:
   bool sampleGoalsOnline(const ompl::base::WeightedGoalRegionSampler* gls, 
                         std::vector<ompl::base::State*>& sampled_states);
 
-  bool sampleGoalsFromTransitionRegion(const ompl::base::WeightedGoalRegionSampler* gls,
-                                       std::vector<ompl::base::State*>& sampled_states);
   bool stateValidityCallback(ompl::base::State* new_goal, robot_state::RobotState const* state,
                              const robot_model::JointModelGroup*, const double*, bool verbose = false) const;
   bool checkStateValidity(ompl::base::State* new_goal, const robot_state::RobotState& state,
                           bool verbose = false) const;
+        
+  dmp::LearnDMPFromDemoResponse loadDMP(std::string dmp_name); 
+
+  dmp::GetDMPPlanResponse makePlanRequest(std::vector<double> x_0,
+                                          std::vector<double> x_dot_0,
+                                          double t_0, std::vector<double> goal,
+                                          std::vector<double> goalThresh,
+                                          int segLength,
+                                          double tau,
+                                          double dt,
+                                          int integrateIter,
+                                          ros::NodeHandle &n);
+
+  void makeSetActiveRequest(std::vector<dmp::DMPData> dmpList,
+                            ros::NodeHandle &n);
+
+  dmp::GetDMPPlanResponse simulateDMP(std::vector<double> &startPose,
+                                      std::vector<double> &goalPose,
+                                      dmp::LearnDMPFromDemoResponse &dmp,
+                                      ros::NodeHandle &n);
+                                      
+
 
   const OMPLPlanningContext* planning_context_;
   kinematic_constraints::KinematicConstraintSetPtr kinematic_constraint_set_;
@@ -85,8 +111,12 @@ private:
   std::string object_;
   std::string action_;
   dmp::LearnDMPFromDemoResponse learnt_dmp_;
+  std::vector<double> dmp_end_; // Maybe put this as a vector of vectors. I.E. Multiple Possible IK Solutions.
+
   moveit_msgs::DMPSimulationInformation dmp_information_;
   ompl::base::State* center_state_;
+  double sphere_size_;
+  ros::NodeHandle nh_;
 // 
 
   planning_scene::PlanningSceneConstPtr planning_scene_;
@@ -102,6 +132,7 @@ private:
 
 
   // Kinematics
+  robot_model_loader::RobotModelLoader robot_model_loader_;
   robot_model::RobotModelPtr kinematic_model_;
   robot_state::RobotStatePtr kinematic_state_;
   const robot_state::JointModelGroup* joint_model_group_;

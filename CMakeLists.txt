@@ -8,6 +8,7 @@ endif()
 
 find_package(Boost REQUIRED system filesystem date_time thread serialization)
 find_package(catkin REQUIRED COMPONENTS
+  roscpp
   ompl
   moveit_core
   moveit_ros_planning
@@ -29,6 +30,7 @@ catkin_package(
   INCLUDE_DIRS
     ompl_interface/include
   CATKIN_DEPENDS
+    roscpp
     ompl
     moveit_core
     moveit_ros_planning
