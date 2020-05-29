@@ -13,6 +13,8 @@
 #include <ompl/base/spaces/SE3StateSpace.h>
 #include <ompl/base/PrecomputedStateSampler.h>
 #include <ompl/util/RandomNumbers.h>
+#include <ompl/geometric/PathGeometric.h>
+
 
 #include <moveit/ompl_interface/modified_planners/PRMMod.h>
 #include <moveit/ompl_interface/modified_planners/goal_regions_state_sampler.h>
@@ -39,6 +41,7 @@
 #include <iostream>
 #include <fstream>
 #include <ros/ros.h>
+#include <chrono>
 
 namespace ompl_interface
 {
@@ -136,6 +139,8 @@ private:
   robot_model::RobotModelPtr kinematic_model_;
   robot_state::RobotStatePtr kinematic_state_;
   const robot_state::JointModelGroup* joint_model_group_;
+
+  collision_detection::AllowedCollisionMatrix acm_;
 
 };
 
