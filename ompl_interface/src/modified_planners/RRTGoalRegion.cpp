@@ -166,7 +166,6 @@ ompl::base::PlannerStatus ompl::geometric::RRTGoalRegion::solve(const base::Plan
     }
 
     std::pair<base::State*, double> last_valid;
-
     bool expansion_result = si_->checkMotion(nmotion->state, dstate, last_valid);
 
     if (expansion_toward_goal && !expansion_result)

@@ -359,11 +359,11 @@ bool ompl_interface::TransitionRegionSampler::sampleGoalsOnline(const ompl::base
 
                 // This takes time
                 // double clearance = dynamic_cast<const StateValidityChecker*>(si_->getStateValidityChecker().get())->clearance(currState);
-
                 if (!valid)
                 {
                   ROS_INFO("State Not Valid"); 
                   score = score - 0.2;
+                  return false;
                 }
                   
               }
@@ -388,7 +388,6 @@ bool ompl_interface::TransitionRegionSampler::sampleGoalsOnline(const ompl::base
             }
 
           }
-          
         }
 
       }
