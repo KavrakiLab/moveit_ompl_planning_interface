@@ -41,10 +41,7 @@ ompl_interface::TransitionRegionSampler::TransitionRegionSampler(
   // Set DMP as Active
   makeSetActiveRequest(learnt_dmp_.dmp_list, nh_); // I need to start the DMP server!
   
-  // Sample END IK Pose(s)
   dmp_end_ = dmp_information.dmp_end; 
-  ROS_INFO("DMP END IK SIZE: %d", dmp_end_.size());
-
 
   //
 
@@ -82,9 +79,9 @@ ompl_interface::TransitionRegionSampler::TransitionRegionSampler(
   joint_model_group_ = kinematic_model_->getJointModelGroup(planning_context_->getGroupName());
 
   // Modified ACM
-  acm_ = collision_detection::AllowedCollisionMatrix(planning_scene_->getAllowedCollisionMatrix());
-  acm_.setDefaultEntry(dmp_information.object, true);
-
+  // planning_scene_->getAllowedCollisionMatrixNonConst().setDefaultEntry("l_gripper_finger_link", true);
+  // planning_scene_->getAllowedCollisionMatrixNonConst().setDefaultEntry("r_gripper_finger_link", true);
+  
 
   for (auto& constr : constrs)
     constrs_.push_back(moveit_msgs::Constraints(constr));
@@ -356,12 +353,18 @@ bool ompl_interface::TransitionRegionSampler::sampleGoalsOnline(const ompl::base
                 planning_context_->copyToOMPLState(currState, *kinematic_state_);
 
                 bool valid = dynamic_cast<const StateValidityChecker*>(si_->getStateValidityChecker().get())->isValid(currState);
+                if (!si_->satisfiesBounds(currState))
+                  ROS_INFO("DMP STATE NOT SATISFIES BOUNDS");
 
                 // This takes time
                 // double clearance = dynamic_cast<const StateValidityChecker*>(si_->getStateValidityChecker().get())->clearance(currState);
                 if (!valid)
                 {
                   ROS_INFO("State Not Valid"); 
+                  std::vector<std::string> colliding_links;
+                  planning_scene_->getCollidingLinks(colliding_links, *kinematic_state_);
+                  for (auto& link : colliding_links)
+                    ROS_INFO("Colliding Link: %s", link.c_str());
                   score = score - 0.2;
                   return false;
                 }
