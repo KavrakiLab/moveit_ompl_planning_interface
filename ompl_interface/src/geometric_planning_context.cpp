@@ -110,13 +110,13 @@ GeometricPlanningContext::GeometricPlanningContext() : OMPLPlanningContext(), ma
   complete_initial_robot_state_ = nullptr;
 
   // Interpolate the final solution path to have a minimum number of states
-  interpolate_ = true;
+  interpolate_ = false;
 
   // Attempt to smooth the final solution path
   simplify_ = true;
 
   // This context is not initialized
-  initialized_ = false;
+  initialized_ = true;
 
   planner_id_ = "";
 }
@@ -185,8 +185,11 @@ void GeometricPlanningContext::initialize(const std::string& ros_namespace, cons
 {
   spec_ = spec;
 
-  interpolate_ = spec.interpolate_solution;
-  simplify_ = spec.simplify_solution;
+  // interpolate_ = spec.interpolate_solution;
+  // simplify_ = spec.simplify_solution;
+
+  interpolate_ = false;
+  simplify_ = false;
 
   // Erase the type and plugin fields from the configuration items
   auto it = spec_.config.find("type");
