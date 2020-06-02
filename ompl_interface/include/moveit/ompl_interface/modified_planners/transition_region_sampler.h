@@ -9,6 +9,7 @@
 #include <moveit/constraint_samplers/constraint_sampler.h>
 #include <moveit/kinematic_constraints/kinematic_constraint.h>
 #include <moveit/ompl_interface/detail/constrained_sampler.h>
+#include <moveit/ompl_interface/detail/constrained_valid_state_sampler.h>
 #include <ompl/base/goals/GoalLazySamples.h>
 #include <ompl/base/spaces/SE3StateSpace.h>
 #include <ompl/base/PrecomputedStateSampler.h>
@@ -46,6 +47,8 @@
 #include <fstream>
 #include <ros/ros.h>
 #include <chrono>
+
+#include <robowflex_library/robot.h>
 
 namespace ompl_interface
 {
@@ -119,6 +122,10 @@ private:
   std::string action_;
   dmp::LearnDMPFromDemoResponse learnt_dmp_;
   std::vector<double> dmp_end_; // Maybe put this as a vector of vectors. I.E. Multiple Possible IK Solutions.
+  moveit_msgs::Constraints dmp_sink_constraints_;
+  constraint_samplers::ConstraintSamplerPtr dmp_sink_sampler_;
+  kinematic_constraints::KinematicConstraintSetPtr dmp_sink_constraint_set_;
+
 
   moveit_msgs::DMPSimulationInformation dmp_information_;
   ompl::base::State* center_state_;

@@ -18,8 +18,7 @@
 ompl_interface::TransitionRegionSampler::TransitionRegionSampler(
     const OMPLPlanningContext* pc, const std::string& group_name, const robot_model::RobotModelConstPtr& rm,
     const planning_scene::PlanningSceneConstPtr& ps, const std::vector<moveit_msgs::Constraints>& constrs,
-    const moveit_msgs::DMPSimulationInformation& dmp_information,
-    constraint_samplers::ConstraintSamplerManagerPtr csm, 
+    const moveit_msgs::DMPSimulationInformation& dmp_information, constraint_samplers::ConstraintSamplerManagerPtr csm,
     const bool use_max_sampled_goals, const unsigned int max_sampled_goals)
   : ompl::base::WeightedGoalRegionSampler(pc->getOMPLSpaceInformation(),
                                           boost::bind(&TransitionRegionSampler::sampleGoalsOnline, this, _1, _2),
@@ -39,12 +38,12 @@ ompl_interface::TransitionRegionSampler::TransitionRegionSampler(
   learnt_dmp_ = loadDMP(dmp_information.dmp_name);
 
   // Set DMP as Active
-  makeSetActiveRequest(learnt_dmp_.dmp_list, nh_); // I need to start the DMP server!
-  
-  dmp_end_ = dmp_information.dmp_end; 
+  makeSetActiveRequest(learnt_dmp_.dmp_list, nh_);  // I need to start the DMP server!
 
-  //
+  dmp_end_ = dmp_information.dmp_end;
   
+                                                                
+
 
   sphere_size_ = 1.0;
   ompl::base::RealVectorBounds bounds(3);
@@ -57,22 +56,21 @@ ompl_interface::TransitionRegionSampler::TransitionRegionSampler(
   bounds.setHigh(2, double(dmp_information_.center_point[2]) + 0.2);
 
   se3_space_ = ompl::base::StateSpacePtr(new ompl::base::SE3StateSpace());
-  se3_space_->as<ompl::base::SE3StateSpace>()->setBounds(bounds); 
+  se3_space_->as<ompl::base::SE3StateSpace>()->setBounds(bounds);
 
   transition_sampler_ = se3_space_->as<ompl::base::SE3StateSpace>()->allocStateSampler();
   center_state_ = se3_space_->as<ompl::base::SE3StateSpace>()->allocState();
 
-  center_state_->as<ompl::base::SE3StateSpace::StateType>()->setXYZ(
-                                  double(dmp_information_.center_point[0]), 
-                                  double(dmp_information_.center_point[1]),
-                                  double(dmp_information_.center_point[2]));
-  
+  center_state_->as<ompl::base::SE3StateSpace::StateType>()->setXYZ(double(dmp_information_.center_point[0]),
+                                                                    double(dmp_information_.center_point[1]),
+                                                                    double(dmp_information_.center_point[2]));
+
   center_state_->as<ompl::base::SE3StateSpace::StateType>()->rotation().x = dmp_information_.center_rotation[0];
   center_state_->as<ompl::base::SE3StateSpace::StateType>()->rotation().y = dmp_information_.center_rotation[1];
   center_state_->as<ompl::base::SE3StateSpace::StateType>()->rotation().z = dmp_information_.center_rotation[2];
   center_state_->as<ompl::base::SE3StateSpace::StateType>()->rotation().w = dmp_information_.center_rotation[3];
-  
-  // 
+
+  //
 
   kinematic_model_ = std::make_shared<robot_model::RobotModel>(rm->getURDF(), rm->getSRDF());
   kinematic_state_ = robot_state::RobotStatePtr(new robot_state::RobotState(pc->getCompleteInitialRobotState()));
@@ -85,6 +83,8 @@ ompl_interface::TransitionRegionSampler::TransitionRegionSampler(
   ompl::base::StateSpacePtr ssptr = planning_context_->getOMPLStateSpace();
 
   kinematic_constraint_set_.reset(new kinematic_constraints::KinematicConstraintSet(rm));
+  dmp_sink_constraint_set_.reset(new kinematic_constraints::KinematicConstraintSet(rm));
+
   startSampling();
 }
 
@@ -104,16 +104,17 @@ const std::vector<ompl::base::State*> ompl_interface::TransitionRegionSampler::g
 }
 
 bool ompl_interface::TransitionRegionSampler::checkStateValidity(ompl::base::State* new_goal,
-                                                           const robot_state::RobotState& state, bool verbose) const
+                                                                 const robot_state::RobotState& state,
+                                                                 bool verbose) const
 {
   planning_context_->copyToOMPLState(new_goal, state);
   return dynamic_cast<const StateValidityChecker*>(si_->getStateValidityChecker().get())->isValid(new_goal, verbose);
 }
 
 bool ompl_interface::TransitionRegionSampler::stateValidityCallback(ompl::base::State* new_goal,
-                                                              robot_state::RobotState const* state,
-                                                              const robot_model::JointModelGroup* jmg,
-                                                              const double* jpos, bool verbose) const
+                                                                    robot_state::RobotState const* state,
+                                                                    const robot_model::JointModelGroup* jmg,
+                                                                    const double* jpos, bool verbose) const
 {
   // we copy the state to not change the seed state
   robot_state::RobotState solution_state(*state);
@@ -235,32 +236,24 @@ dmp::GetDMPPlanResponse ompl_interface::TransitionRegionSampler::simulateDMP(std
   return planResp;
 }
 
-bool ompl_interface::TransitionRegionSampler::sampleGoalsOnline(const ompl::base::WeightedGoalRegionSampler* gls, 
+bool ompl_interface::TransitionRegionSampler::sampleGoalsOnline(const ompl::base::WeightedGoalRegionSampler* gls,
                                                                 std::vector<ompl::base::State*>& sampled_states)
 {
-  /*
-  * The initial idea is to sample about 4 goals each iteration.
-  * Sample SE3 Poses within a sphere around the object requested.
-  * Using SE3 Poses, sample IK using constraint sampler.
-  * Simulate and score DMPs.
-  * Threshold these points.
-  * Add the good points along with weight to sampled_states and heap.
-  */
-
+  
   bool success = false;
 
   auto start = std::chrono::high_resolution_clock::now();
 
   for (unsigned int i = 0; i < 1; i++)
   {
-
     // Sample SE3 Pose
     ompl::base::State* state = se3_space_->as<ompl::base::SE3StateSpace>()->allocState();
-    transition_sampler_->sampleUniformNear(state, center_state_->as<ompl::base::SE3StateSpace::StateType>(), sphere_size_); // The angle not distant.
+    transition_sampler_->sampleUniformNear(state, center_state_->as<ompl::base::SE3StateSpace::StateType>(),
+                                           sphere_size_);  // The angle not distant.
     // transition_sampler_->sampleUniform(state);
 
     kinematic_constraint_set_->clear();
-    
+
     constrs_.clear();
     geometry_msgs::PoseStamped pose;
     pose.header.frame_id = "world";
@@ -272,9 +265,6 @@ bool ompl_interface::TransitionRegionSampler::sampleGoalsOnline(const ompl::base
     pose.pose.orientation.y = state->as<ompl::base::SE3StateSpace::StateType>()->rotation().y;
     pose.pose.orientation.z = state->as<ompl::base::SE3StateSpace::StateType>()->rotation().z;
     pose.pose.orientation.w = state->as<ompl::base::SE3StateSpace::StateType>()->rotation().w;
-
-    // ROS_INFO("Sampled Position: %f, %f, %f", pose.pose.position.x, pose.pose.position.y, pose.pose.position.z);
-    // ROS_INFO("Sampled Orientation: %f, %f, %f, %f", pose.pose.orientation.x, pose.pose.orientation.y, pose.pose.orientation.z, pose.pose.orientation.w);
 
     moveit_msgs::Constraints c = kinematic_constraints::constructGoalConstraints("wrist_roll_link", pose);
     constrs_.push_back(c);
@@ -334,17 +324,47 @@ bool ompl_interface::TransitionRegionSampler::sampleGoalsOnline(const ompl::base
               planning_context_->copyToRobotState(transition_point_rs, goal);
               transition_point_rs.copyJointGroupPositions(group_name_, joint_pos_transition_point);
 
-              dmp::GetDMPPlanResponse planResp = simulateDMP(joint_pos_transition_point, dmp_end_, learnt_dmp_, nh_);
-              dmp::DMPTraj dmp_traj = planResp.plan;        
+              // Sample IK END SOLUTION
 
-              //
+              dmp_sink_constraints_ = dmp_information_.dmp_sink_constraints;
+              dmp_sink_constraint_set_->clear();
+              dmp_sink_constraint_set_->add(dmp_sink_constraints_, planning_scene_->getTransforms());
+              dmp_sink_sampler_ = constraint_sampler_manager_->selectSampler(planning_scene_, group_name_,
+                                                                            dmp_sink_constraint_set_->getAllConstraints());
+
+              if (!dmp_sink_sampler_) 
+                return false;
+          
+              robot_state::RobotState sampled_dmp_end_(*kinematic_state_);
+
+              int max_dmp_sink_sample_attempts = 5;
+              int k = 0;
+              bool dmp_sink_sampled = false;
+              while (k < max_dmp_sink_sample_attempts)
+              {
+                k++;
+                bool s = dmp_sink_sampler_->sample(sampled_dmp_end_);
+                if (planning_scene_->isStateValid(sampled_dmp_end_, group_name_) && s)
+                {
+                  ROS_INFO("Good DMP Sink Sampled");
+                  dmp_sink_sampled = true;
+                  break;
+                }
+              }
+              if (!dmp_sink_sampled)
+                return false;
+
+              std::vector<double> sampled_dmp_end_vector;
+              sampled_dmp_end_.copyJointGroupPositions(group_name_, sampled_dmp_end_vector);
+
+              // simulate from that point.              
+              // dmp::GetDMPPlanResponse planResp = simulateDMP(joint_pos_transition_point, dmp_end_, learnt_dmp_, nh_);
+              dmp::GetDMPPlanResponse planResp = simulateDMP(joint_pos_transition_point, sampled_dmp_end_vector, learnt_dmp_, nh_);
+
+              dmp::DMPTraj dmp_traj = planResp.plan;
+
               robot_state::RobotState dmpState(*kinematic_state_);
               ompl::geometric::PathGeometric ompl_path(si_);
-
-              // auto dmp_trajectory = std::make_shared<robot_trajectory::RobotTrajectory>(kinematic_model_, group_name_);
-              // moveit_msgs::RobotTrajectory traj_msg;
-              // moveit_msgs::DisplayTrajectory out;
-              // out.model_id = kinematic_model_->getName();
 
               for (size_t i = 0; i < dmp_traj.points.size(); i++)
               {
@@ -353,70 +373,23 @@ bool ompl_interface::TransitionRegionSampler::sampleGoalsOnline(const ompl::base
                 ompl::base::State* currState = si_->allocState();
                 planning_context_->copyToOMPLState(currState, dmpState);
                 ompl_path.append(currState);
-                // dmp_trajectory->insertWayPoint(i, dmpState, 0.1);
               }
 
-              // dmp_trajectory->getRobotTrajectoryMsg(traj_msg);
-              // out.trajectory.push_back(traj_msg);
-              // moveit::core::robotStateToRobotStateMsg(dmp_trajectory->getFirstWayPoint(), out.trajectory_start);
-
-              // si_->setStateValidityCheckingResolution(0.05);
               ompl_path.interpolate();
 
               if (ompl_path.check())
               {
-                // publish the traj
-                // ros::Publisher traj_pub_ = nh_.advertise<moveit_msgs::DisplayTrajectory>("robowflex/trajectory", 1000);
-                // traj_pub_.publish(out);
-                
                 ROS_INFO("Sampled Valid Goal");
 
                 double smoothness = ompl_path.smoothness();
+                double length = ompl_path.getStateCount();
                 ROS_INFO("Smoothness: %f", smoothness);
-                        
-
-                // for (int j = 0; j < si_->getStateDimension(); j++)
-                //   ROS_INFO("Joint pos %f", goal->as<ompl::base::RealVectorStateSpace::StateType>()->values[j]);
-
-                // ros::Duration(15.0).sleep();
-                // ROS_INFO("Clearance: %f", ompl_path.clearance());
+                ROS_INFO("Length: %f", length);
               }
               else
               {
-                // ROS_INFO("Invalid DMP");
                 return false;
               }
-              
-          
-
-              // SCORE THIS DMP
-              // for (size_t i = 0; i < dmp_traj.points.size(); i++)
-              // {                
-              //   // Put the robot in that state
-              //   std::vector<double> jointPos = dmp_traj.points[i].positions;
-              //   kinematic_state_->setJointGroupPositions(joint_model_group_, jointPos); 
-              //   ompl::base::State* currState = si_->allocState();
-              //   planning_context_->copyToOMPLState(currState, *kinematic_state_);
-
-              //   bool valid = dynamic_cast<const StateValidityChecker*>(si_->getStateValidityChecker().get())->isValid(currState);
-      
-              //   // This takes time
-              //   double clearance = dynamic_cast<const StateValidityChecker*>(si_->getStateValidityChecker().get())->clearance(currState);
-              //   ROS_INFO("Clearance: %f", clearance);
-              //   if (!valid)
-              //   {
-              //     ROS_INFO("State Not Valid"); 
-              //     std::vector<std::string> colliding_links;
-              //     planning_scene_->getCollidingLinks(colliding_links, *kinematic_state_);
-              //     for (auto& link : colliding_links)
-              //       ROS_INFO("Colliding Link: %s", link.c_str());
-              //     // score = score - 0.2;
-              //     return false;
-              //   }
-              // }
-
-
-
 
               ROS_INFO("This DMP has a score of: %f", score);
               ompl::base::State* new_goal = si_->allocState();
@@ -425,6 +398,10 @@ bool ompl_interface::TransitionRegionSampler::sampleGoalsOnline(const ompl::base
               WeightedGoal* weighted_state = new WeightedGoal;
               weighted_state->state_ = new_goal;
               weighted_state->weight_ = score;
+
+              auto new_dmp_path = std::make_shared<ompl::geometric::PathGeometric>(ompl_path);
+              weighted_state->dmp_path_ = new_dmp_path;
+
               weighted_state->heap_element_ = goals_priority_queue_.insert(weighted_state);
               success = true;
               break;  // return true;
@@ -439,10 +416,10 @@ bool ompl_interface::TransitionRegionSampler::sampleGoalsOnline(const ompl::base
             }
           }
         }
-
       }
       else
       {
+        return false; // EHH - Maybe remove.
         ROS_INFO("Something up with constrained sampler");
         default_sampler_->sampleUniform(goal);
         if (dynamic_cast<const StateValidityChecker*>(si_->getStateValidityChecker().get())->isValid(goal, verbose))
@@ -476,12 +453,10 @@ bool ompl_interface::TransitionRegionSampler::sampleGoalsOnline(const ompl::base
   else
     return false;
 }
-  
+
 void ompl_interface::TransitionRegionSampler::clear()
 {
   std::lock_guard<std::mutex> slock(lock_);
   WeightedGoalRegionSampler::clear();
   constrs_.clear();
 }
-
-

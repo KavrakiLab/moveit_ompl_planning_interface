@@ -198,11 +198,7 @@ ompl::base::PlannerStatus ompl::geometric::RRTGoalRegion::solve(const base::Plan
                       "graph) -*-*-*",
                       getName().c_str(), ompl::time::seconds(ompl::time::now() - start_solve_time_),
                       distanceToGoalRegion, nn_->size());
-          // OMPL_INFORM("OMPL END");
-          // for (int i = 0; i < si_->getStateDimension(); i++)
-          // {
-          //   OMPL_INFORM("Joint pos %f", motion->state->as<ompl::base::RealVectorStateSpace::StateType>()->values[i]);
-          // }
+        
     
           break;
         }
@@ -245,9 +241,6 @@ ompl::base::PlannerStatus ompl::geometric::RRTGoalRegion::solve(const base::Plan
                     getName().c_str(), ompl::time::seconds(ompl::time::now() - start_solve_time_), terminalCost,
                     nn_->size());
         
-        // OMPL_INFORM("OMPL END");
-        // for (int i = 0; i < si_->getStateDimension(); i++)
-        //   OMPL_INFORM("Joint pos %f", motion->state->as<ompl::base::RealVectorStateSpace::StateType>()->values[i]);
         break;
       }
       if (dist < approxdif)
@@ -282,12 +275,15 @@ ompl::base::PlannerStatus ompl::geometric::RRTGoalRegion::solve(const base::Plan
     auto path(std::make_shared<PathGeometric>(si_));
     for (int i = mpath.size() - 1; i >= 0; --i)
       path->append(mpath[i]->state);
+
+    //
+    OMPL_INFORM("Path Length Before: %d", path->getStateCount());
+    path->append(*(weighted_goal.dmp_path_)); // Shlok's addition; This gets removed because its not the goal.
+    OMPL_INFORM("Path Length After: %d", path->getStateCount());
+    //
+
     pdef_->addSolutionPath(path, approximate, approxdif, getName());
     solved = true;
-
-    // OMPL_INFORM("OMPL GOAL N2");
-    // for (int j=0; j<si_->getStateDimension(); j++)
-    //   OMPL_INFORM("joint pos %f", path->getState(path->getStateCount()-1)->as<ompl::base::RealVectorStateSpace::StateType>()->values[j]);
 
     /* Access to goal regions roadmap */
     // if (!approximate && !goal_region->getSortRoadmapFuncStr().empty())

@@ -386,6 +386,9 @@ void ompl::base::WeightedGoalRegionSampler::sampleWeightedGoal(WeightedGoal& wei
   si_->copyState(weighted_goal.state_, heap_element->data->state_);
   weighted_goal.weight_ = heap_element->data->weight_;
   weighted_goal.heap_element_ = heap_element->data->heap_element_;
+
+  auto new_path = std::make_shared<ompl::geometric::PathGeometric>(*heap_element->data->dmp_path_);
+  weighted_goal.dmp_path_ = new_path;
 }
 
 void ompl::base::WeightedGoalRegionSampler::sampleConsecutiveGoal(WeightedGoal& weighted_goal)

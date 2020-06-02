@@ -210,7 +210,7 @@ public:
     WeightedGoal()
     {
     }
-
+    std::shared_ptr<ompl::geometric::PathGeometric> dmp_path_;
     State* state_{ nullptr };
     double weight_{ 1.0 };
     ompl::BinaryHeap<WeightedGoal*, WeightedGoalCompare>::Element* heap_element_{ nullptr };
