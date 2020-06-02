@@ -185,9 +185,15 @@ void ompl::base::WeightedGoalRegionSampler::goalSamplingThread()
           //          {
           increase_num_sampled_goals = true;
           ++num_sampled_goals_;
-          // OMPL_DEBUG("Adding goal state. num_sampled_goals_: %d", num_sampled_goals_);
+          OMPL_INFORM("Adding goal state. num_sampled_goals_: %d", num_sampled_goals_);
           // addStateIfDifferent(sampled_state, minDist_);
           // std::lock_guard<std::mutex> slock(lock_);
+
+// // DELETE THIS
+//           if (num_sampled_goals_ >= 1)
+//             terminateSamplingThread_ = true;
+            
+
           addState(sampled_state);
 
          

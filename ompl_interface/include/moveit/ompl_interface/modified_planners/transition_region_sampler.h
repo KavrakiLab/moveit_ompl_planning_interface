@@ -14,17 +14,22 @@
 #include <ompl/base/PrecomputedStateSampler.h>
 #include <ompl/util/RandomNumbers.h>
 #include <ompl/geometric/PathGeometric.h>
+#include <ompl/base/OptimizationObjective.h>
+
 
 
 #include <moveit/ompl_interface/modified_planners/PRMMod.h>
 #include <moveit/ompl_interface/modified_planners/goal_regions_state_sampler.h>
 #include <moveit/ompl_interface/modified_planners/weighted_goal_region_sampler.h>
 #include <moveit/robot_state/conversions.h>
+#include <moveit/ompl_interface/modified_planners/dmp_cost.h>
+
 
 #include <moveit/robot_model/joint_model_group.h>
 #include <moveit/robot_state/robot_state.h>
 #include <moveit_msgs/WorkspaceGoalRegion.h>
 #include <moveit/kinematic_constraints/utils.h>
+#include <moveit_msgs/DisplayTrajectory.h>
 
 #include <ros/package.h>
 
@@ -36,7 +41,6 @@
 #include <dmp/LearnDMPFromDemo.h>
 #include <dmp/SetActiveDMP.h>
 
-// #include <hybrid_planner/hybridPlanner.h>
 
 #include <iostream>
 #include <fstream>

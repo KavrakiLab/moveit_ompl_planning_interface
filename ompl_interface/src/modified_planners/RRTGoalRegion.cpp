@@ -183,7 +183,8 @@ ompl::base::PlannerStatus ompl::geometric::RRTGoalRegion::solve(const base::Plan
         motion->parent = nmotion;
 
         nn_->add(motion);
-        double dist = 1.0;
+        double dist = 0.00;
+        
         bool sat = goal->isSatisfied(motion->state, &dist);
         if (sat)
         {
@@ -197,6 +198,12 @@ ompl::base::PlannerStatus ompl::geometric::RRTGoalRegion::solve(const base::Plan
                       "graph) -*-*-*",
                       getName().c_str(), ompl::time::seconds(ompl::time::now() - start_solve_time_),
                       distanceToGoalRegion, nn_->size());
+          // OMPL_INFORM("OMPL END");
+          // for (int i = 0; i < si_->getStateDimension(); i++)
+          // {
+          //   OMPL_INFORM("Joint pos %f", motion->state->as<ompl::base::RealVectorStateSpace::StateType>()->values[i]);
+          // }
+    
           break;
         }
         if (dist < approxdif)
@@ -223,7 +230,7 @@ ompl::base::PlannerStatus ompl::geometric::RRTGoalRegion::solve(const base::Plan
       motion->parent = nmotion;
 
       nn_->add(motion);
-      double dist = 1.0;
+      double dist = 0.00;
       bool sat = goal->isSatisfied(motion->state, &dist);
       if (sat)
       {
@@ -237,6 +244,10 @@ ompl::base::PlannerStatus ompl::geometric::RRTGoalRegion::solve(const base::Plan
                     "-*-*-*",
                     getName().c_str(), ompl::time::seconds(ompl::time::now() - start_solve_time_), terminalCost,
                     nn_->size());
+        
+        // OMPL_INFORM("OMPL END");
+        // for (int i = 0; i < si_->getStateDimension(); i++)
+        //   OMPL_INFORM("Joint pos %f", motion->state->as<ompl::base::RealVectorStateSpace::StateType>()->values[i]);
         break;
       }
       if (dist < approxdif)
@@ -273,6 +284,10 @@ ompl::base::PlannerStatus ompl::geometric::RRTGoalRegion::solve(const base::Plan
       path->append(mpath[i]->state);
     pdef_->addSolutionPath(path, approximate, approxdif, getName());
     solved = true;
+
+    // OMPL_INFORM("OMPL GOAL N2");
+    // for (int j=0; j<si_->getStateDimension(); j++)
+    //   OMPL_INFORM("joint pos %f", path->getState(path->getStateCount()-1)->as<ompl::base::RealVectorStateSpace::StateType>()->values[j]);
 
     /* Access to goal regions roadmap */
     // if (!approximate && !goal_region->getSortRoadmapFuncStr().empty())

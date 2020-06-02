@@ -44,6 +44,7 @@ ompl_interface::TransitionRegionSampler::TransitionRegionSampler(
   dmp_end_ = dmp_information.dmp_end; 
 
   //
+  
 
   sphere_size_ = 1.0;
   ompl::base::RealVectorBounds bounds(3);
@@ -74,14 +75,9 @@ ompl_interface::TransitionRegionSampler::TransitionRegionSampler(
   // 
 
   kinematic_model_ = std::make_shared<robot_model::RobotModel>(rm->getURDF(), rm->getSRDF());
-  kinematic_state_ = robot_state::RobotStatePtr(new robot_state::RobotState(kinematic_model_));
-  kinematic_state_->setToDefaultValues();
-  joint_model_group_ = kinematic_model_->getJointModelGroup(planning_context_->getGroupName());
+  kinematic_state_ = robot_state::RobotStatePtr(new robot_state::RobotState(pc->getCompleteInitialRobotState()));
 
-  // Modified ACM
-  // planning_scene_->getAllowedCollisionMatrixNonConst().setDefaultEntry("l_gripper_finger_link", true);
-  // planning_scene_->getAllowedCollisionMatrixNonConst().setDefaultEntry("r_gripper_finger_link", true);
-  
+  joint_model_group_ = kinematic_model_->getJointModelGroup(planning_context_->getGroupName());
 
   for (auto& constr : constrs)
     constrs_.push_back(moveit_msgs::Constraints(constr));
@@ -251,7 +247,6 @@ bool ompl_interface::TransitionRegionSampler::sampleGoalsOnline(const ompl::base
   * Add the good points along with weight to sampled_states and heap.
   */
 
-  ROS_INFO("Sampling Goals");
   bool success = false;
 
   auto start = std::chrono::high_resolution_clock::now();
@@ -334,42 +329,95 @@ bool ompl_interface::TransitionRegionSampler::sampleGoalsOnline(const ompl::base
               // Monte-Carlo Simulation
               double score = 1.0;
               std::vector<double> joint_pos_transition_point;
-              for (unsigned int s = 0; s < si_->getStateDimension(); s++)
-              {
-                joint_pos_transition_point.push_back(goal->as<ompl::base::RealVectorStateSpace::StateType>()->values[s]);
-              }
+
+              robot_state::RobotState transition_point_rs(*kinematic_state_);
+              planning_context_->copyToRobotState(transition_point_rs, goal);
+              transition_point_rs.copyJointGroupPositions(group_name_, joint_pos_transition_point);
 
               dmp::GetDMPPlanResponse planResp = simulateDMP(joint_pos_transition_point, dmp_end_, learnt_dmp_, nh_);
               dmp::DMPTraj dmp_traj = planResp.plan;        
 
+              //
+              robot_state::RobotState dmpState(*kinematic_state_);
+              ompl::geometric::PathGeometric ompl_path(si_);
+
+              // auto dmp_trajectory = std::make_shared<robot_trajectory::RobotTrajectory>(kinematic_model_, group_name_);
+              // moveit_msgs::RobotTrajectory traj_msg;
+              // moveit_msgs::DisplayTrajectory out;
+              // out.model_id = kinematic_model_->getName();
+
+              for (size_t i = 0; i < dmp_traj.points.size(); i++)
+              {
+                std::vector<double> joint_pos = dmp_traj.points[i].positions;
+                dmpState.setJointGroupPositions(group_name_, joint_pos);
+                ompl::base::State* currState = si_->allocState();
+                planning_context_->copyToOMPLState(currState, dmpState);
+                ompl_path.append(currState);
+                // dmp_trajectory->insertWayPoint(i, dmpState, 0.1);
+              }
+
+              // dmp_trajectory->getRobotTrajectoryMsg(traj_msg);
+              // out.trajectory.push_back(traj_msg);
+              // moveit::core::robotStateToRobotStateMsg(dmp_trajectory->getFirstWayPoint(), out.trajectory_start);
+
+              // si_->setStateValidityCheckingResolution(0.05);
+              ompl_path.interpolate();
+
+              if (ompl_path.check())
+              {
+                // publish the traj
+                // ros::Publisher traj_pub_ = nh_.advertise<moveit_msgs::DisplayTrajectory>("robowflex/trajectory", 1000);
+                // traj_pub_.publish(out);
+                
+                ROS_INFO("Sampled Valid Goal");
+
+                double smoothness = ompl_path.smoothness();
+                ROS_INFO("Smoothness: %f", smoothness);
+                        
+
+                // for (int j = 0; j < si_->getStateDimension(); j++)
+                //   ROS_INFO("Joint pos %f", goal->as<ompl::base::RealVectorStateSpace::StateType>()->values[j]);
+
+                // ros::Duration(15.0).sleep();
+                // ROS_INFO("Clearance: %f", ompl_path.clearance());
+              }
+              else
+              {
+                // ROS_INFO("Invalid DMP");
+                return false;
+              }
+              
+          
 
               // SCORE THIS DMP
-              for (size_t i = 0; i < dmp_traj.points.size(); i++)
-              {                
-                // Put the robot in that state
-                std::vector<double> jointPos = dmp_traj.points[i].positions;
-                kinematic_state_->setJointGroupPositions(joint_model_group_, jointPos); 
-                ompl::base::State* currState = si_->allocState();
-                planning_context_->copyToOMPLState(currState, *kinematic_state_);
+              // for (size_t i = 0; i < dmp_traj.points.size(); i++)
+              // {                
+              //   // Put the robot in that state
+              //   std::vector<double> jointPos = dmp_traj.points[i].positions;
+              //   kinematic_state_->setJointGroupPositions(joint_model_group_, jointPos); 
+              //   ompl::base::State* currState = si_->allocState();
+              //   planning_context_->copyToOMPLState(currState, *kinematic_state_);
 
-                bool valid = dynamic_cast<const StateValidityChecker*>(si_->getStateValidityChecker().get())->isValid(currState);
-                if (!si_->satisfiesBounds(currState))
-                  ROS_INFO("DMP STATE NOT SATISFIES BOUNDS");
+              //   bool valid = dynamic_cast<const StateValidityChecker*>(si_->getStateValidityChecker().get())->isValid(currState);
+      
+              //   // This takes time
+              //   double clearance = dynamic_cast<const StateValidityChecker*>(si_->getStateValidityChecker().get())->clearance(currState);
+              //   ROS_INFO("Clearance: %f", clearance);
+              //   if (!valid)
+              //   {
+              //     ROS_INFO("State Not Valid"); 
+              //     std::vector<std::string> colliding_links;
+              //     planning_scene_->getCollidingLinks(colliding_links, *kinematic_state_);
+              //     for (auto& link : colliding_links)
+              //       ROS_INFO("Colliding Link: %s", link.c_str());
+              //     // score = score - 0.2;
+              //     return false;
+              //   }
+              // }
 
-                // This takes time
-                // double clearance = dynamic_cast<const StateValidityChecker*>(si_->getStateValidityChecker().get())->clearance(currState);
-                if (!valid)
-                {
-                  ROS_INFO("State Not Valid"); 
-                  std::vector<std::string> colliding_links;
-                  planning_scene_->getCollidingLinks(colliding_links, *kinematic_state_);
-                  for (auto& link : colliding_links)
-                    ROS_INFO("Colliding Link: %s", link.c_str());
-                  score = score - 0.2;
-                  return false;
-                }
-                  
-              }
+
+
+
               ROS_INFO("This DMP has a score of: %f", score);
               ompl::base::State* new_goal = si_->allocState();
               si_->copyState(new_goal, goal);
@@ -389,7 +437,6 @@ bool ompl_interface::TransitionRegionSampler::sampleGoalsOnline(const ompl::base
             {
               warned_invalid_samples_ = true;
             }
-
           }
         }
 
