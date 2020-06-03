@@ -185,11 +185,11 @@ void GeometricPlanningContext::initialize(const std::string& ros_namespace, cons
 {
   spec_ = spec;
 
-  // interpolate_ = spec.interpolate_solution;
-  // simplify_ = spec.simplify_solution;
+  interpolate_ = spec.interpolate_solution;
+  simplify_ = spec.simplify_solution;
 
-  interpolate_ = false;
-  simplify_ = false;
+  // interpolate_ = false;
+  // simplify_ = false;
 
   // Erase the type and plugin fields from the configuration items
   auto it = spec_.config.find("type");
@@ -537,6 +537,15 @@ bool GeometricPlanningContext::solve(planning_interface::MotionPlanResponse& res
     {
       copyToRobotState(ks, pg.getState(i));
       res.trajectory_->addSuffixWayPoint(ks, 0.0);
+    }
+
+    auto dmp_path = simple_setup_->getPlanner()->as<ompl::geometric::RRTGoalRegion>()->getDMPPath();
+    std::cout << "DMP Path Gotten. Length: " << dmp_path->getStateCount() << std::endl;
+    robot_state::RobotState ds = *complete_initial_robot_state_;
+    for (std::size_t i = 0; i < dmp_path->getStateCount(); ++i)
+    {
+      copyToRobotState(ds, dmp_path->getState(i));
+      res.trajectory_->addSuffixWayPoint(ds, 0.0);
     }
 
     res.planning_time_ = plan_time;

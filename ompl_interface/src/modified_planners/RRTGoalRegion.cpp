@@ -278,8 +278,10 @@ ompl::base::PlannerStatus ompl::geometric::RRTGoalRegion::solve(const base::Plan
 
     //
     OMPL_INFORM("Path Length Before: %d", path->getStateCount());
-    path->append(*(weighted_goal.dmp_path_)); // Shlok's addition; This gets removed because its not the goal.
+    // path->append(*(weighted_goal.dmp_path_)); // Shlok's addition; This gets removed because its not the goal.
     OMPL_INFORM("Path Length After: %d", path->getStateCount());
+    dmp_path_ = weighted_goal.dmp_path_;
+
     //
 
     pdef_->addSolutionPath(path, approximate, approxdif, getName());
@@ -330,3 +332,9 @@ void ompl::geometric::RRTGoalRegion::getPlannerData(base::PlannerData& data) con
       data.addEdge(base::PlannerDataVertex(motion->parent->state), base::PlannerDataVertex(motion->state));
   }
 }
+
+std::shared_ptr<ompl::geometric::PathGeometric> ompl::geometric::RRTGoalRegion::getDMPPath()
+{
+  return dmp_path_;
+}
+

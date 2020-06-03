@@ -78,6 +78,8 @@ public:
 
   void getPlannerData(base::PlannerData& data) const override;
 
+  std::shared_ptr<geometric::PathGeometric> getDMPPath();
+
   base::PlannerStatus solve(const base::PlannerTerminationCondition& ptc) override;
 
   void clear() override;
@@ -194,6 +196,8 @@ protected:
   /** \brief The maximum length of a motion to be added to a tree */
   double maxDistance_{ 0. };
 
+  std::shared_ptr<ompl::geometric::PathGeometric> dmp_path_;
+
   /** \brief Flag indicating whether intermediate states are added to the built tree of motions */
   bool addIntermediateStates_;
 
@@ -202,6 +206,7 @@ protected:
 
   /** \brief The most recent goal motion.  Used for PlannerData computation */
   Motion* lastGoalMotion_{ nullptr };
+
 
   ompl::time::point start_solve_time_;
 };
