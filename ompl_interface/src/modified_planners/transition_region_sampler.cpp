@@ -38,13 +38,8 @@ ompl_interface::TransitionRegionSampler::TransitionRegionSampler(
   learnt_dmp_ = loadDMP(dmp_information.dmp_name);
 
   // Set DMP as Active
-  makeSetActiveRequest(learnt_dmp_.dmp_list, nh_);  // I need to start the DMP server!
-
-  dmp_end_ = dmp_information.dmp_end;
-  
+  makeSetActiveRequest(learnt_dmp_.dmp_list, nh_);  
                                                                 
-
-
   sphere_size_ = 1.0;
   ompl::base::RealVectorBounds bounds(3);
   bounds.setLow(0, double(dmp_information_.center_point[0]) - 0.2);
