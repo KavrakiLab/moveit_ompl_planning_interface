@@ -357,8 +357,6 @@ bool ompl_interface::TransitionRegionSampler::sampleGoalsOnline(const ompl::base
               std::vector<double> sampled_dmp_end_vector;
               sampled_dmp_end_.copyJointGroupPositions(group_name_, sampled_dmp_end_vector);
 
-              // simulate from that point.              
-              // dmp::GetDMPPlanResponse planResp = simulateDMP(joint_pos_transition_point, dmp_end_, learnt_dmp_, nh_);
               dmp::GetDMPPlanResponse planResp = simulateDMP(joint_pos_transition_point, sampled_dmp_end_vector, learnt_dmp_, nh_);
 
               dmp::DMPTraj dmp_traj = planResp.plan;
