@@ -459,7 +459,7 @@ void GeometricPlanningContext::postSolve()
 void GeometricPlanningContext::startGoalSampling()
 {
   bool gls = simple_setup_->getGoal()->hasType(ompl::base::GOAL_LAZY_SAMPLES);
-  if (dmp_information_.center_point.size() > 0 && gls)
+  if (gls)
   {
     if (planner_id_.find("RRTGoalRegion") != std::string::npos)
       dynamic_cast<ompl::base::WeightedGoalRegionSampler*>(simple_setup_->getGoal().get())->startSampling();
@@ -476,7 +476,7 @@ void GeometricPlanningContext::startGoalSampling()
 void GeometricPlanningContext::stopGoalSampling()
 {
   bool gls = simple_setup_->getGoal()->hasType(ompl::base::GOAL_LAZY_SAMPLES);
-  if (dmp_information_.center_point.size() > 0 && gls)
+  if (gls)
   {
     if (planner_id_.find("RRTGoalRegion") != std::string::npos)
       dynamic_cast<ompl::base::WeightedGoalRegionSampler*>(simple_setup_->getGoal().get())->stopSampling();
@@ -758,15 +758,6 @@ bool GeometricPlanningContext::solve(double timeout, unsigned int count, double&
     std::vector<ob::State*> grs_solution_path_states = simple_setup_->getSolutionPath().getStates();
     ompl::base::PlannerPtr planner = configurePlanner("geometric::RRTstarMod", spec_.config);
     simple_setup_->setPlanner(planner);
-    // Set the goal regions checker
-
-    //    const std::vector<ompl::base::State*> goal_samples =
-    //        simple_setup_->getGoal()->as<GoalRegionSampler>()->getGoalSamples();
-    //    ompl::base::GoalPtr g = ompl::base::GoalPtr(
-    //        new GoalRegionChecker(goal_samples, this, getGroupName(), getRobotModel(), getPlanningScene(),
-    //                              merged_constraints_, goal_regions_, sort_roadmap_func_str_,
-    //                              constraint_sampler_manager_));
-    //    simple_setup_->setGoal(g);
 
     // Set previous solution to the a modified state sampler
     simple_setup_->getPlanner()->as<og::RRTstarMod>()->setPreviousPath(grs_solution_path_states);
@@ -881,8 +872,8 @@ bool GeometricPlanningContext::setGoalConstraints(const std::vector<moveit_msgs:
                                                   moveit_msgs::MoveItErrorCodes* error)
 {
   ROS_INFO("Geometric Planning Context: Setting Goal Constraints");
-  
-  if (goal_constraints.empty())
+
+  if (dmp_information.dmp_sink_constraints.position_constraints.empty())
   {
     ROS_WARN("No goal constraints specified.  There is no problem to solve.");
     if (error)
@@ -890,16 +881,12 @@ bool GeometricPlanningContext::setGoalConstraints(const std::vector<moveit_msgs:
     return false;
   }
 
-  // Get goal regions
-  sort_roadmap_func_str_ = sort_roadmap_func_str;
-  // goal_regions_.clear();
-  // transition_region_ = transition_region;
   dmp_information_ = dmp_information;
 
   // Merge path constraints (if any) with goal constraints
   goal_constraints_.clear();
   merged_constraints_.clear();
-  // std::vector<moveit_msgs::Constraints> merged_constraints;
+
   for (const auto& goal_constraint : goal_constraints)
   {
     moveit_msgs::Constraints constr;
@@ -921,56 +908,26 @@ bool GeometricPlanningContext::setGoalConstraints(const std::vector<moveit_msgs:
       goal_constraints_.push_back(kset);
   }
 
-  if (goal_constraints_.empty())
-  {
-    ROS_WARN("No goal constraints specified. There is no problem to solve.");
-    if (error)
-      error->val = moveit_msgs::MoveItErrorCodes::INVALID_GOAL_CONSTRAINTS;
-    return false;
-  }
   std::vector<ompl::base::GoalPtr> goals;
 
-  if (dmp_information_.center_point.size() > 0)
-  {
-    ROS_INFO("Geometric Planning Context: About to create goals");
-    ompl::base::GoalPtr g;
+  ROS_INFO("Geometric Planning Context: About to create goals");
+  ompl::base::GoalPtr g;
 
-    if (planner_id_.find("RRTGoalRegion") != std::string::npos)
-    {
-      ROS_INFO("Creating Transition Region Sampler");
-      g = ompl::base::GoalPtr(new TransitionRegionSampler(this, getGroupName(), getRobotModel(), getPlanningScene(),
-                                                          merged_constraints_, dmp_information_,
-                                                          constraint_sampler_manager_, true, 100)); // SEG FAULTING
-      ROS_INFO("Created Transition Region Sampler");
-    }
-    else
-    {
-      g = ompl::base::GoalPtr(new TransitionRegionSampler(this, getGroupName(), getRobotModel(), getPlanningScene(),
-                                                          merged_constraints_, dmp_information_,
-                                                          constraint_sampler_manager_, false, 100));
-    }
-    goals.push_back(g);
+  if (planner_id_.find("RRTGoalRegion") != std::string::npos)
+  {
+    ROS_INFO("Creating Transition Region Sampler");
+    g = ompl::base::GoalPtr(new TransitionRegionSampler(this, getGroupName(), getRobotModel(), getPlanningScene(),
+                                                        merged_constraints_, dmp_information_,
+                                                        constraint_sampler_manager_, true, 100));  // SEG FAULTING
+    ROS_INFO("Created Transition Region Sampler");
   }
   else
   {
-    // Creating constraint sampler for each constraint
-    for (std::size_t i = 0; i < goal_constraints_.size(); ++i)
-    {
-      constraint_samplers::ConstraintSamplerPtr cs;
-      if (constraint_sampler_manager_)
-        cs = constraint_sampler_manager_->selectSampler(getPlanningScene(), getGroupName(),
-                                                        goal_constraints_[i]->getAllConstraints());
-      if (cs)
-      {
-        ompl::base::GoalPtr g = ompl::base::GoalPtr(new ConstrainedGoalSampler(this, goal_constraints_[i], cs));
-        goals.push_back(g);
-      }
-      else
-      {
-        ROS_WARN("No constraint sampler available to sample goal constraints");
-      }
-    }
+    g = ompl::base::GoalPtr(new TransitionRegionSampler(this, getGroupName(), getRobotModel(), getPlanningScene(),
+                                                        merged_constraints_, dmp_information_,
+                                                        constraint_sampler_manager_, false, 100));
   }
+  goals.push_back(g);
 
   // Creating goal object using constraint samplers
   if (!goals.empty())
