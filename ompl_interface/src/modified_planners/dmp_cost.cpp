@@ -7,7 +7,10 @@ ompl_interface::DMPCost::DMPCost(dmp::GetDMPPlanResponse& template_path)
 
 double ompl_interface::DMPCost::getCost(dmp::GetDMPPlanResponse& path)
 {
-  return euclideanDistance(path);
+  double total_cost;
+  double euclidean_cost = euclideanDistance(path);
+  total_cost = euclidean_cost;
+  return total_cost;
 }
 
 dmp::GetDMPPlanResponse ompl_interface::DMPCost::equalizePaths(dmp::GetDMPPlanResponse& path)
@@ -43,6 +46,7 @@ double ompl_interface::DMPCost::euclideanDistance(dmp::GetDMPPlanResponse& path)
     for (unsigned int d = 0; d < path.plan.points[0].positions.size(); d++)
     {
       total = total + pow((path.plan.points[i].positions[d] - template_path_.plan.points[i].positions[d]), 2);
+      total = total + pow((path.plan.points[i].velocities[d] - template_path_.plan.points[i].velocities[d]), 2);
     }
   }
   return sqrt(total);
