@@ -39,6 +39,9 @@ ompl_interface::TransitionRegionSampler::TransitionRegionSampler(
   // Set DMP as Active
   makeSetActiveRequest(learnt_dmp_.dmp_list, nh_);
 
+  template_plan_ = getTemplatePlan(dmp_information.dmp_name, nh_);
+  dmp_cost_ = std::make_shared<ompl_interface::DMPCost>(template_plan_);
+
   sphere_size_ = 0.5;
 
   kinematic_model_ = std::make_shared<robot_model::RobotModel>(rm->getURDF(), rm->getSRDF());
@@ -48,7 +51,6 @@ ompl_interface::TransitionRegionSampler::TransitionRegionSampler(
 
   ompl::base::StateSpacePtr ssptr = planning_context_->getOMPLStateSpace();
 
-  kinematic_constraint_set_.reset(new kinematic_constraints::KinematicConstraintSet(rm));
   dmp_sink_constraint_set_.reset(new kinematic_constraints::KinematicConstraintSet(rm));
   dmp_source_constraint_set_.reset(new kinematic_constraints::KinematicConstraintSet(rm));
   startSampling();
@@ -87,6 +89,46 @@ bool ompl_interface::TransitionRegionSampler::stateValidityCallback(ompl::base::
   solution_state.setJointGroupPositions(jmg, jpos);
   solution_state.update();
   return checkStateValidity(new_goal, solution_state, verbose);
+}
+
+double** ompl_interface::TransitionRegionSampler::deserialize(std::string demo_name, int& rows, int& cols)
+{
+  std::string fullpath = ros::package::getPath("hybrid_planner") + "/demos/" + demo_name + ".txt";
+  // check if exists!!
+  std::ifstream file(fullpath);
+  if (file.fail())
+  {
+    ROS_INFO("%s demo file not found", demo_name);
+    exit(0);
+  }
+  file >> rows; // 8
+  file >> cols; // 22
+  double** arr = new double*[rows];
+  for (int i = 0; i < rows; i++)
+  {
+    arr[i] = new double[cols];
+    for (int j = 0; j < cols; j++)
+      file >> arr[i][j];
+  }
+  return arr;
+}
+
+dmp::GetDMPPlanResponse ompl_interface::TransitionRegionSampler::getTemplatePlan(std::string dmp_name,
+                                                                                 ros::NodeHandle& n)
+{
+  dmp::GetDMPPlanResponse template_plan;
+  // Simulate the learnt DMP from original start and goal
+  int rows, cols;
+  double** traj = deserialize(dmp_name, rows, cols);
+  std::vector<double> start;
+  std::vector<double> end;
+  for (int d=0; d<rows; d++)
+  {
+    start.push_back(traj[d][0]);
+    end.push_back(traj[d][cols-1]);
+  }
+  template_plan = simulateDMP(start, end, learnt_dmp_, n);
+  return template_plan;
 }
 
 dmp::LearnDMPFromDemoResponse ompl_interface::TransitionRegionSampler::loadDMP(std::string dmp_name)
@@ -208,7 +250,7 @@ bool ompl_interface::TransitionRegionSampler::sampleGoalsOnline(const ompl::base
   for (unsigned int i = 0; i < 4; i++)
   {
     if (planning_context_->getOMPLProblemDefinition()->hasSolution())
-      return false; 
+      return false;
 
     // Setup the DMP Source Sampler
     dmp_source_constraints_ = dmp_information_.dmp_sink_constraints;
@@ -297,8 +339,10 @@ bool ompl_interface::TransitionRegionSampler::sampleGoalsOnline(const ompl::base
     {
       ROS_INFO("Sampled Valid Goal");
 
+      double cost = dmp_cost_->getCost(planResp); // Seg Faulting
       double smoothness = ompl_path.smoothness();
       double length = ompl_path.getStateCount();
+      ROS_INFO("Euclidean Cost: %f", cost);
       ROS_INFO("Smoothness: %f", smoothness);
       ROS_INFO("Length: %f", length);
     }
