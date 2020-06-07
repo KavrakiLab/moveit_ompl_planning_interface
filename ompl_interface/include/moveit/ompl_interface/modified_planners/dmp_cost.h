@@ -1,25 +1,32 @@
 #ifndef DMP_COST_H
 #define DMP_COST_H
 
+// DMP
+#include <dmp/DMPData.h>
+#include <dmp/DMPPoint.h>
+#include <dmp/DMPTraj.h>
+#include <dmp/GetDMPPlan.h>
+#include <dmp/LearnDMPFromDemo.h>
+#include <dmp/SetActiveDMP.h>
 
-#include <ompl/base/State.h>
-#include <ompl/base/Cost.h>
-#include <ompl/base/OptimizationObjective.h>
-
-
-class DMPCost : public ompl::base::OptimizationObjective
+namespace ompl_interface
+{
+class DMPCost
 {
 public:
-    DMPCost(const ompl::base::SpaceInformationPtr &si) :
-        ompl::base::OptimizationObjective(si) {}
+  DMPCost(dmp::GetDMPPlanResponse& template_path);
+  double getCost(dmp::GetDMPPlanResponse& path);
 
-    virtual ompl::base::Cost stateCost(const ompl::base::State* s) const;
-    virtual ompl::base::Cost motionCost(const ompl::base::State *s1, const ompl::base::State *s2) const;  // This is the main bad boy
-    virtual ompl::base::Cost combineCosts(ompl::base::Cost c1, ompl::base::Cost c2) const;
-    virtual ompl::base::Cost identityCost() const;
-    virtual ompl::base::Cost infiniteCost() const;
+private:
+  dmp::GetDMPPlanResponse equalizePaths(dmp::GetDMPPlanResponse& path);
+  double euclideanDistance(dmp::GetDMPPlanResponse& path);
+  double dtwDistance(dmp::GetDMPPlanResponse& path);
+  double clearance(dmp::GetDMPPlanResponse& path);
+
+  dmp::GetDMPPlanResponse template_path_;
 };
 
+}  // namespace ompl_interface
 
 #endif
 
