@@ -9,7 +9,7 @@ double ompl_interface::DMPCost::getCost(dmp::GetDMPPlanResponse& path)
 {
   double total_cost;
   double euclidean_cost = euclideanDistance(path);
-  total_cost = euclidean_cost;
+  total_cost = (0.02)*euclidean_cost;
   return total_cost;
 }
 

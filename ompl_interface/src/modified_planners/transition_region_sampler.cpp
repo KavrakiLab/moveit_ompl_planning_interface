@@ -247,7 +247,7 @@ bool ompl_interface::TransitionRegionSampler::sampleGoalsOnline(const ompl::base
   bool success = false;
   auto start = std::chrono::high_resolution_clock::now();
 
-  for (unsigned int i = 0; i < 4; i++)
+  for (unsigned int i = 0; i < 5; i++)
   {
     if (planning_context_->getOMPLProblemDefinition()->hasSolution())
       return false;
@@ -339,7 +339,8 @@ bool ompl_interface::TransitionRegionSampler::sampleGoalsOnline(const ompl::base
     {
       ROS_INFO("Sampled Valid Goal");
 
-      double cost = dmp_cost_->getCost(planResp); // Seg Faulting
+      double cost = dmp_cost_->getCost(planResp); 
+      score = 1 - cost;
       double smoothness = ompl_path.smoothness();
       double length = ompl_path.getStateCount();
       ROS_INFO("Euclidean Cost: %f", cost);

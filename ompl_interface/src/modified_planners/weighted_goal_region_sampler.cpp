@@ -189,13 +189,7 @@ void ompl::base::WeightedGoalRegionSampler::goalSamplingThread()
           // addStateIfDifferent(sampled_state, minDist_);
           // std::lock_guard<std::mutex> slock(lock_);
 
-// // DELETE THIS
-//           if (num_sampled_goals_ >= 1)
-//             terminateSamplingThread_ = true;
-            
-
           addState(sampled_state);
-
          
         }
         if (use_max_sampled_goals_ && num_sampled_goals_ >= max_sampled_goals_)
