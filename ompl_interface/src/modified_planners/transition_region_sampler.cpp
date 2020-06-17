@@ -158,7 +158,7 @@ dmp::LearnDMPFromDemoResponse ompl_interface::TransitionRegionSampler::loadDMP(s
       int numWeights;
       file >> numWeights;
       dmp.weights.resize(numWeights);
-      for (int k = 0; i < numWeights; k++)
+      for (int k = 0; k < numWeights; k++)
       {
         file >> dmp.weights[k];
       }
