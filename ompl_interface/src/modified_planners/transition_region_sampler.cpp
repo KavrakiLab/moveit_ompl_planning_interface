@@ -35,23 +35,17 @@ ompl_interface::TransitionRegionSampler::TransitionRegionSampler(
   , dmp_information_(dmp_information)
   , robot_model_loader_("robot_description")
 {
-  // Load DMP
-  learnt_dmp_ = loadDMP(dmp_information.dmp_name);
+  learnt_dmp_ = dmp_utils::loadDMP(dmp_information.dmp_name);
+  ROS_INFO("Transition Region Sampler: DMP Loaded");
+  dmp_utils::makeSetActive(learnt_dmp_.dmp_list, nh_);
 
-  // Set DMP as Active
-  makeSetActiveRequest(learnt_dmp_.dmp_list, nh_);
-
-  template_plan_ = getTemplatePlan(dmp_information.dmp_name, nh_);
+  template_plan_ = dmp_utils::getTemplatePlan(dmp_information.dmp_name, learnt_dmp_, nh_);
   dmp_cost_ = std::make_shared<ompl_interface::DMPCost>(template_plan_);
-
-  sphere_size_ = 0.5;
 
   kinematic_model_ = std::make_shared<robot_model::RobotModel>(rm->getURDF(), rm->getSRDF());
   kinematic_state_ = robot_state::RobotStatePtr(new robot_state::RobotState(pc->getCompleteInitialRobotState()));
 
   joint_model_group_ = kinematic_model_->getJointModelGroup(planning_context_->getGroupName());
-
-  ompl::base::StateSpacePtr ssptr = planning_context_->getOMPLStateSpace();
 
   dmp_sink_constraint_set_.reset(new kinematic_constraints::KinematicConstraintSet(rm));
   dmp_source_constraint_set_.reset(new kinematic_constraints::KinematicConstraintSet(rm));
@@ -93,154 +87,22 @@ bool ompl_interface::TransitionRegionSampler::stateValidityCallback(ompl::base::
   return checkStateValidity(new_goal, solution_state, verbose);
 }
 
-double** ompl_interface::TransitionRegionSampler::deserialize(std::string demo_name, int& rows, int& cols)
+bool ompl_interface::TransitionRegionSampler::sampleState(std::vector<double>& state, int max_sample_attempts,
+                                                          constraint_samplers::ConstraintSamplerPtr sampler)
 {
-  std::string fullpath = ros::package::getPath("hybrid_planner") + "/demos/" + demo_name + ".txt";
-  // check if exists!!
-  std::ifstream file(fullpath);
-  if (file.fail())
+  robot_state::RobotState rstate(*kinematic_state_);
+  int n = 0;
+  while (n < max_sample_attempts)
   {
-    ROS_INFO("%s demo file not found", demo_name);
-    exit(0);
-  }
-  file >> rows; // 8
-  file >> cols; // 22
-  double** arr = new double*[rows];
-  for (int i = 0; i < rows; i++)
-  {
-    arr[i] = new double[cols];
-    for (int j = 0; j < cols; j++)
-      file >> arr[i][j];
-  }
-  return arr;
-}
-
-dmp::GetDMPPlanResponse ompl_interface::TransitionRegionSampler::getTemplatePlan(std::string dmp_name,
-                                                                                 ros::NodeHandle& n)
-{
-  dmp::GetDMPPlanResponse template_plan;
-  // Simulate the learnt DMP from original start and goal
-  int rows, cols;
-  double** traj = deserialize(dmp_name, rows, cols);
-  std::vector<double> start;
-  std::vector<double> end;
-  for (int d=0; d<rows; d++)
-  {
-    start.push_back(traj[d][0]);
-    end.push_back(traj[d][cols-1]);
-  }
-  template_plan = simulateDMP(start, end, learnt_dmp_, n);
-  return template_plan;
-}
-
-dmp::LearnDMPFromDemoResponse ompl_interface::TransitionRegionSampler::loadDMP(std::string dmp_name)
-{
-  std::string fullpath = ros::package::getPath("hybrid_planner") + "/DMPs/" + dmp_name + ".txt";
-  dmp::LearnDMPFromDemoResponse resp;
-  std::ifstream file(fullpath);
-
-  if (file.is_open())
-  {
-    int dims, numF;
-    double tau;
-    file >> dims;
-    file >> tau;
-    resp.tau = tau;
-    for (int i = 0; i < dims; i++)
+    bool succ = sampler->sample(rstate);
+    if (succ && planning_scene_->isStateValid(rstate, group_name_))
     {
-      dmp::DMPData dmp;
-      file >> dmp.d_gain >> dmp.k_gain;
-      file >> numF;
-      dmp.f_domain.resize(numF);
-      dmp.f_targets.resize(numF);
-      for (int j = 0; j < numF; j++)
-      {
-        file >> dmp.f_domain[j] >> dmp.f_targets[j];
-      }
-      int numWeights;
-      file >> numWeights;
-      dmp.weights.resize(numWeights);
-      for (int k = 0; k < numWeights; k++)
-      {
-        file >> dmp.weights[k];
-      }
-      resp.dmp_list.push_back(dmp);
+      rstate.copyJointGroupPositions(group_name_, state);
+      return true;
     }
-    ROS_INFO("%s DMP Loaded", dmp_name.c_str());
+    n++;
   }
-  else
-  {
-    ROS_INFO("DMP NOT FOUND!");
-    // exit(0);
-  }
-  return resp;
-}
-
-dmp::GetDMPPlanResponse ompl_interface::TransitionRegionSampler::makePlanRequest(
-    std::vector<double> x_0, std::vector<double> x_dot_0, double t_0, std::vector<double> goal,
-    std::vector<double> goalThresh, int segLength, double tau, double dt, int integrateIter, ros::NodeHandle& n)
-{
-  std::cout << "Making a planning request" << std::endl;
-  ros::ServiceClient client = n.serviceClient<dmp::GetDMPPlan>("get_dmp_plan");
-  dmp::GetDMPPlan srv;
-
-  dmp::GetDMPPlanResponse resp;
-  srv.request.x_0 = x_0;
-  srv.request.x_dot_0 = x_dot_0;
-  srv.request.t_0 = t_0;
-  srv.request.goal = goal;
-  srv.request.goal_thresh = goalThresh;
-  srv.request.seg_length = segLength;
-  srv.request.tau = tau;
-  srv.request.dt = dt;
-  srv.request.integrate_iter = integrateIter;
-  if (client.call(srv))
-  {
-    resp = srv.response;
-  }
-  else
-  {
-    ROS_INFO("Failed to call service get_dmp_plan");
-  };
-  return resp;
-}
-
-void ompl_interface::TransitionRegionSampler::makeSetActiveRequest(std::vector<dmp::DMPData> dmpList,
-                                                                   ros::NodeHandle& n)
-{
-  ros::ServiceClient client = n.serviceClient<dmp::SetActiveDMP>("set_active_dmp");
-  dmp::SetActiveDMP srv;
-  srv.request.dmp_list = dmpList;
-  if (client.call(srv))
-  {
-    bool succ = srv.response.success;
-    ROS_INFO("DMP Set as active!");
-  }
-  else
-  {
-    ROS_INFO("Failed to call service set_active_dmp");
-  }
-}
-
-dmp::GetDMPPlanResponse ompl_interface::TransitionRegionSampler::simulateDMP(std::vector<double>& startPose,
-                                                                             std::vector<double>& goalPose,
-                                                                             dmp::LearnDMPFromDemoResponse& dmp,
-                                                                             ros::NodeHandle& n)
-{
-  // Get plan reponse.
-  double t_0 = 0;
-  int seglength = -1;
-  double tau = dmp.tau;
-  int integrate_iter = 5;
-  double dt = 1.0;
-  std::vector<double> goal_thresh(8, 0.04);
-  std::vector<double> x_dot_0{ 0, 0, 0, 0, 0, 0, 0, 0 };
-
-  dmp::GetDMPPlanResponse planResp =
-      makePlanRequest(startPose, x_dot_0, t_0, goalPose, goal_thresh, seglength, tau, dt, integrate_iter, n);
-  std::cout << "DMP Goal Reached: " << unsigned(planResp.at_goal) << std::endl;
-
-  return planResp;
+  return false;
 }
 
 bool ompl_interface::TransitionRegionSampler::sampleGoalsOnline(const ompl::base::WeightedGoalRegionSampler* gls,
@@ -255,93 +117,64 @@ bool ompl_interface::TransitionRegionSampler::sampleGoalsOnline(const ompl::base
       return false;
 
     // Setup the DMP Source Sampler
-    dmp_source_constraints_ = dmp_information_.dmp_sink_constraints;
-    dmp_source_constraints_.position_constraints[0].constraint_region.primitives[0].dimensions[0] = sphere_size_;
-    dmp_source_constraints_.orientation_constraints[0].absolute_x_axis_tolerance = 360;
-    dmp_source_constraints_.orientation_constraints[0].absolute_y_axis_tolerance = 360;
-    dmp_source_constraints_.orientation_constraints[0].absolute_z_axis_tolerance = 360;
+    dmp_source_constraints_ = dmp_information_.dmp_source_constraints;
     dmp_source_constraints_.position_constraints[0].weight = 1.0;
     dmp_source_constraint_set_->clear();
     dmp_source_constraint_set_->add(dmp_source_constraints_, planning_scene_->getTransforms());
     dmp_source_sampler_ = constraint_sampler_manager_->selectSampler(planning_scene_, group_name_,
                                                                      dmp_source_constraint_set_->getAllConstraints());
 
+    ROS_INFO("Set Source Sampler");
     // Setup the DMP Sink Sampler
     dmp_sink_constraints_ = dmp_information_.dmp_sink_constraints;
-    dmp_sink_constraint_set_->clear();
     dmp_sink_constraints_.position_constraints[0].weight = 1.0;
-
+    dmp_sink_constraint_set_->clear();
     dmp_sink_constraint_set_->add(dmp_sink_constraints_, planning_scene_->getTransforms());
     dmp_sink_sampler_ = constraint_sampler_manager_->selectSampler(planning_scene_, group_name_,
                                                                    dmp_sink_constraint_set_->getAllConstraints());
 
+    ROS_INFO("Set Sink Sampler");
     if (!dmp_source_sampler_ || !dmp_sink_sampler_)
-      return false;
-
-    // Sample Sink
-    robot_state::RobotState sampled_dmp_sink(*kinematic_state_);
-    int max_dmp_sink_sample_attempts = 5;
-    int k = 0;
-    bool dmp_sink_sampled = false;
-    while (k < max_dmp_sink_sample_attempts)
     {
-      k++;
-      bool s = dmp_sink_sampler_->sample(sampled_dmp_sink);
-      if (planning_scene_->isStateValid(sampled_dmp_sink, group_name_) && s)
-      {
-        ROS_INFO("Good DMP Sink Sampled");
-        dmp_sink_sampled = true;
-        break;
-      }
+      ROS_ERROR("Error setting up the source and sink samplers.");
+      return false;
     }
-    if (!dmp_sink_sampled)
+
+    ROS_INFO("Now Sampling");
+    // Sample Sink
+    std::vector<double> sink_state;
+    if (!sampleState(sink_state, 5, dmp_sink_sampler_))
       continue;
-    std::vector<double> sampled_dmp_sink_vector;
-    sampled_dmp_sink.copyJointGroupPositions(group_name_, sampled_dmp_sink_vector);
 
     // Sample Source
-    robot_state::RobotState sampled_dmp_source(*kinematic_state_);
-    int max_dmp_source_sample_attempts = 3;
-    int h = 0;
-    bool dmp_source_sampled = false;
-    while (h < max_dmp_source_sample_attempts)
-    {
-      h++;
-      bool s = dmp_source_sampler_->sample(sampled_dmp_source);
-      if (planning_scene_->isStateValid(sampled_dmp_source, group_name_) && s)
-      {
-        ROS_INFO("Good DMP Source Sampled");
-        dmp_source_sampled = true;
-        break;
-      }
-    }
-    if (!dmp_source_sampled)
+    std::vector<double> source_state;
+    if (!sampleState(source_state, 3, dmp_source_sampler_))
       continue;
-    std::vector<double> sampled_dmp_source_vector;
-    sampled_dmp_source.copyJointGroupPositions(group_name_, sampled_dmp_source_vector);
 
     // Simulate DMP
-    dmp::GetDMPPlanResponse planResp =
-        simulateDMP(sampled_dmp_source_vector, sampled_dmp_sink_vector, learnt_dmp_, nh_);
-    dmp::DMPTraj dmp_traj = planResp.plan;
-    robot_state::RobotState dmpState(*kinematic_state_);
+    dmp::GetDMPPlanResponse planResp = dmp_utils::simulateDMP(source_state, sink_state, learnt_dmp_, nh_);
+
+    // Convert to IK
+    std::vector<moveit::core::RobotStatePtr> traj;
+    double val = dmp_utils::toCartesianPath(traj, planResp, kinematic_state_, group_name_, "wrist_roll_link");
     ompl::geometric::PathGeometric ompl_path(si_);
-    for (size_t i = 0; i < dmp_traj.points.size(); i++)
+    
+    // Convert to ompl path
+    for (int i=0; i < traj.size(); i++)
     {
-      std::vector<double> joint_pos = dmp_traj.points[i].positions;
-      dmpState.setJointGroupPositions(group_name_, joint_pos);
       ompl::base::State* currState = si_->allocState();
-      planning_context_->copyToOMPLState(currState, dmpState);
+      planning_context_->copyToOMPLState(currState, *traj[i]);
       ompl_path.append(currState);
     }
-
     ompl_path.interpolate();
+
+    // Score the path
     double score = 1.0;
-    if (ompl_path.check())
+    if (ompl_path.check() && val > 0.80)
     {
       ROS_INFO("Sampled Valid Goal");
 
-      double cost = dmp_cost_->getCost(planResp); 
+      double cost = dmp_cost_->getCost(planResp);
       score = 1 - cost;
       double smoothness = ompl_path.smoothness();
       double length = ompl_path.getStateCount();
@@ -350,22 +183,21 @@ bool ompl_interface::TransitionRegionSampler::sampleGoalsOnline(const ompl::base
       ROS_INFO("Length: %f", length);
     }
     else
-    {
       continue;  // This DMP doesn't work. Sample more.
-    }
 
+    // Insert in heap
     ROS_INFO("This DMP has a score of: %f", score);
     ompl::base::State* new_goal = si_->allocState();
-    planning_context_->copyToOMPLState(new_goal, sampled_dmp_source);
+    for (int i=0; i<source_state.size(); i++)
+      new_goal->as<ompl::base::RealVectorStateSpace::StateType>()->values[i] = 0.0;
     sampled_states.push_back(new_goal);
     WeightedGoal* weighted_state = new WeightedGoal;
     weighted_state->state_ = new_goal;
     weighted_state->weight_ = score;
-
     auto new_dmp_path = std::make_shared<ompl::geometric::PathGeometric>(ompl_path);
     weighted_state->dmp_path_ = new_dmp_path;
-
     weighted_state->heap_element_ = goals_priority_queue_.insert(weighted_state);
+
     success = true;
     continue;  // return true;
   }

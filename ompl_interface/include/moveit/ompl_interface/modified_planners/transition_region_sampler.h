@@ -79,20 +79,7 @@ private:
   bool checkStateValidity(ompl::base::State* new_goal, const robot_state::RobotState& state,
                           bool verbose = false) const;
 
-  double** deserialize(std::string filename, int& rows, int& cols);
-
-  dmp::GetDMPPlanResponse getTemplatePlan(std::string dmp_name, ros::NodeHandle& n);
-
-  dmp::LearnDMPFromDemoResponse loadDMP(std::string dmp_name);
-
-  dmp::GetDMPPlanResponse makePlanRequest(std::vector<double> x_0, std::vector<double> x_dot_0, double t_0,
-                                          std::vector<double> goal, std::vector<double> goalThresh, int segLength,
-                                          double tau, double dt, int integrateIter, ros::NodeHandle& n);
-
-  void makeSetActiveRequest(std::vector<dmp::DMPData> dmpList, ros::NodeHandle& n);
-
-  dmp::GetDMPPlanResponse simulateDMP(std::vector<double>& startPose, std::vector<double>& goalPose,
-                                      dmp::LearnDMPFromDemoResponse& dmp, ros::NodeHandle& n);
+  bool sampleState(std::vector<double>& state, int max_sample_attempts, constraint_samplers::ConstraintSamplerPtr sampler);
 
   const OMPLPlanningContext* planning_context_;
   kinematic_constraints::KinematicConstraintSetPtr kinematic_constraint_set_;
@@ -104,7 +91,6 @@ private:
   unsigned int verbose_display_;
 
   // DMP Stuff
-  ompl::base::StateSamplerPtr transition_sampler_;
   ompl::base::StateSpacePtr se3_space_;
   std::vector<double> center_pose_;
   std::string object_;
@@ -124,7 +110,6 @@ private:
 
   moveit_msgs::DMPSimulationInformation dmp_information_;
   ompl::base::State* center_state_;
-  double sphere_size_;
   ros::NodeHandle nh_;
 
   planning_scene::PlanningSceneConstPtr planning_scene_;
@@ -133,11 +118,7 @@ private:
   constraint_samplers::ConstraintSamplerManagerPtr constraint_sampler_manager_;
   const std::string& group_name_;
 
-  std::vector<double> weights_M;
-  std::vector<ompl::base::State*> states_M;
-
   ompl::RNG rng_;
-  ;
 
   // Kinematics
   robot_model_loader::RobotModelLoader robot_model_loader_;
