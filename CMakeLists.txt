@@ -21,6 +21,7 @@ find_package(catkin REQUIRED COMPONENTS
   eigen_conversions
   dmp
   robowflex_library
+  utils_library
   )
 
 generate_dynamic_reconfigure_options("ompl_interface/cfg/OMPLDynamicReconfigure.cfg")

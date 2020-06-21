@@ -14,6 +14,8 @@
 #include <boost/property_map/vector_property_map.hpp>
 #include <boost/foreach.hpp>
 
+#include <utils_library/dmp_utils.h>
+
 ompl_interface::TransitionRegionSampler::TransitionRegionSampler(
     const OMPLPlanningContext* pc, const std::string& group_name, const robot_model::RobotModelConstPtr& rm,
     const planning_scene::PlanningSceneConstPtr& ps, const std::vector<moveit_msgs::Constraints>& constrs,
