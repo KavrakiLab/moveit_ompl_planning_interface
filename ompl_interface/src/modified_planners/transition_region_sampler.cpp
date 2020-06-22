@@ -87,17 +87,28 @@ bool ompl_interface::TransitionRegionSampler::stateValidityCallback(ompl::base::
   return checkStateValidity(new_goal, solution_state, verbose);
 }
 
-bool ompl_interface::TransitionRegionSampler::sampleState(std::vector<double>& state, int max_sample_attempts,
+bool ompl_interface::TransitionRegionSampler::sampleState(robot_state::RobotStatePtr rstate,
+                                                          std::vector<double>& ee_state, int max_sample_attempts,
                                                           constraint_samplers::ConstraintSamplerPtr sampler)
 {
-  robot_state::RobotState rstate(*kinematic_state_);
+  // robot_state::RobotStatePtr rstate = std::make_shared<robot_state::RobotState>(*kinematic_state_);
+  rstate->update();
   int n = 0;
   while (n < max_sample_attempts)
   {
-    bool succ = sampler->sample(rstate);
-    if (succ && planning_scene_->isStateValid(rstate, group_name_))
+    bool succ = sampler->sample(*rstate);
+    if (succ && planning_scene_->isStateValid(*rstate, group_name_))
     {
-      rstate.copyJointGroupPositions(group_name_, state);
+      // rstate->copyJointGroupPositions(group_name_, state);
+      auto ee_pose = rstate->getGlobalLinkTransform("wrist_roll_link");
+      Eigen::Quaterniond qq(ee_pose.rotation());
+      ee_state.push_back(ee_pose.translation().x());
+      ee_state.push_back(ee_pose.translation().y());
+      ee_state.push_back(ee_pose.translation().z());
+      ee_state.push_back(qq.x());
+      ee_state.push_back(qq.y());
+      ee_state.push_back(qq.z());
+      ee_state.push_back(qq.w());
       return true;
     }
     n++;
@@ -142,30 +153,42 @@ bool ompl_interface::TransitionRegionSampler::sampleGoalsOnline(const ompl::base
 
     ROS_INFO("Now Sampling");
     // Sample Sink
-    std::vector<double> sink_state;
-    if (!sampleState(sink_state, 5, dmp_sink_sampler_))
+    robot_state::RobotStatePtr sink_state_r = std::make_shared<robot_state::RobotState>(*kinematic_state_);
+    std::vector<double> sink_state_ee;
+    if (!sampleState(sink_state_r, sink_state_ee, 5, dmp_sink_sampler_))
       continue;
 
-    // Sample Source
-    std::vector<double> source_state;
-    if (!sampleState(source_state, 3, dmp_source_sampler_))
+    // Sample Source this needs to be pose not joint positions
+    robot_state::RobotStatePtr source_state_r = std::make_shared<robot_state::RobotState>(*kinematic_state_);
+    std::vector<double> source_state_ee;
+    if (!sampleState(source_state_r, source_state_ee, 3, dmp_source_sampler_))
       continue;
 
     // Simulate DMP
-    dmp::GetDMPPlanResponse planResp = dmp_utils::simulateDMP(source_state, sink_state, learnt_dmp_, nh_);
+    dmp::GetDMPPlanResponse planResp = dmp_utils::simulateDMP(source_state_ee, sink_state_ee, learnt_dmp_, nh_);
 
     // Convert to IK
     std::vector<moveit::core::RobotStatePtr> traj;
     double val = dmp_utils::toCartesianPath(traj, planResp, kinematic_state_, group_name_, "wrist_roll_link");
     ompl::geometric::PathGeometric ompl_path(si_);
-    
+
+    ROS_INFO("Converted DMP Path to IK: val %f", val);
+
+    if (traj.size() == 0)
+    {
+      ROS_INFO("No valid cartesian path exists.");
+      continue;
+    }
     // Convert to ompl path
-    for (int i=0; i < traj.size(); i++)
+    for (int i = 0; i < traj.size(); i++)
     {
       ompl::base::State* currState = si_->allocState();
       planning_context_->copyToOMPLState(currState, *traj[i]);
       ompl_path.append(currState);
     }
+
+    ROS_INFO("Coverted to OMPL Path");
+
     ompl_path.interpolate();
 
     // Score the path
@@ -188,8 +211,12 @@ bool ompl_interface::TransitionRegionSampler::sampleGoalsOnline(const ompl::base
     // Insert in heap
     ROS_INFO("This DMP has a score of: %f", score);
     ompl::base::State* new_goal = si_->allocState();
-    for (int i=0; i<source_state.size(); i++)
-      new_goal->as<ompl::base::RealVectorStateSpace::StateType>()->values[i] = 0.0;
+
+    //for (int i = 0; i < source_state.size(); i++)
+      //new_goal->as<ompl::base::RealVectorStateSpace::StateType>()->values[i] = 0.0;
+
+    planning_context_->copyToOMPLState(new_goal, *source_state_r);
+
     sampled_states.push_back(new_goal);
     WeightedGoal* weighted_state = new WeightedGoal;
     weighted_state->state_ = new_goal;

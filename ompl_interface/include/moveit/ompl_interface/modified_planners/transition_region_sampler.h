@@ -79,7 +79,8 @@ private:
   bool checkStateValidity(ompl::base::State* new_goal, const robot_state::RobotState& state,
                           bool verbose = false) const;
 
-  bool sampleState(std::vector<double>& state, int max_sample_attempts, constraint_samplers::ConstraintSamplerPtr sampler);
+  bool sampleState(robot_state::RobotStatePtr rstate, std::vector<double>& ee_state, int max_sample_attempts,
+                   constraint_samplers::ConstraintSamplerPtr sampler);
 
   const OMPLPlanningContext* planning_context_;
   kinematic_constraints::KinematicConstraintSetPtr kinematic_constraint_set_;
