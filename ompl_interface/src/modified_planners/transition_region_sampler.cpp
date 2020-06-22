@@ -93,6 +93,7 @@ bool ompl_interface::TransitionRegionSampler::sampleState(robot_state::RobotStat
 {
   // robot_state::RobotStatePtr rstate = std::make_shared<robot_state::RobotState>(*kinematic_state_);
   rstate->update();
+  ee_state.clear();
   int n = 0;
   while (n < max_sample_attempts)
   {
@@ -126,7 +127,7 @@ bool ompl_interface::TransitionRegionSampler::sampleGoalsOnline(const ompl::base
 
   //while (num_sampled < batch_sample_size)
 
-  for (unsigned int i = 0; i < 5; i++)
+  for (unsigned int i = 0; i < 1; i++)
   {
     if (planning_context_->getOMPLProblemDefinition()->hasSolution())
       return false;
@@ -162,7 +163,7 @@ bool ompl_interface::TransitionRegionSampler::sampleGoalsOnline(const ompl::base
     if (!sampleState(sink_state_r, sink_state_ee, 5, dmp_sink_sampler_))
       continue;
 
-    // Sample Source this needs to be pose not joint positions
+    // Sample Source: this needs to be pose not joint positions
     robot_state::RobotStatePtr source_state_r = std::make_shared<robot_state::RobotState>(*kinematic_state_);
     std::vector<double> source_state_ee;
     if (!sampleState(source_state_r, source_state_ee, 3, dmp_source_sampler_))
@@ -173,7 +174,9 @@ bool ompl_interface::TransitionRegionSampler::sampleGoalsOnline(const ompl::base
 
     // Convert to IK
     std::vector<moveit::core::RobotStatePtr> traj;
-    double val = dmp_utils::toCartesianPath(traj, planResp, kinematic_state_, group_name_, "wrist_roll_link");
+
+    robot_state::RobotStatePtr car_state = std::make_shared<robot_state::RobotState>(*source_state_r);
+    double val = dmp_utils::toCartesianPath(traj, planResp, car_state, group_name_, "wrist_roll_link");
     ompl::geometric::PathGeometric ompl_path(si_);
 
     ROS_INFO("Converted DMP Path to IK: val %f", val);
@@ -193,7 +196,7 @@ bool ompl_interface::TransitionRegionSampler::sampleGoalsOnline(const ompl::base
 
     ROS_INFO("Coverted to OMPL Path");
 
-    ompl_path.interpolate();
+    //ompl_path.interpolate();
 
     // Score the path
     double score = 1.0;

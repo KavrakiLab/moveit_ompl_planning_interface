@@ -539,14 +539,14 @@ bool GeometricPlanningContext::solve(planning_interface::MotionPlanResponse& res
       res.trajectory_->addSuffixWayPoint(ks, 0.0);
     }
 
-    //auto dmp_path = simple_setup_->getPlanner()->as<ompl::geometric::RRTGoalRegion>()->getDMPPath();
-    //std::cout << "DMP Path Gotten. Length: " << dmp_path->getStateCount() << std::endl;
-    //robot_state::RobotState ds = *complete_initial_robot_state_;
-    //for (std::size_t i = 0; i < dmp_path->getStateCount(); ++i)
-    //{
-      //copyToRobotState(ds, dmp_path->getState(i));
-      //res.trajectory_->addSuffixWayPoint(ds, 0.0);
-    //}
+    auto dmp_path = simple_setup_->getPlanner()->as<ompl::geometric::RRTGoalRegion>()->getDMPPath();
+    std::cout << "DMP Path Gotten. Length: " << dmp_path->getStateCount() << std::endl;
+    robot_state::RobotState ds = *complete_initial_robot_state_;
+    for (std::size_t i = 0; i < dmp_path->getStateCount(); ++i)
+    {
+      copyToRobotState(ds, dmp_path->getState(i));
+      res.trajectory_->addSuffixWayPoint(ds, 0.0);
+    }
 
     res.planning_time_ = plan_time;
     res.error_code_.val = moveit_msgs::MoveItErrorCodes::SUCCESS;
