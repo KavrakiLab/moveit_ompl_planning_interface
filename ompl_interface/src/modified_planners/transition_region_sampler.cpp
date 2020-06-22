@@ -121,6 +121,10 @@ bool ompl_interface::TransitionRegionSampler::sampleGoalsOnline(const ompl::base
 {
   bool success = false;
   auto start = std::chrono::high_resolution_clock::now();
+  int num_sampled = 0;
+  int batch_sample_size = 5;
+
+  //while (num_sampled < batch_sample_size)
 
   for (unsigned int i = 0; i < 5; i++)
   {
@@ -197,13 +201,15 @@ bool ompl_interface::TransitionRegionSampler::sampleGoalsOnline(const ompl::base
     {
       ROS_INFO("Sampled Valid Goal");
 
-      double cost = dmp_cost_->getCost(planResp);
-      score = 1 - cost;
-      double smoothness = ompl_path.smoothness();
-      double length = ompl_path.getStateCount();
-      ROS_INFO("Euclidean Cost: %f", cost);
-      ROS_INFO("Smoothness: %f", smoothness);
-      ROS_INFO("Length: %f", length);
+      //double cost = dmp_cost_->getCost(planResp);
+      //score = 1 - cost;
+      //double smoothness = ompl_path.smoothness();
+      //double length = ompl_path.getStateCount();
+      //ROS_INFO("Euclidean Cost: %f", cost);
+      //ROS_INFO("Smoothness: %f", smoothness);
+      //ROS_INFO("Length: %f", length);
+
+      num_sampled++;
     }
     else
       continue;  // This DMP doesn't work. Sample more.
@@ -211,9 +217,6 @@ bool ompl_interface::TransitionRegionSampler::sampleGoalsOnline(const ompl::base
     // Insert in heap
     ROS_INFO("This DMP has a score of: %f", score);
     ompl::base::State* new_goal = si_->allocState();
-
-    //for (int i = 0; i < source_state.size(); i++)
-      //new_goal->as<ompl::base::RealVectorStateSpace::StateType>()->values[i] = 0.0;
 
     planning_context_->copyToOMPLState(new_goal, *source_state_r);
 
