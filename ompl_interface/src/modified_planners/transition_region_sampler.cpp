@@ -91,7 +91,6 @@ bool ompl_interface::TransitionRegionSampler::sampleState(robot_state::RobotStat
                                                           std::vector<double>& ee_state, int max_sample_attempts,
                                                           constraint_samplers::ConstraintSamplerPtr sampler)
 {
-  // robot_state::RobotStatePtr rstate = std::make_shared<robot_state::RobotState>(*kinematic_state_);
   rstate->update();
   ee_state.clear();
   int n = 0;
@@ -100,8 +99,7 @@ bool ompl_interface::TransitionRegionSampler::sampleState(robot_state::RobotStat
     bool succ = sampler->sample(*rstate);
     if (succ && planning_scene_->isStateValid(*rstate, group_name_))
     {
-      // rstate->copyJointGroupPositions(group_name_, state);
-      auto ee_pose = rstate->getGlobalLinkTransform("wrist_roll_link");
+      auto ee_pose = rstate->getGlobalLinkTransform("gripper_link");
       Eigen::Quaterniond qq(ee_pose.rotation());
       ee_state.push_back(ee_pose.translation().x());
       ee_state.push_back(ee_pose.translation().y());
@@ -115,6 +113,22 @@ bool ompl_interface::TransitionRegionSampler::sampleState(robot_state::RobotStat
     n++;
   }
   return false;
+}
+
+bool ompl_interface::TransitionRegionSampler::sampleSink(moveit_msgs::Constraints sink_constraints)
+{
+  // Sample SE3 Pose
+  int pos_cons_size = sink_constraints.position_constraints.size();
+  int rot_cons_size = sink_constraints.orientation_constraints.size();
+  int jnt_cons_size = sink_constraints.joint_constraints.size();
+  ROS_INFO("Number of position constraints: %d", pos_cons_size);
+  ROS_INFO("Number of orientation constraints: %d", rot_cons_size);
+  ROS_INFO("Number of joint constraints: %d", jnt_cons_size);
+  int num_primitives = sink_constraints.position_constraints[0].constraint_region.primitives[0].type;
+  ROS_INFO("Type of primitives: %d", num_primitives);
+
+  //constraints.orientation_constraints;
+  return true;
 }
 
 bool ompl_interface::TransitionRegionSampler::sampleGoalsOnline(const ompl::base::WeightedGoalRegionSampler* gls,
@@ -162,8 +176,9 @@ bool ompl_interface::TransitionRegionSampler::sampleGoalsOnline(const ompl::base
     std::vector<double> sink_state_ee;
     if (!sampleState(sink_state_r, sink_state_ee, 5, dmp_sink_sampler_))
       continue;
+    sampleSink(dmp_sink_constraints_);
 
-    // Sample Source: this needs to be pose not joint positions
+    // Sample Source
     robot_state::RobotStatePtr source_state_r = std::make_shared<robot_state::RobotState>(*kinematic_state_);
     std::vector<double> source_state_ee;
     if (!sampleState(source_state_r, source_state_ee, 3, dmp_source_sampler_))
@@ -176,7 +191,7 @@ bool ompl_interface::TransitionRegionSampler::sampleGoalsOnline(const ompl::base
     std::vector<moveit::core::RobotStatePtr> traj;
 
     robot_state::RobotStatePtr car_state = std::make_shared<robot_state::RobotState>(*source_state_r);
-    double val = dmp_utils::toCartesianPath(traj, planResp, car_state, group_name_, "wrist_roll_link");
+    double val = dmp_utils::toCartesianPath(traj, planResp, car_state, group_name_, "gripper_link");
     ompl::geometric::PathGeometric ompl_path(si_);
 
     ROS_INFO("Converted DMP Path to IK: val %f", val);
@@ -203,7 +218,6 @@ bool ompl_interface::TransitionRegionSampler::sampleGoalsOnline(const ompl::base
     if (ompl_path.check() && val > 0.80)
     {
       ROS_INFO("Sampled Valid Goal");
-
       //double cost = dmp_cost_->getCost(planResp);
       //score = 1 - cost;
       //double smoothness = ompl_path.smoothness();
@@ -220,9 +234,7 @@ bool ompl_interface::TransitionRegionSampler::sampleGoalsOnline(const ompl::base
     // Insert in heap
     ROS_INFO("This DMP has a score of: %f", score);
     ompl::base::State* new_goal = si_->allocState();
-
     planning_context_->copyToOMPLState(new_goal, *source_state_r);
-
     sampled_states.push_back(new_goal);
     WeightedGoal* weighted_state = new WeightedGoal;
     weighted_state->state_ = new_goal;

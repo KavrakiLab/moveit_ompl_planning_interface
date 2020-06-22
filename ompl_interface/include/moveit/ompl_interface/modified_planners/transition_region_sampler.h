@@ -82,6 +82,8 @@ private:
   bool sampleState(robot_state::RobotStatePtr rstate, std::vector<double>& ee_state, int max_sample_attempts,
                    constraint_samplers::ConstraintSamplerPtr sampler);
 
+  bool sampleSink(moveit_msgs::Constraints sink_constraints);
+
   const OMPLPlanningContext* planning_context_;
   kinematic_constraints::KinematicConstraintSetPtr kinematic_constraint_set_;
   constraint_samplers::ConstraintSamplerPtr constraint_sampler_;
@@ -93,14 +95,12 @@ private:
 
   // DMP Stuff
   ompl::base::StateSpacePtr se3_space_;
-  std::vector<double> center_pose_;
   std::string object_;
   std::string action_;
   dmp::LearnDMPFromDemoResponse learnt_dmp_;
   dmp::GetDMPPlanResponse template_plan_;
   std::shared_ptr<ompl_interface::DMPCost> dmp_cost_;
 
-  std::vector<double> dmp_end_;  // Maybe put this as a vector of vectors. I.E. Multiple Possible IK Solutions.
   moveit_msgs::Constraints dmp_sink_constraints_;
   constraint_samplers::ConstraintSamplerPtr dmp_sink_sampler_;
   kinematic_constraints::KinematicConstraintSetPtr dmp_sink_constraint_set_;
