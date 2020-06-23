@@ -14,6 +14,7 @@
 #include <boost/property_map/vector_property_map.hpp>
 #include <boost/foreach.hpp>
 
+#include <Eigen/Geometry>
 #include <utils_library/dmp_utils.h>
 
 ompl_interface::TransitionRegionSampler::TransitionRegionSampler(
@@ -49,6 +50,7 @@ ompl_interface::TransitionRegionSampler::TransitionRegionSampler(
 
   dmp_sink_constraint_set_.reset(new kinematic_constraints::KinematicConstraintSet(rm));
   dmp_source_constraint_set_.reset(new kinematic_constraints::KinematicConstraintSet(rm));
+  rng_ = ompl::RNG();
   startSampling();
 }
 
@@ -118,16 +120,31 @@ bool ompl_interface::TransitionRegionSampler::sampleState(robot_state::RobotStat
 bool ompl_interface::TransitionRegionSampler::sampleSink(moveit_msgs::Constraints sink_constraints)
 {
   // Sample SE3 Pose
-  int pos_cons_size = sink_constraints.position_constraints.size();
-  int rot_cons_size = sink_constraints.orientation_constraints.size();
-  int jnt_cons_size = sink_constraints.joint_constraints.size();
-  ROS_INFO("Number of position constraints: %d", pos_cons_size);
-  ROS_INFO("Number of orientation constraints: %d", rot_cons_size);
-  ROS_INFO("Number of joint constraints: %d", jnt_cons_size);
-  int num_primitives = sink_constraints.position_constraints[0].constraint_region.primitives[0].type;
-  ROS_INFO("Type of primitives: %d", num_primitives);
+  std::vector<double> state;
+  state.push_back(sink_constraints.position_constraints[0].constraint_region.primitive_poses[0].position.x);
+  state.push_back(sink_constraints.position_constraints[0].constraint_region.primitive_poses[0].position.y);
+  state.push_back(sink_constraints.position_constraints[0].constraint_region.primitive_poses[0].position.z);
 
-  //constraints.orientation_constraints;
+  double zrot = rng_.uniformReal(-1, 1);
+
+  Eigen::Matrix3f m1;
+  m1 = Eigen::AngleAxisf(M_PI, Eigen::Vector3f::UnitX()) * Eigen::AngleAxisf(0*M_PI, Eigen::Vector3f::UnitY()) *
+       Eigen::AngleAxisf(0*M_PI, Eigen::Vector3f::UnitZ());
+  Eigen::Matrix3f m2;
+  m2 = Eigen::AngleAxisf(0*M_PI, Eigen::Vector3f::UnitX()) * Eigen::AngleAxisf(0*M_PI, Eigen::Vector3f::UnitY()) *
+       Eigen::AngleAxisf(zrot*M_PI, Eigen::Vector3f::UnitZ());
+
+  auto rotation = m1 * m2;
+  Eigen::Quaternionf rotq(rotation);
+
+  state.push_back(sink_constraints.position_constraints[0].constraint_region.primitive_poses[0].position.z);
+  state.push_back(sink_constraints.position_constraints[0].constraint_region.primitive_poses[0].position.z);
+  state.push_back(sink_constraints.position_constraints[0].constraint_region.primitive_poses[0].position.z);
+  state.push_back(rotq.x());
+  state.push_back(rotq.y());
+  state.push_back(rotq.z());
+  state.push_back(rotq.w());
+  // constraints.orientation_constraints;
   return true;
 }
 
@@ -139,7 +156,7 @@ bool ompl_interface::TransitionRegionSampler::sampleGoalsOnline(const ompl::base
   int num_sampled = 0;
   int batch_sample_size = 5;
 
-  //while (num_sampled < batch_sample_size)
+  // while (num_sampled < batch_sample_size)
 
   for (unsigned int i = 0; i < 1; i++)
   {
@@ -211,20 +228,18 @@ bool ompl_interface::TransitionRegionSampler::sampleGoalsOnline(const ompl::base
 
     ROS_INFO("Coverted to OMPL Path");
 
-    //ompl_path.interpolate();
-
     // Score the path
     double score = 1.0;
     if (ompl_path.check() && val > 0.80)
     {
       ROS_INFO("Sampled Valid Goal");
-      //double cost = dmp_cost_->getCost(planResp);
-      //score = 1 - cost;
-      //double smoothness = ompl_path.smoothness();
-      //double length = ompl_path.getStateCount();
-      //ROS_INFO("Euclidean Cost: %f", cost);
-      //ROS_INFO("Smoothness: %f", smoothness);
-      //ROS_INFO("Length: %f", length);
+      // double cost = dmp_cost_->getCost(planResp);
+      // score = 1 - cost;
+      // double smoothness = ompl_path.smoothness();
+      // double length = ompl_path.getStateCount();
+      // ROS_INFO("Euclidean Cost: %f", cost);
+      // ROS_INFO("Smoothness: %f", smoothness);
+      // ROS_INFO("Length: %f", length);
 
       num_sampled++;
     }
