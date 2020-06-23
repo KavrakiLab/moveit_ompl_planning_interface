@@ -82,7 +82,7 @@ private:
   bool sampleState(robot_state::RobotStatePtr rstate, std::vector<double>& ee_state, int max_sample_attempts,
                    constraint_samplers::ConstraintSamplerPtr sampler);
 
-  bool sampleSink(moveit_msgs::Constraints sink_constraints);
+  std::vector<double> samplePourSink(moveit_msgs::Constraints sink_constraints);
 
   const OMPLPlanningContext* planning_context_;
   kinematic_constraints::KinematicConstraintSetPtr kinematic_constraint_set_;
@@ -94,23 +94,16 @@ private:
   unsigned int verbose_display_;
 
   // DMP Stuff
-  ompl::base::StateSpacePtr se3_space_;
-  std::string object_;
-  std::string action_;
   dmp::LearnDMPFromDemoResponse learnt_dmp_;
   dmp::GetDMPPlanResponse template_plan_;
   std::shared_ptr<ompl_interface::DMPCost> dmp_cost_;
 
   moveit_msgs::Constraints dmp_sink_constraints_;
-  constraint_samplers::ConstraintSamplerPtr dmp_sink_sampler_;
-  kinematic_constraints::KinematicConstraintSetPtr dmp_sink_constraint_set_;
-
   moveit_msgs::Constraints dmp_source_constraints_;
   constraint_samplers::ConstraintSamplerPtr dmp_source_sampler_;
   kinematic_constraints::KinematicConstraintSetPtr dmp_source_constraint_set_;
 
   moveit_msgs::DMPSimulationInformation dmp_information_;
-  ompl::base::State* center_state_;
   ros::NodeHandle nh_;
 
   planning_scene::PlanningSceneConstPtr planning_scene_;
@@ -127,7 +120,6 @@ private:
   robot_state::RobotStatePtr kinematic_state_;
   const robot_state::JointModelGroup* joint_model_group_;
 
-  collision_detection::AllowedCollisionMatrix acm_;
 };
 
 }  // namespace ompl_interface

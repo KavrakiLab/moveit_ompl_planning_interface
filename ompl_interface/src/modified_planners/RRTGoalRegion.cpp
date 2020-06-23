@@ -137,6 +137,11 @@ ompl::base::PlannerStatus ompl::geometric::RRTGoalRegion::solve(const base::Plan
   // maxDistance_ = 3.0;
   goalBias_ = 0.5;
 
+  // my addition
+  while (weighted_goal_region->getStateCount() < 5)
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+
+  //
   while (!ptc)
   {
     expansion_toward_goal = false;

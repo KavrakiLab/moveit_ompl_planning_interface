@@ -48,7 +48,6 @@ ompl_interface::TransitionRegionSampler::TransitionRegionSampler(
 
   joint_model_group_ = kinematic_model_->getJointModelGroup(planning_context_->getGroupName());
 
-  dmp_sink_constraint_set_.reset(new kinematic_constraints::KinematicConstraintSet(rm));
   dmp_source_constraint_set_.reset(new kinematic_constraints::KinematicConstraintSet(rm));
   rng_ = ompl::RNG();
   startSampling();
@@ -117,35 +116,39 @@ bool ompl_interface::TransitionRegionSampler::sampleState(robot_state::RobotStat
   return false;
 }
 
-bool ompl_interface::TransitionRegionSampler::sampleSink(moveit_msgs::Constraints sink_constraints)
+std::vector<double> ompl_interface::TransitionRegionSampler::samplePourSink(moveit_msgs::Constraints sink_constraints)
 {
   // Sample SE3 Pose
-  std::vector<double> state;
-  state.push_back(sink_constraints.position_constraints[0].constraint_region.primitive_poses[0].position.x);
-  state.push_back(sink_constraints.position_constraints[0].constraint_region.primitive_poses[0].position.y);
-  state.push_back(sink_constraints.position_constraints[0].constraint_region.primitive_poses[0].position.z);
-
   double zrot = rng_.uniformReal(-1, 1);
-
   Eigen::Matrix3f m1;
-  m1 = Eigen::AngleAxisf(M_PI, Eigen::Vector3f::UnitX()) * Eigen::AngleAxisf(0*M_PI, Eigen::Vector3f::UnitY()) *
-       Eigen::AngleAxisf(0*M_PI, Eigen::Vector3f::UnitZ());
+  if (dmp_information_.dmp_name == "pour")
+  {
+    m1 = Eigen::AngleAxisf(M_PI, Eigen::Vector3f::UnitX()) * Eigen::AngleAxisf(0*M_PI, Eigen::Vector3f::UnitY()) *
+         Eigen::AngleAxisf(0*M_PI, Eigen::Vector3f::UnitZ());
+  }
+  else if (dmp_information_.dmp_name == "pick" || dmp_information_.dmp_name == "place")
+  {
+    m1 = Eigen::AngleAxisf(0*M_PI, Eigen::Vector3f::UnitX()) * Eigen::AngleAxisf(0*M_PI, Eigen::Vector3f::UnitY()) *
+         Eigen::AngleAxisf(0*M_PI, Eigen::Vector3f::UnitZ());
+  }
+
   Eigen::Matrix3f m2;
   m2 = Eigen::AngleAxisf(0*M_PI, Eigen::Vector3f::UnitX()) * Eigen::AngleAxisf(0*M_PI, Eigen::Vector3f::UnitY()) *
        Eigen::AngleAxisf(zrot*M_PI, Eigen::Vector3f::UnitZ());
 
-  auto rotation = m1 * m2;
-  Eigen::Quaternionf rotq(rotation);
+  auto total_rotation = m1 * m2;
+  Eigen::Quaternionf rotq(total_rotation);
 
-  state.push_back(sink_constraints.position_constraints[0].constraint_region.primitive_poses[0].position.z);
-  state.push_back(sink_constraints.position_constraints[0].constraint_region.primitive_poses[0].position.z);
+  std::vector<double> state;
+  state.push_back(sink_constraints.position_constraints[0].constraint_region.primitive_poses[0].position.x);
+  state.push_back(sink_constraints.position_constraints[0].constraint_region.primitive_poses[0].position.y);
   state.push_back(sink_constraints.position_constraints[0].constraint_region.primitive_poses[0].position.z);
   state.push_back(rotq.x());
   state.push_back(rotq.y());
   state.push_back(rotq.z());
   state.push_back(rotq.w());
   // constraints.orientation_constraints;
-  return true;
+  return state;
 }
 
 bool ompl_interface::TransitionRegionSampler::sampleGoalsOnline(const ompl::base::WeightedGoalRegionSampler* gls,
@@ -170,30 +173,15 @@ bool ompl_interface::TransitionRegionSampler::sampleGoalsOnline(const ompl::base
     dmp_source_constraint_set_->add(dmp_source_constraints_, planning_scene_->getTransforms());
     dmp_source_sampler_ = constraint_sampler_manager_->selectSampler(planning_scene_, group_name_,
                                                                      dmp_source_constraint_set_->getAllConstraints());
-
-    ROS_INFO("Set Source Sampler");
-    // Setup the DMP Sink Sampler
-    dmp_sink_constraints_ = dmp_information_.dmp_sink_constraints;
-    dmp_sink_constraints_.position_constraints[0].weight = 1.0;
-    dmp_sink_constraint_set_->clear();
-    dmp_sink_constraint_set_->add(dmp_sink_constraints_, planning_scene_->getTransforms());
-    dmp_sink_sampler_ = constraint_sampler_manager_->selectSampler(planning_scene_, group_name_,
-                                                                   dmp_sink_constraint_set_->getAllConstraints());
-
-    ROS_INFO("Set Sink Sampler");
-    if (!dmp_source_sampler_ || !dmp_sink_sampler_)
+    if (!dmp_source_sampler_)
     {
       ROS_ERROR("Error setting up the source and sink samplers.");
       return false;
     }
 
-    ROS_INFO("Now Sampling");
     // Sample Sink
-    robot_state::RobotStatePtr sink_state_r = std::make_shared<robot_state::RobotState>(*kinematic_state_);
-    std::vector<double> sink_state_ee;
-    if (!sampleState(sink_state_r, sink_state_ee, 5, dmp_sink_sampler_))
-      continue;
-    sampleSink(dmp_sink_constraints_);
+    dmp_sink_constraints_ = dmp_information_.dmp_sink_constraints;
+    std::vector<double> sink_state_ee = samplePourSink(dmp_sink_constraints_);
 
     // Sample Source
     robot_state::RobotStatePtr source_state_r = std::make_shared<robot_state::RobotState>(*kinematic_state_);
@@ -230,17 +218,11 @@ bool ompl_interface::TransitionRegionSampler::sampleGoalsOnline(const ompl::base
 
     // Score the path
     double score = 1.0;
-    if (ompl_path.check() && val > 0.80)
+    if (ompl_path.check() && val > 0.75)
     {
       ROS_INFO("Sampled Valid Goal");
-      // double cost = dmp_cost_->getCost(planResp);
-      // score = 1 - cost;
-      // double smoothness = ompl_path.smoothness();
-      // double length = ompl_path.getStateCount();
-      // ROS_INFO("Euclidean Cost: %f", cost);
-      // ROS_INFO("Smoothness: %f", smoothness);
-      // ROS_INFO("Length: %f", length);
-
+      double cost = dmp_cost_->getCost(planResp);
+      score = 2 - cost;
       num_sampled++;
     }
     else
@@ -248,6 +230,8 @@ bool ompl_interface::TransitionRegionSampler::sampleGoalsOnline(const ompl::base
 
     // Insert in heap
     ROS_INFO("This DMP has a score of: %f", score);
+
+
     ompl::base::State* new_goal = si_->allocState();
     planning_context_->copyToOMPLState(new_goal, *source_state_r);
     sampled_states.push_back(new_goal);

@@ -61,3 +61,4 @@ double ompl_interface::DMPCost::clearance(dmp::GetDMPPlanResponse& path)
 {
   return 0;
 }
+
