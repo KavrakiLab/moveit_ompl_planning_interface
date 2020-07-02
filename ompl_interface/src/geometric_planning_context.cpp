@@ -188,9 +188,6 @@ void GeometricPlanningContext::initialize(const std::string& ros_namespace, cons
   interpolate_ = spec.interpolate_solution;
   simplify_ = spec.simplify_solution;
 
-  // interpolate_ = false;
-  // simplify_ = false;
-
   // Erase the type and plugin fields from the configuration items
   auto it = spec_.config.find("type");
   if (it != spec_.config.end())
@@ -459,7 +456,7 @@ void GeometricPlanningContext::postSolve()
 void GeometricPlanningContext::startGoalSampling()
 {
   bool gls = simple_setup_->getGoal()->hasType(ompl::base::GOAL_LAZY_SAMPLES);
-  if (gls)
+  if (gls && !dmp_information_.dmp_sink_constraints.position_constraints.empty())
   {
     if (planner_id_.find("RRTGoalRegion") != std::string::npos)
       dynamic_cast<ompl::base::WeightedGoalRegionSampler*>(simple_setup_->getGoal().get())->startSampling();
@@ -476,7 +473,7 @@ void GeometricPlanningContext::startGoalSampling()
 void GeometricPlanningContext::stopGoalSampling()
 {
   bool gls = simple_setup_->getGoal()->hasType(ompl::base::GOAL_LAZY_SAMPLES);
-  if (gls)
+  if (gls && !dmp_information_.dmp_sink_constraints.position_constraints.empty())
   {
     if (planner_id_.find("RRTGoalRegion") != std::string::npos)
       dynamic_cast<ompl::base::WeightedGoalRegionSampler*>(simple_setup_->getGoal().get())->stopSampling();
@@ -539,13 +536,17 @@ bool GeometricPlanningContext::solve(planning_interface::MotionPlanResponse& res
       res.trajectory_->addSuffixWayPoint(ks, 0.0);
     }
 
-    auto dmp_path = simple_setup_->getPlanner()->as<ompl::geometric::RRTGoalRegion>()->getDMPPath();
-    std::cout << "DMP Path Gotten. Length: " << dmp_path->getStateCount() << std::endl;
-    robot_state::RobotState ds = *complete_initial_robot_state_;
-    for (std::size_t i = 0; i < dmp_path->getStateCount(); ++i)
+    // If I'm using RRT Goal Region, then add the DMP Path to it.
+    if (planner_id_.find("RRTGoalRegion") != std::string::npos)
     {
-      copyToRobotState(ds, dmp_path->getState(i));
-      res.trajectory_->addSuffixWayPoint(ds, 0.0);
+      auto dmp_path = simple_setup_->getPlanner()->as<ompl::geometric::RRTGoalRegion>()->getDMPPath();
+      std::cout << "DMP Path Gotten. Length: " << dmp_path->getStateCount() << std::endl;
+      robot_state::RobotState ds = *complete_initial_robot_state_;
+      for (std::size_t i = 0; i < dmp_path->getStateCount(); ++i)
+      {
+        copyToRobotState(ds, dmp_path->getState(i));
+        res.trajectory_->addSuffixWayPoint(ds, 0.0);
+      }
     }
 
     res.planning_time_ = plan_time;
@@ -873,13 +874,13 @@ bool GeometricPlanningContext::setGoalConstraints(const std::vector<moveit_msgs:
 {
   ROS_INFO("Geometric Planning Context: Setting Goal Constraints");
 
-  if (dmp_information.dmp_sink_constraints.position_constraints.empty())
-  {
-    ROS_WARN("No goal constraints specified.  There is no problem to solve.");
-    if (error)
-      error->val = moveit_msgs::MoveItErrorCodes::INVALID_GOAL_CONSTRAINTS;
-    return false;
-  }
+  //if (dmp_information.dmp_sink_constraints.position_constraints.empty())
+  //{
+    //ROS_WARN("No goal constraints specified.  There is no problem to solve.");
+    //if (error)
+      //error->val = moveit_msgs::MoveItErrorCodes::INVALID_GOAL_CONSTRAINTS;
+    //return false;
+  //}
 
   dmp_information_ = dmp_information;
 
@@ -913,21 +914,44 @@ bool GeometricPlanningContext::setGoalConstraints(const std::vector<moveit_msgs:
   ROS_INFO("Geometric Planning Context: About to create goals");
   ompl::base::GoalPtr g;
 
-  if (planner_id_.find("RRTGoalRegion") != std::string::npos)
+  if (!dmp_information_.dmp_sink_constraints.position_constraints.empty())
   {
-    ROS_INFO("Creating Transition Region Sampler");
-    g = ompl::base::GoalPtr(new TransitionRegionSampler(this, getGroupName(), getRobotModel(), getPlanningScene(),
-                                                        merged_constraints_, dmp_information_,
-                                                        constraint_sampler_manager_, true, 100));  // SEG FAULTING
-    ROS_INFO("Created Transition Region Sampler");
+    if (planner_id_.find("RRTGoalRegion") != std::string::npos)
+    {
+      ROS_INFO("Creating Transition Region Sampler");
+      g = ompl::base::GoalPtr(new TransitionRegionSampler(this, getGroupName(), getRobotModel(), getPlanningScene(),
+                                                          merged_constraints_, dmp_information_,
+                                                          constraint_sampler_manager_, true, 100));  // SEG FAULTING
+      ROS_INFO("Created Transition Region Sampler");
+    }
+    else
+    {
+      g = ompl::base::GoalPtr(new TransitionRegionSampler(this, getGroupName(), getRobotModel(), getPlanningScene(),
+                                                          merged_constraints_, dmp_information_,
+                                                          constraint_sampler_manager_, false, 100));
+    }
+    goals.push_back(g);
   }
-  else
+  else 
   {
-    g = ompl::base::GoalPtr(new TransitionRegionSampler(this, getGroupName(), getRobotModel(), getPlanningScene(),
-                                                        merged_constraints_, dmp_information_,
-                                                        constraint_sampler_manager_, false, 100));
+    // Creating constraint sampler for each constraint
+    for (std::size_t i = 0; i < goal_constraints_.size(); ++i)
+    {
+      constraint_samplers::ConstraintSamplerPtr cs;
+      if (constraint_sampler_manager_)
+        cs = constraint_sampler_manager_->selectSampler(getPlanningScene(), getGroupName(),
+                                                        goal_constraints_[i]->getAllConstraints());
+      if (cs)
+      {
+        ompl::base::GoalPtr g = ompl::base::GoalPtr(new ConstrainedGoalSampler(this, goal_constraints_[i], cs));
+        goals.push_back(g);
+      }
+      else
+      {
+        ROS_WARN("No constraint sampler available to sample goal constraints");
+      }
+    }
   }
-  goals.push_back(g);
 
   // Creating goal object using constraint samplers
   if (!goals.empty())
