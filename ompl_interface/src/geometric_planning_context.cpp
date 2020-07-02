@@ -874,13 +874,21 @@ bool GeometricPlanningContext::setGoalConstraints(const std::vector<moveit_msgs:
 {
   ROS_INFO("Geometric Planning Context: Setting Goal Constraints");
 
-  //if (dmp_information.dmp_sink_constraints.position_constraints.empty())
-  //{
-    //ROS_WARN("No goal constraints specified.  There is no problem to solve.");
-    //if (error)
-      //error->val = moveit_msgs::MoveItErrorCodes::INVALID_GOAL_CONSTRAINTS;
-    //return false;
-  //}
+  if (planner_id_.find("RRTGoalRegion") != std::string::npos)
+  {
+    if (dmp_information.dmp_sink_constraints.position_constraints.empty())
+    {
+      ROS_WARN("No DMP Constraints specified.");
+      return false;
+    }
+  }
+  else if (goal_constraints.empty())
+  {
+    ROS_WARN("No goal constraints specified.  There is no problem to solve.");
+    if (error)
+      error->val = moveit_msgs::MoveItErrorCodes::INVALID_GOAL_CONSTRAINTS;
+    return false;
+  }
 
   dmp_information_ = dmp_information;
 
@@ -914,23 +922,14 @@ bool GeometricPlanningContext::setGoalConstraints(const std::vector<moveit_msgs:
   ROS_INFO("Geometric Planning Context: About to create goals");
   ompl::base::GoalPtr g;
 
-  if (!dmp_information_.dmp_sink_constraints.position_constraints.empty())
+  if (planner_id_.find("RRTGoalRegion") != std::string::npos && !dmp_information_.dmp_sink_constraints.position_constraints.empty())
   {
-    if (planner_id_.find("RRTGoalRegion") != std::string::npos)
-    {
       ROS_INFO("Creating Transition Region Sampler");
       g = ompl::base::GoalPtr(new TransitionRegionSampler(this, getGroupName(), getRobotModel(), getPlanningScene(),
                                                           merged_constraints_, dmp_information_,
                                                           constraint_sampler_manager_, true, 100));  // SEG FAULTING
       ROS_INFO("Created Transition Region Sampler");
-    }
-    else
-    {
-      g = ompl::base::GoalPtr(new TransitionRegionSampler(this, getGroupName(), getRobotModel(), getPlanningScene(),
-                                                          merged_constraints_, dmp_information_,
-                                                          constraint_sampler_manager_, false, 100));
-    }
-    goals.push_back(g);
+      goals.push_back(g);
   }
   else 
   {
