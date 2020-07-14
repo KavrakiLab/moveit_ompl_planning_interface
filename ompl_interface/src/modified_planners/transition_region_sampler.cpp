@@ -195,8 +195,9 @@ bool ompl_interface::TransitionRegionSampler::sampleGoalsOnline(const ompl::base
     // Convert to IK
     std::vector<moveit::core::RobotStatePtr> traj;
 
-    robot_state::RobotStatePtr car_state = std::make_shared<robot_state::RobotState>(*source_state_r);
-    double val = dmp_utils::toCartesianPath(traj, planResp, car_state, group_name_, "gripper_link");
+    //robot_state::RobotStatePtr car_state = std::make_shared<robot_state::RobotState>(*source_state_r);
+    //double val = dmp_utils::toCartesianPath(traj, planResp, car_state, group_name_, "gripper_link");
+    double val = 1;
     ompl::geometric::PathGeometric ompl_path(si_);
 
     ROS_INFO("Converted DMP Path to IK: val %f", val);
