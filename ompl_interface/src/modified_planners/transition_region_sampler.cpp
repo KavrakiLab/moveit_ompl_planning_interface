@@ -37,7 +37,6 @@ ompl_interface::TransitionRegionSampler::TransitionRegionSampler(
   , robot_model_loader_("robot_description")
 {
   learnt_dmp_ = dmp_utils::loadDMP(dmp_information.dmp_name);
-  ROS_INFO("Transition Region Sampler: DMP Loaded");
   dmp_utils::makeSetActive(learnt_dmp_.dmp_list, nh_);
 
   template_plan_ = dmp_utils::getTemplatePlan(dmp_information.dmp_name, learnt_dmp_, nh_);
@@ -49,6 +48,7 @@ ompl_interface::TransitionRegionSampler::TransitionRegionSampler(
   joint_model_group_ = kinematic_model_->getJointModelGroup(planning_context_->getGroupName());
 
   dmp_source_constraint_set_.reset(new kinematic_constraints::KinematicConstraintSet(rm));
+  dmp_sink_constraint_set_.reset(new kinematic_constraints::KinematicConstraintSet(rm));
   rng_ = ompl::RNG();
   startSampling();
 }
@@ -154,18 +154,16 @@ std::vector<double> ompl_interface::TransitionRegionSampler::samplePourSink(move
 bool ompl_interface::TransitionRegionSampler::sampleGoalsOnline(const ompl::base::WeightedGoalRegionSampler* gls,
                                                                 std::vector<ompl::base::State*>& sampled_states)
 {
+  ROS_INFO("Inside Sample Goals Online");
   bool success = false;
   auto start = std::chrono::high_resolution_clock::now();
   int num_sampled = 0;
   int batch_sample_size = 5;
 
-  // while (num_sampled < batch_sample_size)
-
   for (unsigned int i = 0; i < 1; i++)
   {
     if (planning_context_->getOMPLProblemDefinition()->hasSolution())
       return false;
-
     // Setup the DMP Source Sampler
     dmp_source_constraints_ = dmp_information_.dmp_source_constraints;
     dmp_source_constraints_.position_constraints[0].weight = 1.0;
@@ -173,53 +171,67 @@ bool ompl_interface::TransitionRegionSampler::sampleGoalsOnline(const ompl::base
     dmp_source_constraint_set_->add(dmp_source_constraints_, planning_scene_->getTransforms());
     dmp_source_sampler_ = constraint_sampler_manager_->selectSampler(planning_scene_, group_name_,
                                                                      dmp_source_constraint_set_->getAllConstraints());
-    if (!dmp_source_sampler_)
+    // Setup Sink Sampler
+    dmp_sink_constraints_ = dmp_information_.dmp_sink_constraints;
+    dmp_sink_constraints_.position_constraints[0].weight = 1.0;
+    dmp_sink_constraint_set_->clear();
+    dmp_sink_constraint_set_->add(dmp_sink_constraints_, planning_scene_->getTransforms());
+    dmp_sink_sampler_ = constraint_sampler_manager_->selectSampler(planning_scene_, group_name_,
+                                                                     dmp_sink_constraint_set_->getAllConstraints());
+    if (!dmp_source_sampler_ || !dmp_sink_sampler_)
     {
       ROS_ERROR("Error setting up the source and sink samplers.");
       return false;
     }
 
     // Sample Sink
-    dmp_sink_constraints_ = dmp_information_.dmp_sink_constraints;
-    std::vector<double> sink_state_ee = samplePourSink(dmp_sink_constraints_);
+    robot_state::RobotState sampled_dmp_sink(*kinematic_state_);
+    while(1)
+    {
+      if (!dmp_sink_sampler_->sample(sampled_dmp_sink))
+        continue;
+      if (!planning_scene_->isStateValid(sampled_dmp_sink, group_name_))
+        continue;
+      break;
+    }
 
     // Sample Source
-    robot_state::RobotStatePtr source_state_r = std::make_shared<robot_state::RobotState>(*kinematic_state_);
-    std::vector<double> source_state_ee;
-    if (!sampleState(source_state_r, source_state_ee, 3, dmp_source_sampler_))
-      continue;
+    robot_state::RobotState sampled_dmp_source(*kinematic_state_);
+    while(1)
+    {
+      if (!dmp_source_sampler_->sample(sampled_dmp_source))
+        continue;
+      if (!planning_scene_->isStateValid(sampled_dmp_source, group_name_))
+        continue;
+      break;
+    }
+
+    // Convert to Vector Representation
+    std::vector<double> sampled_dmp_source_vector;
+    sampled_dmp_source.copyJointGroupPositions(group_name_, sampled_dmp_source_vector);
+    std::vector<double> sampled_dmp_sink_vector;
+    sampled_dmp_sink.copyJointGroupPositions(group_name_, sampled_dmp_sink_vector);
 
     // Simulate DMP
-    dmp::GetDMPPlanResponse planResp = dmp_utils::simulateDMP(source_state_ee, sink_state_ee, learnt_dmp_, nh_);
+    dmp::GetDMPPlanResponse planResp = dmp_utils::simulateDMP(sampled_dmp_source_vector, sampled_dmp_sink_vector, learnt_dmp_, nh_);
 
-    // Convert to IK
-    std::vector<moveit::core::RobotStatePtr> traj;
-
-    //robot_state::RobotStatePtr car_state = std::make_shared<robot_state::RobotState>(*source_state_r);
-    //double val = dmp_utils::toCartesianPath(traj, planResp, car_state, group_name_, "gripper_link");
-    double val = 1;
+    dmp::DMPTraj dmp_traj = planResp.plan;
+    robot_state::RobotState dmpState(*kinematic_state_);
     ompl::geometric::PathGeometric ompl_path(si_);
-
-    ROS_INFO("Converted DMP Path to IK: val %f", val);
-
-    if (traj.size() == 0)
+    for (size_t i = 0; i < dmp_traj.points.size(); i++)
     {
-      ROS_INFO("No valid cartesian path exists.");
-      continue;
-    }
-    // Convert to ompl path
-    for (int i = 0; i < traj.size(); i++)
-    {
+      std::vector<double> joint_pos = dmp_traj.points[i].positions;
+      dmpState.setJointGroupPositions(group_name_, joint_pos);
       ompl::base::State* currState = si_->allocState();
-      planning_context_->copyToOMPLState(currState, *traj[i]);
+      planning_context_->copyToOMPLState(currState, dmpState);
       ompl_path.append(currState);
     }
 
-    ROS_INFO("Coverted to OMPL Path");
+    ompl_path.interpolate();
 
     // Score the path
     double score = 1.0;
-    if (ompl_path.check() && val > 0.75)
+    if (ompl_path.check())
     {
       ROS_INFO("Sampled Valid Goal");
       double cost = dmp_cost_->getCost(planResp);
@@ -229,12 +241,10 @@ bool ompl_interface::TransitionRegionSampler::sampleGoalsOnline(const ompl::base
     else
       continue;  // This DMP doesn't work. Sample more.
 
-    // Insert in heap
     ROS_INFO("This DMP has a score of: %f", score);
-
-
+    // Insert in heap
     ompl::base::State* new_goal = si_->allocState();
-    planning_context_->copyToOMPLState(new_goal, *source_state_r);
+    planning_context_->copyToOMPLState(new_goal, sampled_dmp_source);
     sampled_states.push_back(new_goal);
     WeightedGoal* weighted_state = new WeightedGoal;
     weighted_state->state_ = new_goal;

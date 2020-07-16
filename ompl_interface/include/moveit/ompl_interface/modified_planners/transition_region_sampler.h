@@ -101,7 +101,9 @@ private:
   moveit_msgs::Constraints dmp_sink_constraints_;
   moveit_msgs::Constraints dmp_source_constraints_;
   constraint_samplers::ConstraintSamplerPtr dmp_source_sampler_;
+  constraint_samplers::ConstraintSamplerPtr dmp_sink_sampler_;
   kinematic_constraints::KinematicConstraintSetPtr dmp_source_constraint_set_;
+  kinematic_constraints::KinematicConstraintSetPtr dmp_sink_constraint_set_;
 
   moveit_msgs::DMPSimulationInformation dmp_information_;
   ros::NodeHandle nh_;
