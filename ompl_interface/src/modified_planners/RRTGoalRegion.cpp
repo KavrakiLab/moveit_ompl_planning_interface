@@ -43,7 +43,7 @@
 ompl::geometric::RRTGoalRegion::RRTGoalRegion(const base::SpaceInformationPtr& si, bool addIntermediateStates)
   : base::Planner(si, addIntermediateStates ? "RRTintermediate" : "RRTGoalRegion")
 {
-  specs_.approximateSolutions = true;
+  specs_.approximateSolutions = false; // Maybe set to true
   specs_.directed = true;
 
   Planner::declareParam<double>("range", this, &RRTGoalRegion::setRange, &RRTGoalRegion::getRange, "0.:1.:10000.");

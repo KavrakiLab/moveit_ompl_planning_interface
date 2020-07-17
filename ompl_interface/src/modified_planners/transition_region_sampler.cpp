@@ -50,6 +50,9 @@ ompl_interface::TransitionRegionSampler::TransitionRegionSampler(
   dmp_source_constraint_set_.reset(new kinematic_constraints::KinematicConstraintSet(rm));
   dmp_sink_constraint_set_.reset(new kinematic_constraints::KinematicConstraintSet(rm));
   rng_ = ompl::RNG();
+
+  marker_pub_ = nh_.advertise<visualization_msgs::MarkerArray>("visualization_marker_array", 1);
+  marker_id_ = 0;
   startSampling();
 }
 
@@ -160,102 +163,160 @@ bool ompl_interface::TransitionRegionSampler::sampleGoalsOnline(const ompl::base
   int num_sampled = 0;
   int batch_sample_size = 5;
 
-  for (unsigned int i = 0; i < 1; i++)
+  //for (unsigned int i = 0; i < 1; i++)
+
+  if (planning_context_->getOMPLProblemDefinition()->hasSolution())
   {
-    if (planning_context_->getOMPLProblemDefinition()->hasSolution())
-      return false;
-    // Setup the DMP Source Sampler
-    dmp_source_constraints_ = dmp_information_.dmp_source_constraints;
-    dmp_source_constraints_.position_constraints[0].weight = 1.0;
-    dmp_source_constraint_set_->clear();
-    dmp_source_constraint_set_->add(dmp_source_constraints_, planning_scene_->getTransforms());
-    dmp_source_sampler_ = constraint_sampler_manager_->selectSampler(planning_scene_, group_name_,
-                                                                     dmp_source_constraint_set_->getAllConstraints());
-    // Setup Sink Sampler
-    dmp_sink_constraints_ = dmp_information_.dmp_sink_constraints;
-    dmp_sink_constraints_.position_constraints[0].weight = 1.0;
-    dmp_sink_constraint_set_->clear();
-    dmp_sink_constraint_set_->add(dmp_sink_constraints_, planning_scene_->getTransforms());
-    dmp_sink_sampler_ = constraint_sampler_manager_->selectSampler(planning_scene_, group_name_,
-                                                                     dmp_sink_constraint_set_->getAllConstraints());
-    if (!dmp_source_sampler_ || !dmp_sink_sampler_)
-    {
-      ROS_ERROR("Error setting up the source and sink samplers.");
-      return false;
-    }
-
-    // Sample Sink
-    robot_state::RobotState sampled_dmp_sink(*kinematic_state_);
-    while(1)
-    {
-      if (!dmp_sink_sampler_->sample(sampled_dmp_sink))
-        continue;
-      if (!planning_scene_->isStateValid(sampled_dmp_sink, group_name_))
-        continue;
-      break;
-    }
-
-    // Sample Source
-    robot_state::RobotState sampled_dmp_source(*kinematic_state_);
-    while(1)
-    {
-      if (!dmp_source_sampler_->sample(sampled_dmp_source))
-        continue;
-      if (!planning_scene_->isStateValid(sampled_dmp_source, group_name_))
-        continue;
-      break;
-    }
-
-    // Convert to Vector Representation
-    std::vector<double> sampled_dmp_source_vector;
-    sampled_dmp_source.copyJointGroupPositions(group_name_, sampled_dmp_source_vector);
-    std::vector<double> sampled_dmp_sink_vector;
-    sampled_dmp_sink.copyJointGroupPositions(group_name_, sampled_dmp_sink_vector);
-
-    // Simulate DMP
-    dmp::GetDMPPlanResponse planResp = dmp_utils::simulateDMP(sampled_dmp_source_vector, sampled_dmp_sink_vector, learnt_dmp_, nh_);
-
-    dmp::DMPTraj dmp_traj = planResp.plan;
-    robot_state::RobotState dmpState(*kinematic_state_);
-    ompl::geometric::PathGeometric ompl_path(si_);
-    for (size_t i = 0; i < dmp_traj.points.size(); i++)
-    {
-      std::vector<double> joint_pos = dmp_traj.points[i].positions;
-      dmpState.setJointGroupPositions(group_name_, joint_pos);
-      ompl::base::State* currState = si_->allocState();
-      planning_context_->copyToOMPLState(currState, dmpState);
-      ompl_path.append(currState);
-    }
-
-    ompl_path.interpolate();
-
-    // Score the path
-    double score = 1.0;
-    if (ompl_path.check())
-    {
-      ROS_INFO("Sampled Valid Goal");
-      double cost = dmp_cost_->getCost(planResp);
-      score = 2 - cost;
-      num_sampled++;
-    }
-    else
-      continue;  // This DMP doesn't work. Sample more.
-
-    ROS_INFO("This DMP has a score of: %f", score);
-    // Insert in heap
-    ompl::base::State* new_goal = si_->allocState();
-    planning_context_->copyToOMPLState(new_goal, sampled_dmp_source);
-    sampled_states.push_back(new_goal);
-    WeightedGoal* weighted_state = new WeightedGoal;
-    weighted_state->state_ = new_goal;
-    weighted_state->weight_ = score;
-    auto new_dmp_path = std::make_shared<ompl::geometric::PathGeometric>(ompl_path);
-    weighted_state->dmp_path_ = new_dmp_path;
-    weighted_state->heap_element_ = goals_priority_queue_.insert(weighted_state);
-
-    success = true;
-    continue;  // return true;
+    ROS_INFO("Solution already found");
+    return false;
   }
+ 
+  ROS_INFO("Setting up the samplers");
+  // Setup the DMP Source Sampler
+  dmp_source_constraints_ = dmp_information_.dmp_source_constraints;
+  dmp_source_constraints_.position_constraints[0].weight = 1.0;
+  dmp_source_constraint_set_->clear();
+  dmp_source_constraint_set_->add(dmp_source_constraints_, planning_scene_->getTransforms());
+  dmp_source_sampler_ = constraint_sampler_manager_->selectSampler(planning_scene_, group_name_,
+                                                                   dmp_source_constraint_set_->getAllConstraints());
+  // Setup Sink Sampler
+  dmp_sink_constraints_ = dmp_information_.dmp_sink_constraints;
+  dmp_sink_constraints_.position_constraints[0].weight = 1.0;
+  dmp_sink_constraint_set_->clear();
+  dmp_sink_constraint_set_->add(dmp_sink_constraints_, planning_scene_->getTransforms());
+  dmp_sink_sampler_ = constraint_sampler_manager_->selectSampler(planning_scene_, group_name_,
+                                                                   dmp_sink_constraint_set_->getAllConstraints());
+  ROS_INFO("Setup the samplers");
+  if (!dmp_source_sampler_ || !dmp_sink_sampler_)
+  {
+    ROS_ERROR("Error setting up the source and sink samplers.");
+    return false;
+  }
+
+  ROS_INFO("About to sample sink and source");
+  // Sample Sink
+  robot_state::RobotState sampled_dmp_sink(*kinematic_state_);
+  while (1)
+  {
+    if (!dmp_sink_sampler_->sample(sampled_dmp_sink))
+      continue;
+    if (!planning_scene_->isStateValid(sampled_dmp_sink, group_name_))
+      continue;
+    break;
+  }
+  ROS_INFO("Sink Sampled");
+
+  // Sample Source
+  robot_state::RobotState sampled_dmp_source(*kinematic_state_);
+  while (1)
+  {
+    if (!dmp_source_sampler_->sample(sampled_dmp_source))
+      continue;
+    if (!planning_scene_->isStateValid(sampled_dmp_source, group_name_))
+      continue;
+    break;
+  }
+  ROS_INFO("Source Sampled");
+
+  marker_id_++;
+  // Publish Source Marker
+  visualization_msgs::Marker marker;
+  marker.header.frame_id = "base_link";
+  marker.header.stamp = ros::Time::now();
+  marker.ns = "transition";
+  marker.id = marker_id_; 
+  marker.type = visualization_msgs::Marker::SPHERE;
+  marker.action = visualization_msgs::Marker::ADD;
+  auto gripper_tf = sampled_dmp_source.getGlobalLinkTransform("gripper_link");
+
+  marker.pose.position.x = gripper_tf.translation().x();
+  marker.pose.position.y = gripper_tf.translation().y();
+  marker.pose.position.z = gripper_tf.translation().z();
+  marker.pose.orientation.x = Eigen::Quaterniond(gripper_tf.rotation()).x();
+  marker.pose.orientation.y = Eigen::Quaterniond(gripper_tf.rotation()).y();
+  marker.pose.orientation.z = Eigen::Quaterniond(gripper_tf.rotation()).z();
+  marker.pose.orientation.w = Eigen::Quaterniond(gripper_tf.rotation()).w();
+
+  marker.scale.x = 0.05;
+  marker.scale.y = 0.05;
+  marker.scale.z = 0.05;
+  marker.color.r = 1.0f;
+  marker.color.g = 0.0f;
+  marker.color.b = 0.0f;
+  marker.color.a = 0.5;
+
+  marker.lifetime = ros::Duration();
+  marker_array_.markers.push_back(marker);
+  while (marker_pub_.getNumSubscribers() < 1)
+  {
+    if (!ros::ok())
+    {
+      return 0;
+    }
+    ROS_WARN_ONCE("Please create a subscriber to the marker");
+    sleep(1);
+  }
+  marker_pub_.publish(marker_array_);
+
+  // Convert to Vector Representation
+  std::vector<double> sampled_dmp_source_vector;
+  sampled_dmp_source.copyJointGroupPositions(group_name_, sampled_dmp_source_vector);
+  std::vector<double> sampled_dmp_sink_vector;
+  sampled_dmp_sink.copyJointGroupPositions(group_name_, sampled_dmp_sink_vector);
+
+  // Simulate DMP
+  dmp::GetDMPPlanResponse planResp = dmp_utils::simulateDMP(sampled_dmp_source_vector, sampled_dmp_sink_vector, learnt_dmp_, nh_);
+
+  dmp::DMPTraj dmp_traj = planResp.plan;
+  robot_state::RobotState dmpState(*kinematic_state_);
+  ompl::geometric::PathGeometric ompl_path(si_);
+  for (size_t i = 0; i < dmp_traj.points.size(); i++)
+  {
+    std::vector<double> joint_pos = dmp_traj.points[i].positions;
+    dmpState.setJointGroupPositions(group_name_, joint_pos);
+    ompl::base::State* currState = si_->allocState();
+    planning_context_->copyToOMPLState(currState, dmpState);
+    ompl_path.append(currState);
+  }
+
+  ompl_path.interpolate();
+
+  ROS_INFO("About to check DMP OMPL Path for validity");
+  // Score the path
+  double score = 1.0;
+  //double clearance = ompl_path.clearance();
+  //int len = ompl_path.getStateCount();
+  //ROS_INFO("DMP Path Length: %d", len);
+  bool collissionFree = true;
+
+  if (collissionFree)
+  {
+    ROS_INFO("Sampled Valid Goal");
+    double cost = dmp_cost_->getCost(planResp);
+    score = 2 - cost;
+    num_sampled++;
+  }
+  else
+  {
+    ROS_INFO("DMP Path Invalid");
+    return false;  // This DMP doesn't work. Sample more.
+  }
+
+  ROS_INFO("This DMP has a score of: %f", score);
+  // Insert in heap
+  ompl::base::State* new_goal = si_->allocState();
+  planning_context_->copyToOMPLState(new_goal, sampled_dmp_source);
+  sampled_states.push_back(new_goal);
+  WeightedGoal* weighted_state = new WeightedGoal;
+  weighted_state->state_ = new_goal;
+  weighted_state->weight_ = score;
+  auto new_dmp_path = std::make_shared<ompl::geometric::PathGeometric>(ompl_path);
+  weighted_state->dmp_path_ = new_dmp_path;
+  weighted_state->heap_element_ = goals_priority_queue_.insert(weighted_state);
+
+  success = true;
+  //continue;  // return true;
+  
 
   auto finish = std::chrono::high_resolution_clock::now();
   std::chrono::duration<double> elapsed = finish - start;

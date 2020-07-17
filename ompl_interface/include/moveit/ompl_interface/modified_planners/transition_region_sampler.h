@@ -44,7 +44,11 @@
 #include <ros/ros.h>
 #include <chrono>
 
-#include <robowflex_library/robot.h>
+#include <visualization_msgs/Marker.h>
+#include <visualization_msgs/MarkerArray.h>
+//#include <robowflex_library/robot.h>
+//#include <robowflex_library/io.h>
+//#include <robowflex_library/io/visualization.h>
 
 namespace ompl_interface
 {
@@ -121,6 +125,12 @@ private:
   robot_model::RobotModelPtr kinematic_model_;
   robot_state::RobotStatePtr kinematic_state_;
   const robot_state::JointModelGroup* joint_model_group_;
+
+  // Publish RVIZ Markers
+  ros::Publisher marker_pub_;
+  visualization_msgs::MarkerArray marker_array_;
+  int marker_id_;
+  
 
 };
 
