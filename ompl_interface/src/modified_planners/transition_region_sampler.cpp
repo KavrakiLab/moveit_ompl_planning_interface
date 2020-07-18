@@ -39,11 +39,12 @@ ompl_interface::TransitionRegionSampler::TransitionRegionSampler(
   learnt_dmp_ = dmp_utils::loadDMP(dmp_information.dmp_name);
   dmp_utils::makeSetActive(learnt_dmp_.dmp_list, nh_);
 
-  template_plan_ = dmp_utils::getTemplatePlan(dmp_information.dmp_name, learnt_dmp_, nh_);
-  dmp_cost_ = std::make_shared<ompl_interface::DMPCost>(template_plan_);
 
   kinematic_model_ = std::make_shared<robot_model::RobotModel>(rm->getURDF(), rm->getSRDF());
   kinematic_state_ = robot_state::RobotStatePtr(new robot_state::RobotState(pc->getCompleteInitialRobotState()));
+
+  template_plan_ = dmp_utils::getTemplatePlan(dmp_information.dmp_name, learnt_dmp_, nh_);
+  dmp_cost_ = std::make_shared<ompl_interface::DMPCost>(template_plan_, *kinematic_state_, group_name_);
 
   joint_model_group_ = kinematic_model_->getJointModelGroup(planning_context_->getGroupName());
 
@@ -253,7 +254,7 @@ bool ompl_interface::TransitionRegionSampler::sampleGoalsOnline(const ompl::base
     {
       return 0;
     }
-    ROS_WARN_ONCE("Please create a subscriber to the marker");
+    ROS_WARN_ONCE("Please create a subscriber to marker array topic");
     sleep(1);
   }
   marker_pub_.publish(marker_array_);
@@ -287,22 +288,37 @@ bool ompl_interface::TransitionRegionSampler::sampleGoalsOnline(const ompl::base
   //double clearance = ompl_path.clearance();
   //int len = ompl_path.getStateCount();
   //ROS_INFO("DMP Path Length: %d", len);
-  bool collissionFree = true;
+  double clearance = 10000;
+  for (int s=0; s < ompl_path.getStateCount(); s=s+50)
+  {
+    double c = si_->getStateValidityChecker()->clearance(ompl_path.getState(s));
+    ROS_INFO("Clearance: %f", c);
+    if (c<clearance)
+      clearance = c;
+  }
 
+  bool collissionFree = true;
+  if (clearance <= 0)
+    collissionFree = false;
+
+  // Score based on clearance.
   if (collissionFree)
   {
     ROS_INFO("Sampled Valid Goal");
     double cost = dmp_cost_->getCost(planResp);
-    score = 2 - cost;
+    //score = 500 - cost;
+    score = cost;
     num_sampled++;
   }
   else
   {
-    ROS_INFO("DMP Path Invalid");
+    ROS_INFO("DMP Path in Collision");
     return false;  // This DMP doesn't work. Sample more.
   }
 
-  ROS_INFO("This DMP has a score of: %f", score);
+  ROS_INFO("This DMP has a cost of: %f", score);
+  ROS_INFO("Template Path Length: %d   DMP Path Length: %d", template_plan_.plan.points.size(), planResp.plan.points.size());
+  
   // Insert in heap
   ompl::base::State* new_goal = si_->allocState();
   planning_context_->copyToOMPLState(new_goal, sampled_dmp_source);

@@ -9,21 +9,30 @@
 #include <dmp/LearnDMPFromDemo.h>
 #include <dmp/SetActiveDMP.h>
 
+#include <moveit/robot_model/robot_model.h>
+#include <moveit/robot_state/robot_state.h>
+
 namespace ompl_interface
 {
 class DMPCost
 {
 public:
-  DMPCost(dmp::GetDMPPlanResponse& template_path);
+  DMPCost(dmp::GetDMPPlanResponse& template_path, robot_state::RobotState &robot, std::string group);
   double getCost(dmp::GetDMPPlanResponse& path);
 
 private:
-  dmp::GetDMPPlanResponse equalizePaths(dmp::GetDMPPlanResponse& path);
-  double euclideanDistance(dmp::GetDMPPlanResponse& path);
-  double dtwDistance(dmp::GetDMPPlanResponse& path);
-  double clearance(dmp::GetDMPPlanResponse& path);
+  //dmp::GetDMPPlanResponse equalizePaths(dmp::GetDMPPlanResponse& path);
+  std::vector<std::vector<double>> equalizePaths(std::vector<std::vector<double>>& dmp_path);
+  //double euclideanDistance(dmp::GetDMPPlanResponse& path);
+  double euclideanDistance(std::vector<std::vector<double>>& dmp_path);
+  double pointDistance(std::vector<double> &p1, std::vector<double> &p2);
+  double dtwDistance(std::vector<std::vector<double>>& dmp_path);
+  //double clearance(dmp::GetDMPPlanResponse& path);
+  std::vector<std::vector<double>> toCartesianPath(std::vector<std::vector<double>> joint_path);
+  std::vector<std::vector<double>> toVector(dmp::GetDMPPlanResponse &dmp_path);
 
-  dmp::GetDMPPlanResponse template_path_;
+  std::vector<std::vector<double>> template_path_;
+  robot_state::RobotStatePtr robot_;
 };
 
 }  // namespace ompl_interface
