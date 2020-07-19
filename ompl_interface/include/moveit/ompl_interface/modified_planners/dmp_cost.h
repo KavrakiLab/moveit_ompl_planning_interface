@@ -23,13 +23,16 @@ public:
 private:
   //dmp::GetDMPPlanResponse equalizePaths(dmp::GetDMPPlanResponse& path);
   std::vector<std::vector<double>> equalizePaths(std::vector<std::vector<double>>& dmp_path);
+  void downsample(std::vector<std::vector<double>> &dmp_path);
   //double euclideanDistance(dmp::GetDMPPlanResponse& path);
   double euclideanDistance(std::vector<std::vector<double>>& dmp_path);
   double pointDistance(std::vector<double> &p1, std::vector<double> &p2);
   double dtwDistance(std::vector<std::vector<double>>& dmp_path);
+  double min(double x, double y);
   //double clearance(dmp::GetDMPPlanResponse& path);
   std::vector<std::vector<double>> toCartesianPath(std::vector<std::vector<double>> joint_path);
   std::vector<std::vector<double>> toVector(dmp::GetDMPPlanResponse &dmp_path);
+  std::vector<std::vector<double>> normalize(std::vector<std::vector<double>> &cart_path);
 
   std::vector<std::vector<double>> template_path_;
   robot_state::RobotStatePtr robot_;

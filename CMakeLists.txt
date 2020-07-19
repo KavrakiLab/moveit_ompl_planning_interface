@@ -22,6 +22,7 @@ find_package(catkin REQUIRED COMPONENTS
   dmp
   robowflex_library
   utils_library
+  fast_dtw
   )
 
 generate_dynamic_reconfigure_options("ompl_interface/cfg/OMPLDynamicReconfigure.cfg")
@@ -45,6 +46,7 @@ catkin_package(
     eigen_conversions
     dmp
     robowflex_library
+    fast_dtw
 )
 
 link_directories(${Boost_LIBRARY_DIRS})

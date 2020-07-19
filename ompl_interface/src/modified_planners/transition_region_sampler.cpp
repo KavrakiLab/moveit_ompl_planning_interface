@@ -293,6 +293,8 @@ bool ompl_interface::TransitionRegionSampler::sampleGoalsOnline(const ompl::base
   {
     double c = si_->getStateValidityChecker()->clearance(ompl_path.getState(s));
     ROS_INFO("Clearance: %f", c);
+    if (c <= 0 )
+      return false;
     if (c<clearance)
       clearance = c;
   }
@@ -306,8 +308,8 @@ bool ompl_interface::TransitionRegionSampler::sampleGoalsOnline(const ompl::base
   {
     ROS_INFO("Sampled Valid Goal");
     double cost = dmp_cost_->getCost(planResp);
-    //score = 500 - cost;
-    score = cost;
+    score = 20000.0 / cost;
+    //score = cost;
     num_sampled++;
   }
   else
@@ -316,8 +318,8 @@ bool ompl_interface::TransitionRegionSampler::sampleGoalsOnline(const ompl::base
     return false;  // This DMP doesn't work. Sample more.
   }
 
-  ROS_INFO("This DMP has a cost of: %f", score);
-  ROS_INFO("Template Path Length: %d   DMP Path Length: %d", template_plan_.plan.points.size(), planResp.plan.points.size());
+  ROS_INFO("This DMP has a score of: %f", score);
+  //ROS_INFO("Template Path Length: %d   DMP Path Length: %d", template_plan_.plan.points.size(), planResp.plan.points.size());
   
   // Insert in heap
   ompl::base::State* new_goal = si_->allocState();

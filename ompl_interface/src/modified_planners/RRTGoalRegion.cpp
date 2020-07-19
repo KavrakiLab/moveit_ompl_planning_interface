@@ -138,7 +138,7 @@ ompl::base::PlannerStatus ompl::geometric::RRTGoalRegion::solve(const base::Plan
   goalBias_ = 0.5;
 
   // my addition
-  while (weighted_goal_region->getStateCount() < 5)
+  while (weighted_goal_region->getStateCount() < 10)
     std::this_thread::sleep_for(std::chrono::milliseconds(1));
 
   //
