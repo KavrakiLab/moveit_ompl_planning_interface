@@ -98,19 +98,20 @@ double ompl_interface::DMPCost::getCost(dmp::GetDMPPlanResponse &dmp_path)
   double h_cost = 0;
   double theta_cost = 0;
 
-  fastdtw::TimeSeries<double, 3> ts1;
-  fastdtw::TimeSeries<double, 3> ts2;
+  fastdtw::TimeSeries<double, 6> ts1;
+  fastdtw::TimeSeries<double, 6> ts2;
 
   for (int point = 0; point < dmp_path_vec.size(); point++)
   {
-    ts1.addLast(point, fastdtw::TimeSeriesPoint<double, 3>(dmp_path_vec[point].data()));
+    ts1.addLast(point, fastdtw::TimeSeriesPoint<double, 6>(dmp_path_vec[point].data()));
   }
 
   for (int point = 0; point < template_path_.size(); point++)
   {
-    ts2.addLast(point, fastdtw::TimeSeriesPoint<double, 3>(template_path_[point].data()));
+    ts2.addLast(point, fastdtw::TimeSeriesPoint<double, 6>(template_path_[point].data()));
   }
-  fastdtw::TimeWarpInfo<double> info =  fastdtw::FAST::getWarpInfoBetween(ts1,ts2, fastdtw::EuclideanDistance());
+
+  fastdtw::TimeWarpInfo<double> info =  fastdtw::FAST::getWarpInfoBetween(ts1,ts2, fastdtw::SE3Distance());
   return info.getDistance();
   //for (int d = 0; d < 3; d++)
   //{
@@ -251,7 +252,7 @@ std::vector<std::vector<double>> ompl_interface::DMPCost::projectPath(std::vecto
 
   auto compare = dmp_path.back();
   Eigen::Vector2d p2(compare[0], compare[1]);
-  Eigen::Quaterniond q2(compare[6], compare[3], compare[4], compare[5]);
+  //Eigen::Quaterniond q2(compare[6], compare[3], compare[4], compare[5]);
   //Eigen::Quaterniond q2(1, 0, 0, 0);
   double h2 = compare[2];
   for (auto &point : dmp_path)
@@ -263,11 +264,14 @@ std::vector<std::vector<double>> ompl_interface::DMPCost::projectPath(std::vecto
     double h = h1-h2;
 
     Eigen::Quaterniond q1(point[6], point[3], point[4], point[5]);
-    double theta = q1.angularDistance(q2);
+    //double theta = q1.angularDistance(q2);
 
     new_point.push_back(r);
     new_point.push_back(h);
-    new_point.push_back(theta);
+    new_point.push_back(q1.x());
+    new_point.push_back(q1.y());
+    new_point.push_back(q1.z());
+    new_point.push_back(q1.w());
     new_path.push_back(new_point);
   }
   return new_path;
