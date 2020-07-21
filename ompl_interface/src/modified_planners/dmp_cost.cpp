@@ -93,11 +93,6 @@ double ompl_interface::DMPCost::getCost(dmp::GetDMPPlanResponse &dmp_path)
   dmp_path_vec = projectPath(dmp_path_vec);
   dmp_path_vec = normalize(dmp_path_vec);
 
-  double total_cost = 0;
-  double r_cost = 0;
-  double h_cost = 0;
-  double theta_cost = 0;
-
   fastdtw::TimeSeries<double, 6> ts1;
   fastdtw::TimeSeries<double, 6> ts2;
 
@@ -110,37 +105,8 @@ double ompl_interface::DMPCost::getCost(dmp::GetDMPPlanResponse &dmp_path)
   {
     ts2.addLast(point, fastdtw::TimeSeriesPoint<double, 6>(template_path_[point].data()));
   }
-
-  fastdtw::TimeWarpInfo<double> info =  fastdtw::FAST::getWarpInfoBetween(ts1,ts2, fastdtw::SE3Distance());
+  fastdtw::TimeWarpInfo<double> info =  fastdtw::STRI::getWarpInfoBetween(ts1,ts2, fastdtw::EuclideanDistance());
   return info.getDistance();
-  //for (int d = 0; d < 3; d++)
-  //{
-    //std::vector<double> v1, v2;
-
-    //fastdtw::TimeSeries<double, 1> ts1;
-    //fastdtw::TimeSeries<double, 1> ts2;
-
-    //for (int n = 0; n < dmp_path_vec.size(); n++)
-      //ts1.addLast(n, fastdtw::TimeSeriesPoint<double, 1>(&dmp_path_vec[n][d]));
-
-    //for (int n = 0; n < template_path_.size(); n++)
-      //ts2.addLast(n, fastdtw::TimeSeriesPoint<double, 1>(&template_path_[n][d]));
-    
-    //fastdtw::TimeWarpInfo<double> info =  fastdtw::STRI::getWarpInfoBetween(ts1,ts2, fastdtw::EuclideanDistance());
-
-    //if (d==0)
-      //r_cost = r_cost + info.getDistance();
-    //if (d==1)
-      //h_cost = h_cost + info.getDistance();
-    //if (d==2)
-      //theta_cost = theta_cost + info.getDistance();
-
-  //}
-  ////double total_cost;
-  ////double dtwCost = dtwDistance(dmp_path_vec);
-  ////total_cost = dtwCost;
-  //ROS_INFO("R_Cost: %f, H_Cost: %f, Theta_Cost: %f", r_cost, h_cost, theta_cost);
-  //return r_cost + h_cost + theta_cost;
 }
 
 double ompl_interface::DMPCost::getCSpaceCost(dmp::GetDMPPlanResponse &dmp_path)
@@ -162,27 +128,6 @@ double ompl_interface::DMPCost::getCSpaceCost(dmp::GetDMPPlanResponse &dmp_path)
   }
   fastdtw::TimeWarpInfo<double> info =  fastdtw::FAST::getWarpInfoBetween(ts1,ts2, fastdtw::EuclideanDistance());
   return info.getDistance();
-
-  //for (int d = 0; d < 8; d++)
-  //{
-    //std::vector<double> v1, v2;
-
-    //fastdtw::TimeSeries<double, 1> ts1;
-    //fastdtw::TimeSeries<double, 1> ts2;
-
-    //double *p1;
-    //double *p2;
-    //for (int n = 0; n < dmp_path_vec.size(); n++)
-      //ts1.addLast(n, fastdtw::TimeSeriesPoint<double, 1>(&dmp_path_vec[n][d]));
-
-    //for (int n = 0; n < template_path_.size(); n++)
-      //ts2.addLast(n, fastdtw::TimeSeriesPoint<double, 1>(&template_path_[n][d]));
-    
-    //fastdtw::TimeWarpInfo<double> info =  fastdtw::FAST::getWarpInfoBetween(ts1,ts2, fastdtw::EuclideanDistance());
-    //total_cost = total_cost + info.getDistance();
-
-  //}
-  //return total_cost;
 }
 
 std::vector<std::vector<double>>  ompl_interface::DMPCost::equalizePaths(std::vector<std::vector<double>>& dmp_path)
