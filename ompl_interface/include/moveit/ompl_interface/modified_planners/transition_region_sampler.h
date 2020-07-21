@@ -130,7 +130,8 @@ private:
   ros::Publisher marker_pub_;
   visualization_msgs::MarkerArray marker_array_;
   int marker_id_;
-  
+  std::vector<double> start_template_;
+  std::vector<double> end_template_;
 
 };
 

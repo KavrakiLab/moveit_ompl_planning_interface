@@ -4,6 +4,7 @@
 #include <fast_dtw/EuclideanDistance.h>
 #include <fast_dtw/SE3Distance.h>
 #include <fast_dtw/SearchWindow.h>
+#include <algorithm>
 
 ompl_interface::DMPCost::DMPCost(dmp::GetDMPPlanResponse& template_path, robot_state::RobotState &robot, std::string group)
 {
@@ -11,6 +12,7 @@ ompl_interface::DMPCost::DMPCost(dmp::GetDMPPlanResponse& template_path, robot_s
   template_path_ = toVector(template_path);
   downsample(template_path_);
   template_path_ = toCartesianPath(template_path_);
+  template_path_ = projectPath(template_path_);
   template_path_ = normalize(template_path_);
 }
 
@@ -38,33 +40,25 @@ void ompl_interface::DMPCost::downsample(std::vector<std::vector<double>> &dmp_p
 std::vector<std::vector<double>> ompl_interface::DMPCost::normalize(std::vector<std::vector<double>> &cart_path)
 {
   std::vector<std::vector<double>> outpath = cart_path;
-  for (int d=0; d<3; d++)
+  for (int d=0; d<2; d++)
   {
-    //std::vector<double> dim;
-    Eigen::VectorXd dim(cart_path.size());
+    std::vector<double> dim;
     for (int n=0; n < cart_path.size(); n++)
     {
-      //dim.push_back(cart_path[n][d]);
-      dim[n] = cart_path[n][d];
+      dim.push_back(cart_path[n][d]);
     }
 
-    double mean = dim.mean();
-    Eigen::VectorXd mv = Eigen::VectorXd::Ones(cart_path.size()) * mean;
-    double stdev = std::sqrt((dim - mv).array().square().sum()/(dim.size()));
+    const auto [min, max] = std::minmax_element(dim.begin(), dim.end());
+    for (auto& e : dim)
+      e = (e - *min) / (*max-*min);
 
-    Eigen::VectorXd norm_dim = (dim - mv) / stdev;
     for (int n=0; n < cart_path.size(); n++)
     {
-      outpath[n][d] = norm_dim[d];
+      outpath[n][d] = dim[d];
     }
   }
   return outpath;
 }
-//znorm <- function(ts){
-  //ts.mean <- mean(ts)
-  //ts.dev <- sd(ts)
-  //(ts - ts.mean)/ts.dev
-//}
 
 std::vector<std::vector<double>> ompl_interface::DMPCost::toCartesianPath(std::vector<std::vector<double>> joint_path)
 {
@@ -79,7 +73,7 @@ std::vector<std::vector<double>> ompl_interface::DMPCost::toCartesianPath(std::v
     cart_pt.push_back(gripper_pose.translation().y());
     cart_pt.push_back(gripper_pose.translation().z());
 
-    Eigen::Quaterniond q(gripper_pose.rotation());
+    Eigen::Quaterniond q(gripper_pose.linear());
     q.normalize();
     cart_pt.push_back(q.x());
     cart_pt.push_back(q.y());
@@ -93,18 +87,101 @@ std::vector<std::vector<double>> ompl_interface::DMPCost::toCartesianPath(std::v
 
 double ompl_interface::DMPCost::getCost(dmp::GetDMPPlanResponse &dmp_path)
 {
-  ROS_INFO("Inside getCost()");
   std::vector<std::vector<double>> dmp_path_vec = toVector(dmp_path);
   downsample(dmp_path_vec);
   dmp_path_vec = toCartesianPath(dmp_path_vec);
-  ROS_INFO("Converted to Cartesian path");
+  dmp_path_vec = projectPath(dmp_path_vec);
   dmp_path_vec = normalize(dmp_path_vec);
-  ROS_INFO("Normalized");
 
-  double total_cost;
-  double dtwCost = dtwDistance(dmp_path_vec);
-  total_cost = dtwCost;
-  return total_cost;
+  double total_cost = 0;
+  double r_cost = 0;
+  double h_cost = 0;
+  double theta_cost = 0;
+
+  fastdtw::TimeSeries<double, 3> ts1;
+  fastdtw::TimeSeries<double, 3> ts2;
+
+  for (int point = 0; point < dmp_path_vec.size(); point++)
+  {
+    ts1.addLast(point, fastdtw::TimeSeriesPoint<double, 3>(dmp_path_vec[point].data()));
+  }
+
+  for (int point = 0; point < template_path_.size(); point++)
+  {
+    ts2.addLast(point, fastdtw::TimeSeriesPoint<double, 3>(template_path_[point].data()));
+  }
+  fastdtw::TimeWarpInfo<double> info =  fastdtw::FAST::getWarpInfoBetween(ts1,ts2, fastdtw::EuclideanDistance());
+  return info.getDistance();
+  //for (int d = 0; d < 3; d++)
+  //{
+    //std::vector<double> v1, v2;
+
+    //fastdtw::TimeSeries<double, 1> ts1;
+    //fastdtw::TimeSeries<double, 1> ts2;
+
+    //for (int n = 0; n < dmp_path_vec.size(); n++)
+      //ts1.addLast(n, fastdtw::TimeSeriesPoint<double, 1>(&dmp_path_vec[n][d]));
+
+    //for (int n = 0; n < template_path_.size(); n++)
+      //ts2.addLast(n, fastdtw::TimeSeriesPoint<double, 1>(&template_path_[n][d]));
+    
+    //fastdtw::TimeWarpInfo<double> info =  fastdtw::STRI::getWarpInfoBetween(ts1,ts2, fastdtw::EuclideanDistance());
+
+    //if (d==0)
+      //r_cost = r_cost + info.getDistance();
+    //if (d==1)
+      //h_cost = h_cost + info.getDistance();
+    //if (d==2)
+      //theta_cost = theta_cost + info.getDistance();
+
+  //}
+  ////double total_cost;
+  ////double dtwCost = dtwDistance(dmp_path_vec);
+  ////total_cost = dtwCost;
+  //ROS_INFO("R_Cost: %f, H_Cost: %f, Theta_Cost: %f", r_cost, h_cost, theta_cost);
+  //return r_cost + h_cost + theta_cost;
+}
+
+double ompl_interface::DMPCost::getCSpaceCost(dmp::GetDMPPlanResponse &dmp_path)
+{
+  std::vector<std::vector<double>> dmp_path_vec = toVector(dmp_path);
+  dmp_path_vec = normalize(dmp_path_vec);
+  double total_cost = 0;
+
+  fastdtw::TimeSeries<double, 8> ts1;
+  fastdtw::TimeSeries<double, 8> ts2;
+
+  for (int point = 0; point < dmp_path_vec.size(); point++)
+  {
+    ts1.addLast(point, fastdtw::TimeSeriesPoint<double, 8>(dmp_path_vec[point].data()));
+  }
+  for (int point = 0; point < template_path_.size(); point++)
+  {
+    ts2.addLast(point, fastdtw::TimeSeriesPoint<double, 8>(template_path_[point].data()));
+  }
+  fastdtw::TimeWarpInfo<double> info =  fastdtw::FAST::getWarpInfoBetween(ts1,ts2, fastdtw::EuclideanDistance());
+  return info.getDistance();
+
+  //for (int d = 0; d < 8; d++)
+  //{
+    //std::vector<double> v1, v2;
+
+    //fastdtw::TimeSeries<double, 1> ts1;
+    //fastdtw::TimeSeries<double, 1> ts2;
+
+    //double *p1;
+    //double *p2;
+    //for (int n = 0; n < dmp_path_vec.size(); n++)
+      //ts1.addLast(n, fastdtw::TimeSeriesPoint<double, 1>(&dmp_path_vec[n][d]));
+
+    //for (int n = 0; n < template_path_.size(); n++)
+      //ts2.addLast(n, fastdtw::TimeSeriesPoint<double, 1>(&template_path_[n][d]));
+    
+    //fastdtw::TimeWarpInfo<double> info =  fastdtw::FAST::getWarpInfoBetween(ts1,ts2, fastdtw::EuclideanDistance());
+    //total_cost = total_cost + info.getDistance();
+
+  //}
+  //return total_cost;
 }
 
 std::vector<std::vector<double>>  ompl_interface::DMPCost::equalizePaths(std::vector<std::vector<double>>& dmp_path)
@@ -138,6 +215,7 @@ double ompl_interface::DMPCost::euclideanDistance(std::vector<std::vector<double
   return total;
 }
 
+
 double ompl_interface::DMPCost::dtwDistance(std::vector<std::vector<double>>& dmp_path)
 {
   ROS_INFO("Inside DTW Distance: %d", dmp_path.size());
@@ -146,31 +224,53 @@ double ompl_interface::DMPCost::dtwDistance(std::vector<std::vector<double>>& dm
     ROS_ERROR("DMP path empty!");
     exit(1);
   }
-  ROS_INFO("Inside dtwDistance()");
-  fastdtw::TimeSeries<double, 7> ts1;
-  fastdtw::TimeSeries<double, 7> ts2;
+  fastdtw::TimeSeries<double, 3> ts1;
+  fastdtw::TimeSeries<double, 3> ts2;
   ROS_INFO("Initialized TSs");
   //int ii=0;
   for (int i=0; i < dmp_path.size(); i++) // Need to fix this by downsampling
   {
-    ts1.addLast(i, fastdtw::TimeSeriesPoint<double, 7>(dmp_path[i].data()));
+    ts1.addLast(i, fastdtw::TimeSeriesPoint<double, 3>(dmp_path[i].data()));
   }
   for (int i=0; i<template_path_.size(); i++)
   {
-    ts2.addLast(i, fastdtw::TimeSeriesPoint<double, 7>(template_path_[i].data()));
+    ts2.addLast(i, fastdtw::TimeSeriesPoint<double, 3>(template_path_[i].data()));
   }
 
   //fastdtw::SearchWindow sw(200, 200);
-  int search_radius = 5; // Default is one
+  int search_radius = 10; // Default is one
   ROS_INFO("About to call warp");
   fastdtw::TimeWarpInfo<double> info =  fastdtw::FAST::getWarpInfoBetween(ts1,ts2,search_radius,fastdtw::SE3Distance());
   ROS_INFO("Called Warp");
   return info.getDistance();
 }
 
-double ompl_interface::DMPCost::min(double x, double y)
+std::vector<std::vector<double>> ompl_interface::DMPCost::projectPath(std::vector<std::vector<double>> &dmp_path)
 {
-  return x < y ? x : y;
+  std::vector<std::vector<double>> new_path;
+
+  auto compare = dmp_path.back();
+  Eigen::Vector2d p2(compare[0], compare[1]);
+  Eigen::Quaterniond q2(compare[6], compare[3], compare[4], compare[5]);
+  //Eigen::Quaterniond q2(1, 0, 0, 0);
+  double h2 = compare[2];
+  for (auto &point : dmp_path)
+  {
+    std::vector<double> new_point; // r, height, angular distance from end
+    Eigen::Vector2d p1(point[0], point[1]);
+    double h1 = point[2];
+    double r = (p1-p2).squaredNorm();
+    double h = h1-h2;
+
+    Eigen::Quaterniond q1(point[6], point[3], point[4], point[5]);
+    double theta = q1.angularDistance(q2);
+
+    new_point.push_back(r);
+    new_point.push_back(h);
+    new_point.push_back(theta);
+    new_path.push_back(new_point);
+  }
+  return new_path;
 }
 
 double ompl_interface::DMPCost::pointDistance(std::vector<double> &p1, std::vector<double> &p2)

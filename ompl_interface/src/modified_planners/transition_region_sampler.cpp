@@ -44,6 +44,7 @@ ompl_interface::TransitionRegionSampler::TransitionRegionSampler(
   kinematic_state_ = robot_state::RobotStatePtr(new robot_state::RobotState(pc->getCompleteInitialRobotState()));
 
   template_plan_ = dmp_utils::getTemplatePlan(dmp_information.dmp_name, learnt_dmp_, nh_);
+  
   dmp_cost_ = std::make_shared<ompl_interface::DMPCost>(template_plan_, *kinematic_state_, group_name_);
 
   joint_model_group_ = kinematic_model_->getJointModelGroup(planning_context_->getGroupName());
@@ -197,6 +198,7 @@ bool ompl_interface::TransitionRegionSampler::sampleGoalsOnline(const ompl::base
   ROS_INFO("About to sample sink and source");
   // Sample Sink
   robot_state::RobotState sampled_dmp_sink(*kinematic_state_);
+  //sampled_dmp_sink.
   while (1)
   {
     if (!dmp_sink_sampler_->sample(sampled_dmp_sink))
@@ -289,15 +291,15 @@ bool ompl_interface::TransitionRegionSampler::sampleGoalsOnline(const ompl::base
   //int len = ompl_path.getStateCount();
   //ROS_INFO("DMP Path Length: %d", len);
   double clearance = 10000;
-  for (int s=0; s < ompl_path.getStateCount(); s=s+50)
-  {
-    double c = si_->getStateValidityChecker()->clearance(ompl_path.getState(s));
-    ROS_INFO("Clearance: %f", c);
-    if (c <= 0 )
-      return false;
-    if (c<clearance)
-      clearance = c;
-  }
+  //for (int s=0; s < ompl_path.getStateCount(); s=s+50)
+  //{
+    //double c = si_->getStateValidityChecker()->clearance(ompl_path.getState(s));
+    //ROS_INFO("Clearance: %f", c);
+    //if (c <= 0 )
+      //return false;
+    //if (c<clearance)
+      //clearance = c;
+  //}
 
   bool collissionFree = true;
   if (clearance <= 0)
@@ -307,8 +309,10 @@ bool ompl_interface::TransitionRegionSampler::sampleGoalsOnline(const ompl::base
   if (collissionFree)
   {
     ROS_INFO("Sampled Valid Goal");
+    //double cost = dmp_cost_->getCSpaceCost(planResp);
     double cost = dmp_cost_->getCost(planResp);
-    score = 20000.0 / cost;
+    ROS_INFO("Cost of this DMP: %f", cost);
+    score = 2000000.0 / cost;
     //score = cost;
     num_sampled++;
   }

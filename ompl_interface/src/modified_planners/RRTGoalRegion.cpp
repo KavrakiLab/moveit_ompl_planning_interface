@@ -138,7 +138,7 @@ ompl::base::PlannerStatus ompl::geometric::RRTGoalRegion::solve(const base::Plan
   goalBias_ = 0.5;
 
   // my addition
-  while (weighted_goal_region->getStateCount() < 10)
+  while (weighted_goal_region->getStateCount() < 100)
     std::this_thread::sleep_for(std::chrono::milliseconds(1));
 
   //
@@ -152,6 +152,7 @@ ompl::base::PlannerStatus ompl::geometric::RRTGoalRegion::solve(const base::Plan
 
       weighted_goal.state_ = rstate;
       weighted_goal_region->sampleWeightedGoal(weighted_goal);
+      ROS_INFO("Sampled weighted goal with weigth: %f", weighted_goal.weight_);
     }
     else
     {

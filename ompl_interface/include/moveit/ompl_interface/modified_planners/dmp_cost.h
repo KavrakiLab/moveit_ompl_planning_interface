@@ -19,17 +19,15 @@ class DMPCost
 public:
   DMPCost(dmp::GetDMPPlanResponse& template_path, robot_state::RobotState &robot, std::string group);
   double getCost(dmp::GetDMPPlanResponse& path);
+  double getCSpaceCost(dmp::GetDMPPlanResponse &dmp_path);
 
 private:
-  //dmp::GetDMPPlanResponse equalizePaths(dmp::GetDMPPlanResponse& path);
   std::vector<std::vector<double>> equalizePaths(std::vector<std::vector<double>>& dmp_path);
   void downsample(std::vector<std::vector<double>> &dmp_path);
-  //double euclideanDistance(dmp::GetDMPPlanResponse& path);
   double euclideanDistance(std::vector<std::vector<double>>& dmp_path);
   double pointDistance(std::vector<double> &p1, std::vector<double> &p2);
   double dtwDistance(std::vector<std::vector<double>>& dmp_path);
-  double min(double x, double y);
-  //double clearance(dmp::GetDMPPlanResponse& path);
+  std::vector<std::vector<double>> projectPath(std::vector<std::vector<double>> &dmp_path);
   std::vector<std::vector<double>> toCartesianPath(std::vector<std::vector<double>> joint_path);
   std::vector<std::vector<double>> toVector(dmp::GetDMPPlanResponse &dmp_path);
   std::vector<std::vector<double>> normalize(std::vector<std::vector<double>> &cart_path);
