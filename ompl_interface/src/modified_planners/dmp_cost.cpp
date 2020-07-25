@@ -44,9 +44,7 @@ std::vector<std::vector<double>> ompl_interface::DMPCost::normalize(std::vector<
   {
     std::vector<double> dim;
     for (int n=0; n < cart_path.size(); n++)
-    {
       dim.push_back(cart_path[n][d]);
-    }
 
     const auto [min, max] = std::minmax_element(dim.begin(), dim.end());
     for (auto& e : dim)
