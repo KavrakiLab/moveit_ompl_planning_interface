@@ -21,6 +21,7 @@ find_package(catkin REQUIRED COMPONENTS
   eigen_conversions
   dmp
   robowflex_library
+  robowflex_movegroup
   utils_library
   fast_dtw
   )
@@ -46,6 +47,7 @@ catkin_package(
     eigen_conversions
     dmp
     robowflex_library
+    robowflex_movegroup
     fast_dtw
 )
 

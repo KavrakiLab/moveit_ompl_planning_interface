@@ -13,8 +13,8 @@
 #include <ompl/base/goals/GoalLazySamples.h>
 #include <ompl/base/spaces/SE3StateSpace.h>
 #include <ompl/base/PrecomputedStateSampler.h>
-#include <ompl/util/RandomNumbers.h>
-#include <ompl/geometric/PathGeometric.h>
+#include <ompl/util/RandomNumbers.h> 
+#include <ompl/geometric/PathGeometric.h> 
 #include <ompl/base/OptimizationObjective.h>
 
 #include <moveit/ompl_interface/modified_planners/PRMMod.h>
@@ -46,8 +46,11 @@
 
 #include <visualization_msgs/Marker.h>
 #include <visualization_msgs/MarkerArray.h>
-//#include <robowflex_library/robot.h>
-//#include <robowflex_library/io.h>
+
+// Robowflex
+#include <robowflex_library/robot.h>
+#include <robowflex_library/scene.h>
+#include <robowflex_movegroup/services.h>
 //#include <robowflex_library/io/visualization.h>
 
 namespace ompl_interface
@@ -87,6 +90,10 @@ private:
                    constraint_samplers::ConstraintSamplerPtr sampler);
 
   std::vector<double> samplePourSink(moveit_msgs::Constraints sink_constraints);
+
+  std::vector<double> robotStateToEEVectorPose(robot_state::RobotState &state);
+  void WSPathtoOMPLPath(dmp::GetDMPPlanAvoidObstaclesResponse& dmpPlan, ompl::geometric::PathGeometric& ompl_path,
+                        robot_state::RobotState& robot_state);
 
   const OMPLPlanningContext* planning_context_;
   kinematic_constraints::KinematicConstraintSetPtr kinematic_constraint_set_;
@@ -133,6 +140,9 @@ private:
   std::vector<double> start_template_;
   std::vector<double> end_template_;
 
+  // Roboflex and Movegroup
+  robowflex::ScenePtr scene_;
+  robowflex::movegroup::MoveGroupHelper move_group_;
 };
 
 }  // namespace ompl_interface

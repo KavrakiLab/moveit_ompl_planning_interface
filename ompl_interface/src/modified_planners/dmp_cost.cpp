@@ -11,12 +11,23 @@ ompl_interface::DMPCost::DMPCost(dmp::GetDMPPlanResponse& template_path, robot_s
   robot_ = std::make_shared<robot_state::RobotState>(robot);
   template_path_ = toVector(template_path);
   downsample(template_path_);
-  template_path_ = toCartesianPath(template_path_);
+  //template_path_ = toCartesianPath(template_path_);
   template_path_ = projectPath(template_path_);
   template_path_ = normalize(template_path_);
 }
 
 std::vector<std::vector<double>> ompl_interface::DMPCost::toVector(dmp::GetDMPPlanResponse &dmp_path)
+{
+  std::vector<std::vector<double>> traj;
+  for (auto &point : dmp_path.plan.points)
+  {
+    std::vector<double> point_vec = point.positions;
+    traj.push_back(point_vec);
+  }
+  return traj;
+}
+
+std::vector<std::vector<double>> ompl_interface::DMPCost::toVectorAvoidObstacles(dmp::GetDMPPlanAvoidObstaclesResponse &dmp_path)
 {
   std::vector<std::vector<double>> traj;
   for (auto &point : dmp_path.plan.points)
@@ -83,11 +94,11 @@ std::vector<std::vector<double>> ompl_interface::DMPCost::toCartesianPath(std::v
   return cart_path;
 }
 
-double ompl_interface::DMPCost::getCost(dmp::GetDMPPlanResponse &dmp_path)
+double ompl_interface::DMPCost::getCost(dmp::GetDMPPlanAvoidObstaclesResponse &dmp_path)
 {
-  std::vector<std::vector<double>> dmp_path_vec = toVector(dmp_path);
+  std::vector<std::vector<double>> dmp_path_vec = toVectorAvoidObstacles(dmp_path);
   downsample(dmp_path_vec);
-  dmp_path_vec = toCartesianPath(dmp_path_vec);
+  //dmp_path_vec = toCartesianPath(dmp_path_vec);
   dmp_path_vec = projectPath(dmp_path_vec);
   dmp_path_vec = normalize(dmp_path_vec);
 

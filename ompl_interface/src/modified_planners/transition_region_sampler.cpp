@@ -38,6 +38,7 @@ ompl_interface::TransitionRegionSampler::TransitionRegionSampler(
 {
   learnt_dmp_ = dmp_utils::loadDMP(dmp_information.dmp_name);
   dmp_utils::makeSetActive(learnt_dmp_.dmp_list, nh_);
+  move_group_.pullScene(scene_);
 
 
   kinematic_model_ = std::make_shared<robot_model::RobotModel>(rm->getURDF(), rm->getSRDF());
@@ -156,6 +157,59 @@ std::vector<double> ompl_interface::TransitionRegionSampler::samplePourSink(move
   return state;
 }
 
+std::vector<double> ompl_interface::TransitionRegionSampler::robotStateToEEVectorPose(robot_state::RobotState &state)
+{
+  auto base_tf = state.getGlobalLinkTransform("base_link");
+  auto target_tf = state.getGlobalLinkTransform("gripper_link");
+  auto ee_tf = base_tf.inverse() * target_tf;
+  auto q = Eigen::Quaterniond(ee_tf.linear());
+  std::vector<double> ee_vec = {
+    ee_tf.translation().x(), ee_tf.translation().y(), ee_tf.translation().z(), q.x(), q.y(), q.z(), q.w()
+  };
+  return ee_vec;
+}
+
+void ompl_interface::TransitionRegionSampler::WSPathtoOMPLPath(dmp::GetDMPPlanAvoidObstaclesResponse& dmpPlan,
+                                                               ompl::geometric::PathGeometric& ompl_path,
+                                                               robot_state::RobotState& robot)
+{
+  // Robot State must be set to source.
+  for (unsigned i=0; i < dmpPlan.plan.points.size(); i++)
+  {
+    Eigen::Isometry3d ee_pose = Eigen::Isometry3d::Identity();
+    ee_pose.translation() =
+        Eigen::Vector3d(dmpPlan.plan.points[i].positions[0],
+                        dmpPlan.plan.points[i].positions[1],
+                        dmpPlan.plan.points[i].positions[2]);
+    auto q = Eigen::Quaterniond(dmpPlan.plan.points[i].positions[6],
+                                dmpPlan.plan.points[i].positions[3],
+                                dmpPlan.plan.points[i].positions[4],
+                                dmpPlan.plan.points[i].positions[5]);
+    q.normalize();
+    ee_pose.linear() = q.toRotationMatrix();
+
+    // Get current EE Pose
+    auto base_tf = robot.getGlobalLinkTransform("base_link");
+    auto target_tf = robot.getGlobalLinkTransform("gripper_link");
+    auto curr_ee_pose = base_tf.inverse() * target_tf;
+    auto curr_to_new = curr_ee_pose.inverse() * ee_pose;
+    Eigen::VectorXd twist(6);
+    Eigen::AngleAxisd aa(curr_to_new.linear());
+    Eigen::Vector3d translational = curr_to_new.translation();
+    Eigen::Vector3d angular = aa.angle() * aa.axis();
+    twist << translational, angular;
+
+    if (robot.setFromDiffIK(robot.getJointModelGroup("arm_with_torso"), twist, "gripper_link", 1))
+    {
+      ompl::base::State* currState = si_->allocState();
+      planning_context_->copyToOMPLState(currState, robot);
+      ompl_path.append(currState);
+    }
+    else
+      ROS_WARN("Diff IK failed");
+  }
+}
+
 bool ompl_interface::TransitionRegionSampler::sampleGoalsOnline(const ompl::base::WeightedGoalRegionSampler* gls,
                                                                 std::vector<ompl::base::State*>& sampled_states)
 {
@@ -196,7 +250,7 @@ bool ompl_interface::TransitionRegionSampler::sampleGoalsOnline(const ompl::base
   }
 
   ROS_INFO("About to sample sink and source");
-  // Sample Sink
+  // Sample Sink  this should just be a 7dof SE3 point reachable by the robot.
   robot_state::RobotState sampled_dmp_sink(*kinematic_state_);
   //sampled_dmp_sink.
   while (1)
@@ -209,7 +263,7 @@ bool ompl_interface::TransitionRegionSampler::sampleGoalsOnline(const ompl::base
   }
   ROS_INFO("Sink Sampled");
 
-  // Sample Source
+  // Sample Source 
   robot_state::RobotState sampled_dmp_source(*kinematic_state_);
   while (1)
   {
@@ -263,24 +317,26 @@ bool ompl_interface::TransitionRegionSampler::sampleGoalsOnline(const ompl::base
 
   // Convert to Vector Representation
   std::vector<double> sampled_dmp_source_vector;
-  sampled_dmp_source.copyJointGroupPositions(group_name_, sampled_dmp_source_vector);
+  sampled_dmp_source_vector = robotStateToEEVectorPose(sampled_dmp_source);
   std::vector<double> sampled_dmp_sink_vector;
-  sampled_dmp_sink.copyJointGroupPositions(group_name_, sampled_dmp_sink_vector);
+  sampled_dmp_sink_vector = robotStateToEEVectorPose(sampled_dmp_sink);
 
-  // Simulate DMP
-  dmp::GetDMPPlanResponse planResp = dmp_utils::simulateDMP(sampled_dmp_source_vector, sampled_dmp_sink_vector, learnt_dmp_, nh_);
-
+  // Simulate DMP in W-Space (with obstacle avoidance)
+  dmp::GetDMPPlanAvoidObstaclesResponse planResp = dmp_utils::simulateDMPAvoidObstacles(sampled_dmp_source_vector, sampled_dmp_sink_vector, learnt_dmp_, scene_, nh_);
   dmp::DMPTraj dmp_traj = planResp.plan;
+
+  // Convert DMP Path to OMPL Path
   robot_state::RobotState dmpState(*kinematic_state_);
   ompl::geometric::PathGeometric ompl_path(si_);
-  for (size_t i = 0; i < dmp_traj.points.size(); i++)
-  {
-    std::vector<double> joint_pos = dmp_traj.points[i].positions;
-    dmpState.setJointGroupPositions(group_name_, joint_pos);
-    ompl::base::State* currState = si_->allocState();
-    planning_context_->copyToOMPLState(currState, dmpState);
-    ompl_path.append(currState);
-  }
+  WSPathtoOMPLPath(planResp, ompl_path, sampled_dmp_source);
+  //for (size_t i = 0; i < dmp_traj.points.size(); i++)
+  //{
+    //std::vector<double> joint_pos = dmp_traj.points[i].positions;
+    //dmpState.setJointGroupPositions(group_name_, joint_pos);
+    //ompl::base::State* currState = si_->allocState();
+    //planning_context_->copyToOMPLState(currState, dmpState);
+    //ompl_path.append(currState);
+  //}
 
   ompl_path.interpolate();
 

@@ -927,7 +927,7 @@ bool GeometricPlanningContext::setGoalConstraints(const std::vector<moveit_msgs:
       ROS_INFO("Creating Transition Region Sampler");
       g = ompl::base::GoalPtr(new TransitionRegionSampler(this, getGroupName(), getRobotModel(), getPlanningScene(),
                                                           merged_constraints_, dmp_information_,
-                                                          constraint_sampler_manager_, true, 100));  // SEG FAULTING
+                                                          constraint_sampler_manager_, true, 100)); 
       ROS_INFO("Created Transition Region Sampler");
       goals.push_back(g);
   }

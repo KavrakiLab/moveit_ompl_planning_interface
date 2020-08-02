@@ -6,6 +6,7 @@
 #include <dmp/DMPPoint.h>
 #include <dmp/DMPTraj.h>
 #include <dmp/GetDMPPlan.h>
+#include <dmp/GetDMPPlanAvoidObstacles.h>
 #include <dmp/LearnDMPFromDemo.h>
 #include <dmp/SetActiveDMP.h>
 
@@ -18,7 +19,7 @@ class DMPCost
 {
 public:
   DMPCost(dmp::GetDMPPlanResponse& template_path, robot_state::RobotState &robot, std::string group);
-  double getCost(dmp::GetDMPPlanResponse& path);
+  double getCost(dmp::GetDMPPlanAvoidObstaclesResponse& path);
   double getCSpaceCost(dmp::GetDMPPlanResponse &dmp_path);
 
 private:
@@ -29,6 +30,7 @@ private:
   double dtwDistance(std::vector<std::vector<double>>& dmp_path);
   std::vector<std::vector<double>> projectPath(std::vector<std::vector<double>> &dmp_path);
   std::vector<std::vector<double>> toCartesianPath(std::vector<std::vector<double>> joint_path);
+  std::vector<std::vector<double>> toVectorAvoidObstacles(dmp::GetDMPPlanAvoidObstaclesResponse &dmp_path);
   std::vector<std::vector<double>> toVector(dmp::GetDMPPlanResponse &dmp_path);
   std::vector<std::vector<double>> normalize(std::vector<std::vector<double>> &cart_path);
 
