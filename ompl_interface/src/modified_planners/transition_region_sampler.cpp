@@ -38,7 +38,13 @@ ompl_interface::TransitionRegionSampler::TransitionRegionSampler(
 {
   learnt_dmp_ = dmp_utils::loadDMP(dmp_information.dmp_name);
   dmp_utils::makeSetActive(learnt_dmp_.dmp_list, nh_);
+  ROS_INFO("Transition Region Sampler: PourWS Set as active");
+  robot_ = std::make_shared<robowflex::ParamRobot>();
+  robot_->loadKinematics("arm_with_torso");
+  scene_ = std::make_shared<robowflex::Scene>(robot_);
   move_group_.pullScene(scene_);
+  ROS_WARN("Movegroup scene pulled");
+
 
 
   kinematic_model_ = std::make_shared<robot_model::RobotModel>(rm->getURDF(), rm->getSRDF());
@@ -171,9 +177,10 @@ std::vector<double> ompl_interface::TransitionRegionSampler::robotStateToEEVecto
 
 void ompl_interface::TransitionRegionSampler::WSPathtoOMPLPath(dmp::GetDMPPlanAvoidObstaclesResponse& dmpPlan,
                                                                ompl::geometric::PathGeometric& ompl_path,
-                                                               robot_state::RobotState& robot)
+                                                               robot_state::RobotState robot)
 {
   // Robot State must be set to source.
+  
   for (unsigned i=0; i < dmpPlan.plan.points.size(); i++)
   {
     Eigen::Isometry3d ee_pose = Eigen::Isometry3d::Identity();
@@ -326,7 +333,7 @@ bool ompl_interface::TransitionRegionSampler::sampleGoalsOnline(const ompl::base
   dmp::DMPTraj dmp_traj = planResp.plan;
 
   // Convert DMP Path to OMPL Path
-  robot_state::RobotState dmpState(*kinematic_state_);
+  //robot_state::RobotState dmpState(*kinematic_state_);
   ompl::geometric::PathGeometric ompl_path(si_);
   WSPathtoOMPLPath(planResp, ompl_path, sampled_dmp_source);
   //for (size_t i = 0; i < dmp_traj.points.size(); i++)
@@ -340,7 +347,7 @@ bool ompl_interface::TransitionRegionSampler::sampleGoalsOnline(const ompl::base
 
   ompl_path.interpolate();
 
-  ROS_INFO("About to check DMP OMPL Path for validity");
+  //ROS_INFO("About to check DMP OMPL Path for validity");
   // Score the path
   double score = 1.0;
   //double clearance = ompl_path.clearance();
@@ -366,9 +373,9 @@ bool ompl_interface::TransitionRegionSampler::sampleGoalsOnline(const ompl::base
   {
     ROS_INFO("Sampled Valid Goal");
     //double cost = dmp_cost_->getCSpaceCost(planResp);
-    double cost = dmp_cost_->getCost(planResp);
-    ROS_INFO("Cost of this DMP: %f", cost);
-    score = 2000000.0 / cost;
+    //double cost = dmp_cost_->getCost(planResp);
+    //ROS_INFO("Cost of this DMP: %f", cost);
+    //score = 2000000.0 / cost;
     //score = cost;
     num_sampled++;
   }
@@ -382,6 +389,7 @@ bool ompl_interface::TransitionRegionSampler::sampleGoalsOnline(const ompl::base
   //ROS_INFO("Template Path Length: %d   DMP Path Length: %d", template_plan_.plan.points.size(), planResp.plan.points.size());
   
   // Insert in heap
+  ROS_WARN("Inserted goal to heap!");
   ompl::base::State* new_goal = si_->allocState();
   planning_context_->copyToOMPLState(new_goal, sampled_dmp_source);
   sampled_states.push_back(new_goal);

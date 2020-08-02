@@ -152,7 +152,6 @@ ompl::base::PlannerStatus ompl::geometric::RRTGoalRegion::solve(const base::Plan
 
       weighted_goal.state_ = rstate;
       weighted_goal_region->sampleWeightedGoal(weighted_goal);
-      ROS_INFO("Sampled weighted goal with weigth: %f", weighted_goal.weight_);
     }
     else
     {

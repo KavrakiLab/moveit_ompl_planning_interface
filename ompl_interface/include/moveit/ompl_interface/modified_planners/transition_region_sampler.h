@@ -93,7 +93,7 @@ private:
 
   std::vector<double> robotStateToEEVectorPose(robot_state::RobotState &state);
   void WSPathtoOMPLPath(dmp::GetDMPPlanAvoidObstaclesResponse& dmpPlan, ompl::geometric::PathGeometric& ompl_path,
-                        robot_state::RobotState& robot_state);
+                        robot_state::RobotState robot_state);
 
   const OMPLPlanningContext* planning_context_;
   kinematic_constraints::KinematicConstraintSetPtr kinematic_constraint_set_;
@@ -141,6 +141,7 @@ private:
   std::vector<double> end_template_;
 
   // Roboflex and Movegroup
+  robowflex::RobotPtr robot_;
   robowflex::ScenePtr scene_;
   robowflex::movegroup::MoveGroupHelper move_group_;
 };
