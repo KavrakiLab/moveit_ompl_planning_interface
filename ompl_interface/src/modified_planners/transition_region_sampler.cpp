@@ -44,6 +44,7 @@ ompl_interface::TransitionRegionSampler::TransitionRegionSampler(
   robot_->loadKinematics("arm_with_torso");
   scene_ = std::make_shared<robowflex::Scene>(robot_);
   move_group_.pullScene(scene_);
+  move_group_.pullState(robot_);
   
   ROS_WARN("Movegroup scene pulled");
 
@@ -181,10 +182,21 @@ double ompl_interface::TransitionRegionSampler::WSPathtoOMPLPath(dmp::GetDMPPlan
                                                                ompl::geometric::PathGeometric& ompl_path,
                                                                robot_state::RobotState robot)
 {
-  EigenSTL::vector_Isometry3d waypoints;
+  move_group_.pullScene(scene_);
+  auto sc = scene_;
+  const auto &gsvcf =
+      [this](robot_state::RobotState* state, const moveit::core::JointModelGroup* jmg,
+                         const double* values) 
+      { 
+        state->setJointGroupPositions(jmg, values);
+        state->updateCollisionBodyTransforms();
+        return this->planning_scene_->isStateValid(*state, this->group_name_);
+      }; 
+
+  auto start = std::chrono::high_resolution_clock::now();
   ompl::base::State* last_state = si_->allocState();
   double max  = 0;
-  for (unsigned i=0; i < dmpPlan.plan.points.size(); i++)
+  for (unsigned i=0; i < dmpPlan.plan.points.size(); i=i+5)
   {
     Eigen::Isometry3d ee_pose = Eigen::Isometry3d::Identity();
     ee_pose.translation() =
@@ -198,12 +210,11 @@ double ompl_interface::TransitionRegionSampler::WSPathtoOMPLPath(dmp::GetDMPPlan
     q.normalize();
     ee_pose.linear() = q.toRotationMatrix();
 
-    waypoints.push_back(ee_pose);
-
     // Get current EE Pose
-    auto base_tf = robot.getGlobalLinkTransform("base_link");
-    auto target_tf = robot.getGlobalLinkTransform("gripper_link");
-    auto curr_ee_pose = base_tf.inverse() * target_tf;
+    //auto base_tf = robot.getGlobalLinkTransform("base_link");
+    //auto target_tf = robot.getGlobalLinkTransform("gripper_link");
+    //auto curr_ee_pose = base_tf.inverse() * target_tf;
+    auto curr_ee_pose = robot.getGlobalLinkTransform("gripper_link");
     auto curr_to_new = curr_ee_pose.inverse() * ee_pose;
     Eigen::VectorXd twist(6);
     Eigen::AngleAxisd aa(curr_to_new.linear());
@@ -211,7 +222,7 @@ double ompl_interface::TransitionRegionSampler::WSPathtoOMPLPath(dmp::GetDMPPlan
     Eigen::Vector3d angular = aa.angle() * aa.axis();
     twist << translational, angular;
 
-    if (robot.setFromDiffIK(robot.getJointModelGroup("arm_with_torso"), twist, "gripper_link", 1))
+    if (robot.setFromDiffIK(robot.getJointModelGroup("arm_with_torso"), twist, "gripper_link", 1, gsvcf))
     {
       ompl::base::State* currState = si_->allocState();
       planning_context_->copyToOMPLState(currState, robot);
@@ -219,33 +230,20 @@ double ompl_interface::TransitionRegionSampler::WSPathtoOMPLPath(dmp::GetDMPPlan
       if (i > 0)
       {
         double d = si_->distance(currState, last_state);
-        //ROS_WARN("Pairwise distance: %f", d);
         if (d > 3.0)
-        {
-          //ROS_ERROR("Pairwise distance exceeds threshold");
-          return -1;
-        }
+          return -1; // discontinuous
         max = std::max(d, max);
       }
       si_->copyState(last_state, currState);
       ompl_path.append(currState);
     }
     else
-      ROS_WARN("Diff IK failed");
+      return -2; // collision
   }
-  //double eef_step = 0.02;
-  //double jump_thresh = 1000;
-  //std::vector<robot_state::RobotStatePtr> traj;
-  //double s = robot.computeCartesianPath(robot.getJointModelGroup("arm_with_torso"), traj,
-                                        //robot.getLinkModel("gripper_link"), waypoints, false, eef_step, jump_thresh);
-  //for (int i=0; i < traj.size(); i++)
-  //{
-    //ompl::base::State* currState = si_->allocState();
-    //planning_context_->copyToOMPLState(currState, *traj[i]);
-    //ompl_path.append(currState);
-  //}
-  //return s;
-  ROS_ERROR("Returning Max: %f", max);
+  //ROS_ERROR("Returning Max: %f", max);
+  auto end = std::chrono::high_resolution_clock::now();
+  std::chrono::duration<double> time = end - start;
+  ROS_ERROR("Time to trace DMP: %f", time.count());
   return max;
 }
 
@@ -388,30 +386,32 @@ bool ompl_interface::TransitionRegionSampler::sampleGoalsOnline(const ompl::base
   // Convert DMP Path to OMPL Path
   auto dmp_conversion_start = std::chrono::high_resolution_clock::now();
   ompl::geometric::PathGeometric ompl_path(si_);
-  double length = WSPathtoOMPLPath(planResp, ompl_path, sampled_dmp_source); // Also Converts to IK
+  double max_jump = WSPathtoOMPLPath(planResp, ompl_path, sampled_dmp_source); // Also Converts to IK
   auto dmp_conversion_end = std::chrono::high_resolution_clock::now();
   std::chrono::duration<double> dmp_conversion_time = dmp_conversion_start - dmp_conversion_end;
   ROS_INFO("DMP Conversion Time: %f", dmp_conversion_time);
-  if (length < 0)
+  if (max_jump == -1)
   {
     ROS_ERROR("Path discontinuous");
     return false;
   }
+  else if (max_jump == -2)
+  {
+    ROS_ERROR("Unable to find collision free IK");
+    return false;
+  }
 
   // Score the path
-  //double length = ompl_path.length();
-  ROS_WARN("Length: %f", length);
-
-  double score = 1.0;
   ROS_INFO("Sampled Valid Goal");
-  double cost = dmp_cost_->getCost(planResp);
-  cost += 3 * length;
-  score = 10000.0 / cost;
+  double similarity_cost = 0.002 * dmp_cost_->getCost(planResp);
+  double discontinuity_cost =  max_jump;
+  double total_cost = similarity_cost + discontinuity_cost;
+  double score = 10.0 / total_cost;
   num_sampled++;
-  ROS_INFO("This DMP has a score of: %f", score);
+  ROS_INFO("Similarity Cost: %f  Discontinuity Cost: %f", similarity_cost, discontinuity_cost);
+  ROS_INFO("Total Score: %f", score);
   
   // Insert in heap
-  ROS_WARN("Inserted goal to heap!");
   ompl::base::State* new_goal = si_->allocState();
   planning_context_->copyToOMPLState(new_goal, sampled_dmp_source);
   sampled_states.push_back(new_goal);
