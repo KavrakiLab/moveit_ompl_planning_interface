@@ -15,6 +15,7 @@
 #include <boost/foreach.hpp>
 
 #include <Eigen/Geometry>
+#include <eigen_conversions/eigen_msg.h>
 #include <utils_library/dmp_utils.h>
 
 ompl_interface::TransitionRegionSampler::TransitionRegionSampler(
@@ -43,6 +44,7 @@ ompl_interface::TransitionRegionSampler::TransitionRegionSampler(
   robot_->loadKinematics("arm_with_torso");
   scene_ = std::make_shared<robowflex::Scene>(robot_);
   move_group_.pullScene(scene_);
+  
   ROS_WARN("Movegroup scene pulled");
 
 
@@ -175,12 +177,13 @@ std::vector<double> ompl_interface::TransitionRegionSampler::robotStateToEEVecto
   return ee_vec;
 }
 
-void ompl_interface::TransitionRegionSampler::WSPathtoOMPLPath(dmp::GetDMPPlanAvoidObstaclesResponse& dmpPlan,
+double ompl_interface::TransitionRegionSampler::WSPathtoOMPLPath(dmp::GetDMPPlanAvoidObstaclesResponse& dmpPlan,
                                                                ompl::geometric::PathGeometric& ompl_path,
                                                                robot_state::RobotState robot)
 {
-  // Robot State must be set to source.
-  
+  EigenSTL::vector_Isometry3d waypoints;
+  ompl::base::State* last_state = si_->allocState();
+  double max  = 0;
   for (unsigned i=0; i < dmpPlan.plan.points.size(); i++)
   {
     Eigen::Isometry3d ee_pose = Eigen::Isometry3d::Identity();
@@ -194,6 +197,8 @@ void ompl_interface::TransitionRegionSampler::WSPathtoOMPLPath(dmp::GetDMPPlanAv
                                 dmpPlan.plan.points[i].positions[5]);
     q.normalize();
     ee_pose.linear() = q.toRotationMatrix();
+
+    waypoints.push_back(ee_pose);
 
     // Get current EE Pose
     auto base_tf = robot.getGlobalLinkTransform("base_link");
@@ -210,11 +215,83 @@ void ompl_interface::TransitionRegionSampler::WSPathtoOMPLPath(dmp::GetDMPPlanAv
     {
       ompl::base::State* currState = si_->allocState();
       planning_context_->copyToOMPLState(currState, robot);
+      // Check Jump
+      if (i > 0)
+      {
+        double d = si_->distance(currState, last_state);
+        //ROS_WARN("Pairwise distance: %f", d);
+        if (d > 3.0)
+        {
+          //ROS_ERROR("Pairwise distance exceeds threshold");
+          return -1;
+        }
+        max = std::max(d, max);
+      }
+      si_->copyState(last_state, currState);
       ompl_path.append(currState);
     }
     else
       ROS_WARN("Diff IK failed");
   }
+  //double eef_step = 0.02;
+  //double jump_thresh = 1000;
+  //std::vector<robot_state::RobotStatePtr> traj;
+  //double s = robot.computeCartesianPath(robot.getJointModelGroup("arm_with_torso"), traj,
+                                        //robot.getLinkModel("gripper_link"), waypoints, false, eef_step, jump_thresh);
+  //for (int i=0; i < traj.size(); i++)
+  //{
+    //ompl::base::State* currState = si_->allocState();
+    //planning_context_->copyToOMPLState(currState, *traj[i]);
+    //ompl_path.append(currState);
+  //}
+  //return s;
+  ROS_ERROR("Returning Max: %f", max);
+  return max;
+}
+
+bool ompl_interface::TransitionRegionSampler::publishMarker(robot_state::RobotState &state)
+{
+  
+  // Publish Source Marker
+  marker_id_++;
+  visualization_msgs::Marker marker;
+  marker.header.frame_id = "base_link";
+  marker.header.stamp = ros::Time::now();
+  marker.ns = "transition";
+  marker.id = marker_id_; 
+  marker.type = visualization_msgs::Marker::SPHERE;
+  marker.action = visualization_msgs::Marker::ADD;
+  auto gripper_tf = state.getGlobalLinkTransform("gripper_link");
+
+  marker.pose.position.x = gripper_tf.translation().x();
+  marker.pose.position.y = gripper_tf.translation().y();
+  marker.pose.position.z = gripper_tf.translation().z();
+  marker.pose.orientation.x = Eigen::Quaterniond(gripper_tf.rotation()).x();
+  marker.pose.orientation.y = Eigen::Quaterniond(gripper_tf.rotation()).y();
+  marker.pose.orientation.z = Eigen::Quaterniond(gripper_tf.rotation()).z();
+  marker.pose.orientation.w = Eigen::Quaterniond(gripper_tf.rotation()).w();
+
+  marker.scale.x = 0.05;
+  marker.scale.y = 0.05;
+  marker.scale.z = 0.05;
+  marker.color.r = 1.0f;
+  marker.color.g = 0.0f;
+  marker.color.b = 0.0f;
+  marker.color.a = 0.5;
+
+  marker.lifetime = ros::Duration();
+  marker_array_.markers.push_back(marker);
+  while (marker_pub_.getNumSubscribers() < 1)
+  {
+    if (!ros::ok())
+    {
+      return false;
+    }
+    ROS_WARN_ONCE("Please create a subscriber to marker array topic");
+    sleep(1);
+  }
+  marker_pub_.publish(marker_array_);
+  return true;
 }
 
 bool ompl_interface::TransitionRegionSampler::sampleGoalsOnline(const ompl::base::WeightedGoalRegionSampler* gls,
@@ -224,7 +301,6 @@ bool ompl_interface::TransitionRegionSampler::sampleGoalsOnline(const ompl::base
   bool success = false;
   auto start = std::chrono::high_resolution_clock::now();
   int num_sampled = 0;
-  int batch_sample_size = 5;
 
   //for (unsigned int i = 0; i < 1; i++)
 
@@ -259,13 +335,14 @@ bool ompl_interface::TransitionRegionSampler::sampleGoalsOnline(const ompl::base
   ROS_INFO("About to sample sink and source");
   // Sample Sink  this should just be a 7dof SE3 point reachable by the robot.
   robot_state::RobotState sampled_dmp_sink(*kinematic_state_);
-  //sampled_dmp_sink.
+
+  auto sample_start = std::chrono::high_resolution_clock::now();
   while (1)
   {
     if (!dmp_sink_sampler_->sample(sampled_dmp_sink))
       continue;
-    if (!planning_scene_->isStateValid(sampled_dmp_sink, group_name_))
-      continue;
+    //if (!planning_scene_->isStateValid(sampled_dmp_sink, group_name_))
+      //continue;
     break;
   }
   ROS_INFO("Sink Sampled");
@@ -276,51 +353,20 @@ bool ompl_interface::TransitionRegionSampler::sampleGoalsOnline(const ompl::base
   {
     if (!dmp_source_sampler_->sample(sampled_dmp_source))
       continue;
-    if (!planning_scene_->isStateValid(sampled_dmp_source, group_name_))
-      continue;
+    //if (!planning_scene_->isStateValid(sampled_dmp_source, group_name_))
+      //continue;
     break;
   }
   ROS_INFO("Source Sampled");
+  auto sample_end = std::chrono::high_resolution_clock::now();
+  std::chrono::duration<double> sampling_time = sample_start - sample_end;
+  ROS_INFO("Sampling Time: %f", sampling_time.count());
 
-  marker_id_++;
-  // Publish Source Marker
-  visualization_msgs::Marker marker;
-  marker.header.frame_id = "base_link";
-  marker.header.stamp = ros::Time::now();
-  marker.ns = "transition";
-  marker.id = marker_id_; 
-  marker.type = visualization_msgs::Marker::SPHERE;
-  marker.action = visualization_msgs::Marker::ADD;
-  auto gripper_tf = sampled_dmp_source.getGlobalLinkTransform("gripper_link");
 
-  marker.pose.position.x = gripper_tf.translation().x();
-  marker.pose.position.y = gripper_tf.translation().y();
-  marker.pose.position.z = gripper_tf.translation().z();
-  marker.pose.orientation.x = Eigen::Quaterniond(gripper_tf.rotation()).x();
-  marker.pose.orientation.y = Eigen::Quaterniond(gripper_tf.rotation()).y();
-  marker.pose.orientation.z = Eigen::Quaterniond(gripper_tf.rotation()).z();
-  marker.pose.orientation.w = Eigen::Quaterniond(gripper_tf.rotation()).w();
+  double source_sink_distance = sampled_dmp_source.distance(sampled_dmp_sink, sampled_dmp_source.getJointModelGroup("arm_with_torso"));
+  ROS_INFO("Distance between source and sink: %f", source_sink_distance);
 
-  marker.scale.x = 0.05;
-  marker.scale.y = 0.05;
-  marker.scale.z = 0.05;
-  marker.color.r = 1.0f;
-  marker.color.g = 0.0f;
-  marker.color.b = 0.0f;
-  marker.color.a = 0.5;
-
-  marker.lifetime = ros::Duration();
-  marker_array_.markers.push_back(marker);
-  while (marker_pub_.getNumSubscribers() < 1)
-  {
-    if (!ros::ok())
-    {
-      return 0;
-    }
-    ROS_WARN_ONCE("Please create a subscriber to marker array topic");
-    sleep(1);
-  }
-  marker_pub_.publish(marker_array_);
+  //publishMarker(sampled_dmp_source);
 
   // Convert to Vector Representation
   std::vector<double> sampled_dmp_source_vector;
@@ -329,64 +375,40 @@ bool ompl_interface::TransitionRegionSampler::sampleGoalsOnline(const ompl::base
   sampled_dmp_sink_vector = robotStateToEEVectorPose(sampled_dmp_sink);
 
   // Simulate DMP in W-Space (with obstacle avoidance)
+  
+
+  auto dmp_simulate_start = std::chrono::high_resolution_clock::now();
   dmp::GetDMPPlanAvoidObstaclesResponse planResp = dmp_utils::simulateDMPAvoidObstacles(sampled_dmp_source_vector, sampled_dmp_sink_vector, learnt_dmp_, scene_, nh_);
+  auto dmp_simulate_stop = std::chrono::high_resolution_clock::now();
+  std::chrono::duration<double> dmp_simulation_time = dmp_simulate_start - dmp_simulate_stop;
+  ROS_INFO("DMP Simulation Time: %f", dmp_simulation_time.count());
+
   dmp::DMPTraj dmp_traj = planResp.plan;
 
   // Convert DMP Path to OMPL Path
-  //robot_state::RobotState dmpState(*kinematic_state_);
+  auto dmp_conversion_start = std::chrono::high_resolution_clock::now();
   ompl::geometric::PathGeometric ompl_path(si_);
-  WSPathtoOMPLPath(planResp, ompl_path, sampled_dmp_source);
-  //for (size_t i = 0; i < dmp_traj.points.size(); i++)
-  //{
-    //std::vector<double> joint_pos = dmp_traj.points[i].positions;
-    //dmpState.setJointGroupPositions(group_name_, joint_pos);
-    //ompl::base::State* currState = si_->allocState();
-    //planning_context_->copyToOMPLState(currState, dmpState);
-    //ompl_path.append(currState);
-  //}
+  double length = WSPathtoOMPLPath(planResp, ompl_path, sampled_dmp_source); // Also Converts to IK
+  auto dmp_conversion_end = std::chrono::high_resolution_clock::now();
+  std::chrono::duration<double> dmp_conversion_time = dmp_conversion_start - dmp_conversion_end;
+  ROS_INFO("DMP Conversion Time: %f", dmp_conversion_time);
+  if (length < 0)
+  {
+    ROS_ERROR("Path discontinuous");
+    return false;
+  }
 
-  ompl_path.interpolate();
-
-  //ROS_INFO("About to check DMP OMPL Path for validity");
   // Score the path
+  //double length = ompl_path.length();
+  ROS_WARN("Length: %f", length);
+
   double score = 1.0;
-  //double clearance = ompl_path.clearance();
-  //int len = ompl_path.getStateCount();
-  //ROS_INFO("DMP Path Length: %d", len);
-  double clearance = 10000;
-  //for (int s=0; s < ompl_path.getStateCount(); s=s+50)
-  //{
-    //double c = si_->getStateValidityChecker()->clearance(ompl_path.getState(s));
-    //ROS_INFO("Clearance: %f", c);
-    //if (c <= 0 )
-      //return false;
-    //if (c<clearance)
-      //clearance = c;
-  //}
-
-  bool collissionFree = true;
-  if (clearance <= 0)
-    collissionFree = false;
-
-  // Score based on clearance.
-  if (collissionFree)
-  {
-    ROS_INFO("Sampled Valid Goal");
-    //double cost = dmp_cost_->getCSpaceCost(planResp);
-    //double cost = dmp_cost_->getCost(planResp);
-    //ROS_INFO("Cost of this DMP: %f", cost);
-    //score = 2000000.0 / cost;
-    //score = cost;
-    num_sampled++;
-  }
-  else
-  {
-    ROS_INFO("DMP Path in Collision");
-    return false;  // This DMP doesn't work. Sample more.
-  }
-
+  ROS_INFO("Sampled Valid Goal");
+  double cost = dmp_cost_->getCost(planResp);
+  cost += 3 * length;
+  score = 10000.0 / cost;
+  num_sampled++;
   ROS_INFO("This DMP has a score of: %f", score);
-  //ROS_INFO("Template Path Length: %d   DMP Path Length: %d", template_plan_.plan.points.size(), planResp.plan.points.size());
   
   // Insert in heap
   ROS_WARN("Inserted goal to heap!");
@@ -401,8 +423,6 @@ bool ompl_interface::TransitionRegionSampler::sampleGoalsOnline(const ompl::base
   weighted_state->heap_element_ = goals_priority_queue_.insert(weighted_state);
 
   success = true;
-  //continue;  // return true;
-  
 
   auto finish = std::chrono::high_resolution_clock::now();
   std::chrono::duration<double> elapsed = finish - start;

@@ -1,4 +1,3 @@
-
 #ifndef MOVEIT_OMPL_INTERFACE_DETAIL_TRANSITION_REGION_SAMPLER_
 #define MOVEIT_OMPL_INTERFACE_DETAIL_TRANSITION_REGION_SAMPLER_
 
@@ -92,8 +91,9 @@ private:
   std::vector<double> samplePourSink(moveit_msgs::Constraints sink_constraints);
 
   std::vector<double> robotStateToEEVectorPose(robot_state::RobotState &state);
-  void WSPathtoOMPLPath(dmp::GetDMPPlanAvoidObstaclesResponse& dmpPlan, ompl::geometric::PathGeometric& ompl_path,
+  double WSPathtoOMPLPath(dmp::GetDMPPlanAvoidObstaclesResponse& dmpPlan, ompl::geometric::PathGeometric& ompl_path,
                         robot_state::RobotState robot_state);
+  bool publishMarker(robot_state::RobotState &state);
 
   const OMPLPlanningContext* planning_context_;
   kinematic_constraints::KinematicConstraintSetPtr kinematic_constraint_set_;
