@@ -210,10 +210,6 @@ double ompl_interface::TransitionRegionSampler::WSPathtoOMPLPath(dmp::GetDMPPlan
     q.normalize();
     ee_pose.linear() = q.toRotationMatrix();
 
-    // Get current EE Pose
-    //auto base_tf = robot.getGlobalLinkTransform("base_link");
-    //auto target_tf = robot.getGlobalLinkTransform("gripper_link");
-    //auto curr_ee_pose = base_tf.inverse() * target_tf;
     auto curr_ee_pose = robot.getGlobalLinkTransform("gripper_link");
     auto curr_to_new = curr_ee_pose.inverse() * ee_pose;
     Eigen::VectorXd twist(6);
@@ -373,8 +369,6 @@ bool ompl_interface::TransitionRegionSampler::sampleGoalsOnline(const ompl::base
   sampled_dmp_sink_vector = robotStateToEEVectorPose(sampled_dmp_sink);
 
   // Simulate DMP in W-Space (with obstacle avoidance)
-  
-
   auto dmp_simulate_start = std::chrono::high_resolution_clock::now();
   dmp::GetDMPPlanAvoidObstaclesResponse planResp = dmp_utils::simulateDMPAvoidObstacles(sampled_dmp_source_vector, sampled_dmp_sink_vector, learnt_dmp_, scene_, nh_);
   auto dmp_simulate_stop = std::chrono::high_resolution_clock::now();
@@ -388,7 +382,7 @@ bool ompl_interface::TransitionRegionSampler::sampleGoalsOnline(const ompl::base
   ompl::geometric::PathGeometric ompl_path(si_);
   double max_jump = WSPathtoOMPLPath(planResp, ompl_path, sampled_dmp_source); // Also Converts to IK
   auto dmp_conversion_end = std::chrono::high_resolution_clock::now();
-  std::chrono::duration<double> dmp_conversion_time = dmp_conversion_start - dmp_conversion_end;
+  std::chrono::duration<double> dmp_conversion_time = dmp_conversion_end - dmp_conversion_start;
   ROS_INFO("DMP Conversion Time: %f", dmp_conversion_time);
   if (max_jump == -1)
   {
@@ -401,7 +395,7 @@ bool ompl_interface::TransitionRegionSampler::sampleGoalsOnline(const ompl::base
     return false;
   }
 
-  // Score the path
+  // Score the path -> It compares the W-Space Path using DTW, and also continuity/clearance costs.
   ROS_INFO("Sampled Valid Goal");
   double similarity_cost = 0.002 * dmp_cost_->getCost(planResp);
   double discontinuity_cost =  max_jump;
