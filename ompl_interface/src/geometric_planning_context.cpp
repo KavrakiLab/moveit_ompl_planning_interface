@@ -110,7 +110,7 @@ GeometricPlanningContext::GeometricPlanningContext() : OMPLPlanningContext(), ma
   complete_initial_robot_state_ = nullptr;
 
   // Interpolate the final solution path to have a minimum number of states
-  interpolate_ = false;
+  interpolate_ = true;
 
   // Attempt to smooth the final solution path
   simplify_ = true;
