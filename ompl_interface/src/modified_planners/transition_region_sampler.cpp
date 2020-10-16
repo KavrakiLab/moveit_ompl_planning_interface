@@ -178,6 +178,77 @@ std::vector<double> ompl_interface::TransitionRegionSampler::robotStateToEEVecto
   return ee_vec;
 }
 
+double ompl_interface::TransitionRegionSampler::cartesianToJointPath(dmp::GetDMPPlanAvoidObstaclesResponse &dmp_plan, robot_trajectory::RobotTrajectoryPtr trajPtr)
+{
+    const auto &gsvcf =
+        [this](robot_state::RobotState* state, const moveit::core::JointModelGroup* jmg,
+                           const double* values) 
+        { 
+          state->setJointGroupPositions(jmg, values);
+          state->updateCollisionBodyTransforms();
+          if (!this->scene_->getScene()->isStateValid(*state, "arm_with_torso"))
+            ROS_ERROR("Collision");
+          else ROS_WARN("we gucciii");
+          return this->scene_->getScene()->isStateValid(*state, "arm_with_torso");
+        }; 
+
+    std::vector<robot_state::RobotStatePtr> trajectory;
+
+    auto jmg_ = robot_->getScratchState()->getJointModelGroup("arm_with_torso");
+    auto link_model = robot_->getScratchState()->getLinkModel("gripper_link");
+
+    std::vector<Eigen::Isometry3d, Eigen::aligned_allocator<Eigen::Transform<double, 3, 1>>> waypoints;
+
+    for (unsigned int i = 0; i < dmp_plan.plan.points.size(); i++)
+    {
+      Eigen::Isometry3d point;
+      auto positions = dmp_plan.plan.points[i].positions;
+      point.translation() = Eigen::Vector3d(positions[0], positions[1], positions[2]);
+      point.linear() = Eigen::Quaterniond(positions[6], positions[3], positions[4], positions[5]).toRotationMatrix();
+      waypoints.push_back(point);
+    }
+    move_group_.pullState(robot_);
+
+    moveit::core::JumpThreshold jt(5, 0);
+    double val = robot_->getScratchState()->computeCartesianPath(jmg_, trajectory, link_model, waypoints, true, 5, jt, gsvcf);
+
+
+    ROS_WARN("Compute cartesian path: %f", val);
+    
+    //trajPtr = std::make_shared<robot_trajectory::RobotTrajectory>(robot_->getModel(), "arm_with_torso");
+    for (auto &point : trajectory)
+      trajPtr->addSuffixWayPoint(*point, 0.0);
+
+    return val;
+}
+
+void ompl_interface::TransitionRegionSampler::downsampleDMP(dmp::GetDMPPlanAvoidObstaclesResponse &dmp_plan, int factor)
+{
+  auto copy = dmp_plan;
+  copy.plan.points.clear();
+  for (unsigned int i = 0; i < dmp_plan.plan.points.size(); i++) {
+    if (i % factor == 0) {
+      copy.plan.points.push_back(dmp_plan.plan.points[i]);
+    }
+  }
+  dmp_plan = copy;
+}
+
+void ompl_interface::TransitionRegionSampler::moveitTrajectoryToOMPLPath(robot_trajectory::RobotTrajectoryPtr traj, ompl::geometric::PathGeometric& ompl_path)
+{
+  ROS_WARN("Inside moveitTrajectoryToOMPLPath");
+  ROS_WARN("Num waypoints: %d", traj->getWayPointCount());
+  
+  for (int i = 0; i < traj->getWayPointCount(); i++)
+  {
+      std::cout << "Traj waypoint: " << i << std::endl;
+      //robot = traj->getWayPoint(i);
+      ompl::base::State* currState = si_->allocState();
+      planning_context_->copyToOMPLState(currState, traj->getWayPoint(i));
+      ompl_path.append(currState);
+  }
+}
+
 double ompl_interface::TransitionRegionSampler::WSPathtoOMPLPath(dmp::GetDMPPlanAvoidObstaclesResponse& dmpPlan,
                                                                ompl::geometric::PathGeometric& ompl_path,
                                                                robot_state::RobotState robot)
@@ -226,7 +297,7 @@ double ompl_interface::TransitionRegionSampler::WSPathtoOMPLPath(dmp::GetDMPPlan
       if (i > 0)
       {
         double d = si_->distance(currState, last_state);
-        if (d > 3.0)
+        if (d > 5.0)
           return -1; // discontinuous
         max = std::max(d, max);
       }
@@ -288,6 +359,29 @@ bool ompl_interface::TransitionRegionSampler::publishMarker(robot_state::RobotSt
   return true;
 }
 
+//void interpolate(robot_trajectory::RobotTrajectoryPtr traj)
+//{
+  //ROS_INFO("Interpolating path");
+  //while (traj->getWayPointCount() < 100)
+  //{
+    //robot_trajectory::RobotTrajectory tmp = *traj;
+    //traj->clear();
+    //for (unsigned int i = 0; i < tmp.getWayPointCount()-1; i++)
+    //{
+      //robot_state::RobotState curr(tmp.getWayPoint(i));
+      //robot_state::RobotState next(tmp.getWayPoint(i+1));
+      //robot_state::RobotState state(robot_->getModel());
+      //curr.interpolate(next, 0.5, state);
+
+      //traj->addSuffixWayPoint(curr, 0.0);
+      //traj->addSuffixWayPoint(state, 0.0);
+
+      //if (i == tmp.getWayPointCount()-2)
+        //traj->addSuffixWayPoint(next, 0.0);
+    //}
+  //}
+//}
+
 bool ompl_interface::TransitionRegionSampler::sampleGoalsOnline(const ompl::base::WeightedGoalRegionSampler* gls,
                                                                 std::vector<ompl::base::State*>& sampled_states)
 {
@@ -335,8 +429,6 @@ bool ompl_interface::TransitionRegionSampler::sampleGoalsOnline(const ompl::base
   {
     if (!dmp_sink_sampler_->sample(sampled_dmp_sink))
       continue;
-    //if (!planning_scene_->isStateValid(sampled_dmp_sink, group_name_))
-      //continue;
     break;
   }
   ROS_INFO("Sink Sampled");
@@ -347,8 +439,6 @@ bool ompl_interface::TransitionRegionSampler::sampleGoalsOnline(const ompl::base
   {
     if (!dmp_source_sampler_->sample(sampled_dmp_source))
       continue;
-    //if (!planning_scene_->isStateValid(sampled_dmp_source, group_name_))
-      //continue;
     break;
   }
   ROS_INFO("Source Sampled");
@@ -377,9 +467,10 @@ bool ompl_interface::TransitionRegionSampler::sampleGoalsOnline(const ompl::base
 
   dmp::DMPTraj dmp_traj = planResp.plan;
 
-  // Convert DMP Path to OMPL Path
-  auto dmp_conversion_start = std::chrono::high_resolution_clock::now();
+
+  // Method 1: Convert DMP Path to OMPL Path
   ompl::geometric::PathGeometric ompl_path(si_);
+  auto dmp_conversion_start = std::chrono::high_resolution_clock::now();
   double max_jump = WSPathtoOMPLPath(planResp, ompl_path, sampled_dmp_source); // Also Converts to IK
   auto dmp_conversion_end = std::chrono::high_resolution_clock::now();
   std::chrono::duration<double> dmp_conversion_time = dmp_conversion_end - dmp_conversion_start;
@@ -395,7 +486,7 @@ bool ompl_interface::TransitionRegionSampler::sampleGoalsOnline(const ompl::base
     return false;
   }
 
-  // Score the path -> It compares the W-Space Path using DTW, and also continuity/clearance costs.
+  //Method 1: Score the path -> It compares the W-Space Path using DTW, and also continuity/clearance costs.
   ROS_INFO("Sampled Valid Goal");
   double similarity_cost = 0.002 * dmp_cost_->getCost(planResp);
   double discontinuity_cost =  max_jump;
@@ -404,6 +495,29 @@ bool ompl_interface::TransitionRegionSampler::sampleGoalsOnline(const ompl::base
   num_sampled++;
   ROS_INFO("Similarity Cost: %f  Discontinuity Cost: %f", similarity_cost, discontinuity_cost);
   ROS_INFO("Total Score: %f", score);
+
+  // Method 2
+  //move_group_.pullScene(scene_);
+  //move_group_.pullState(robot_);
+  //ompl::geometric::PathGeometric ompl_path(si_);
+  //auto moveit_trajectory = std::make_shared<robot_trajectory::RobotTrajectory>(robot_->getModel(), "arm_with_torso");
+  //downsampleDMP(planResp, 15);
+  //double completion = cartesianToJointPath(planResp, moveit_trajectory);
+  //if (completion < 0.5) return false;
+  //moveitTrajectoryToOMPLPath(moveit_trajectory, ompl_path);
+  //ompl_path.interpolate();
+  //if (ompl_path.clearance() < 0.01){
+    //ROS_ERROR("Invalid DMP Sampled. Clearance: %f", ompl_path.clearance());
+    //return false;
+  //}
+  //// Method 2: Score
+  //double similarity_cost = 0.002 * dmp_cost_->getCost(planResp);
+  //double partial_penalty = 5 / completion;
+  //double score = 10 / (similarity_cost + partial_penalty);
+  //ROS_INFO("Similarity Cost: %f  Partial Cost: %f", similarity_cost, partial_penalty);
+  //ROS_INFO("Total Score: %f", score);
+  //num_sampled++;
+
   
   // Insert in heap
   ompl::base::State* new_goal = si_->allocState();

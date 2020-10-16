@@ -94,6 +94,9 @@ private:
   double WSPathtoOMPLPath(dmp::GetDMPPlanAvoidObstaclesResponse& dmpPlan, ompl::geometric::PathGeometric& ompl_path,
                         robot_state::RobotState robot_state);
   bool publishMarker(robot_state::RobotState &state);
+  void moveitTrajectoryToOMPLPath(robot_trajectory::RobotTrajectoryPtr traj, ompl::geometric::PathGeometric& ompl_path);
+  double cartesianToJointPath(dmp::GetDMPPlanAvoidObstaclesResponse &dmp_plan, robot_trajectory::RobotTrajectoryPtr trajPtr);
+  void downsampleDMP(dmp::GetDMPPlanAvoidObstaclesResponse &dmp_plan, int factor);
 
   const OMPLPlanningContext* planning_context_;
   kinematic_constraints::KinematicConstraintSetPtr kinematic_constraint_set_;
