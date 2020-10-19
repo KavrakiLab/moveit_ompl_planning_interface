@@ -504,24 +504,22 @@ bool ompl_interface::TransitionRegionSampler::sampleGoalsOnline(const ompl::base
   ROS_WARN("Completion: %f", completion);
   if (completion < 0.7) return false;
 
-  //interpolate(moveit_trajectory);
-
-  //Collision Check 
-  auto check = *moveit_trajectory;
-  moveit_msgs::RobotTrajectory msg;
-  moveit_msgs::RobotState statemsg;
-  moveit::core::robotStateToRobotStateMsg(*robot_->getScratchState(), statemsg);
-  check.setRobotTrajectoryMsg(*robot_->getScratchState(), msg);
-  bool valid = scene_->getScene()->isPathValid(statemsg, msg);
-  if (!valid)
-  {
-    ROS_ERROR("Path in collision");
-    return false;
-  }
-  else ROS_INFO("Path is collision free");
-
   moveitTrajectoryToOMPLPath(moveit_trajectory, ompl_path);
   ompl_path.interpolate();
+
+  // Check OMPL Path
+  robot_state::RobotState rs(robot_->getModel());
+  for (auto& os : ompl_path.getStates())
+  {
+    planning_context_->copyToRobotState(rs, os);
+    if (!scene_->getScene()->isStateValid(rs, "arm_with_torso"))
+    {
+      ROS_ERROR("Path in collision");
+      return false;
+    }
+  }
+
+
   // Method 2: Score
   double similarity_cost = 0.002 * dmp_cost_->getCost(planResp);
   double partial_penalty = 5 / completion;
