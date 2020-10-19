@@ -97,6 +97,7 @@ private:
   void moveitTrajectoryToOMPLPath(robot_trajectory::RobotTrajectoryPtr traj, ompl::geometric::PathGeometric& ompl_path);
   double cartesianToJointPath(dmp::GetDMPPlanAvoidObstaclesResponse &dmp_plan, robot_trajectory::RobotTrajectoryPtr trajPtr);
   void downsampleDMP(dmp::GetDMPPlanAvoidObstaclesResponse &dmp_plan, int factor);
+  void interpolate(robot_trajectory::RobotTrajectoryPtr traj);
 
   const OMPLPlanningContext* planning_context_;
   kinematic_constraints::KinematicConstraintSetPtr kinematic_constraint_set_;
