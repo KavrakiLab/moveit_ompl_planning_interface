@@ -519,7 +519,6 @@ bool ompl_interface::TransitionRegionSampler::sampleGoalsOnline(const ompl::base
     }
   }
 
-
   // Method 2: Score
   double similarity_cost = 0.002 * dmp_cost_->getCost(planResp);
   double partial_penalty = 5 / completion;
@@ -527,7 +526,6 @@ bool ompl_interface::TransitionRegionSampler::sampleGoalsOnline(const ompl::base
   ROS_INFO("Similarity Cost: %f  Partial Cost: %f", similarity_cost, partial_penalty);
   ROS_INFO("Total Score: %f", score);
   num_sampled++;
-
   
   // Insert in heap
   ompl::base::State* new_goal = si_->allocState();
