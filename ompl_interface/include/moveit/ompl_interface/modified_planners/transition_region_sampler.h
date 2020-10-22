@@ -148,6 +148,11 @@ private:
   robowflex::RobotPtr robot_;
   robowflex::ScenePtr scene_;
   robowflex::movegroup::MoveGroupHelper move_group_;
+
+  // Track Sampler
+  int sampling_attempts_;
+  int num_sampled_;
+  int attempts_since_last_expansion_;
 };
 
 }  // namespace ompl_interface

@@ -61,6 +61,9 @@ ompl_interface::TransitionRegionSampler::TransitionRegionSampler(
 
   marker_pub_ = nh_.advertise<visualization_msgs::MarkerArray>("visualization_marker_array", 1);
   marker_id_ = 0;
+  num_sampled_ = 0;
+  sampling_attempts_ = 0;
+  attempts_since_last_expansion_ = 0;
   startSampling();
 }
 
@@ -255,7 +258,6 @@ double ompl_interface::TransitionRegionSampler::WSPathtoOMPLPath(dmp::GetDMPPlan
         return this->planning_scene_->isStateValid(*state, this->group_name_);
       }; 
 
-  auto start = std::chrono::high_resolution_clock::now();
   ompl::base::State* last_state = si_->allocState();
   double max  = 0;
   for (unsigned i=0; i < dmpPlan.plan.points.size(); i=i+5)
@@ -299,9 +301,6 @@ double ompl_interface::TransitionRegionSampler::WSPathtoOMPLPath(dmp::GetDMPPlan
       return -2; // collision
   }
   //ROS_ERROR("Returning Max: %f", max);
-  auto end = std::chrono::high_resolution_clock::now();
-  std::chrono::duration<double> time = end - start;
-  ROS_ERROR("Time to trace DMP: %f", time.count());
   return max;
 }
 
@@ -378,15 +377,29 @@ bool ompl_interface::TransitionRegionSampler::sampleGoalsOnline(const ompl::base
 {
   ROS_INFO("Inside Sample Goals Online");
   bool success = false;
-  auto start = std::chrono::high_resolution_clock::now();
   int num_sampled = 0;
-
-  //for (unsigned int i = 0; i < 1; i++)
+  sampling_attempts_++;
+  attempts_since_last_expansion_++;
+  //ROS_ERROR("Sampling Attempt Number: %d", sampling_attempts_);
 
   if (planning_context_->getOMPLProblemDefinition()->hasSolution())
   {
     ROS_INFO("Solution already found");
     return false;
+  }
+
+  //ROS_ERROR("Position Primitive Type: %f", dmp_information_.dmp_source_constraints.position_constraints[0].constraint_region.primitives[0].dimensions[0]);
+  if (sampling_attempts_ - num_sampled_ > 25 && attempts_since_last_expansion_>=25)
+  {
+    ROS_ERROR("Expanding the search area");
+    dmp_information_.dmp_source_constraints.position_constraints[0].constraint_region.primitives[0].dimensions[0] += 0.2; // x
+    dmp_information_.dmp_source_constraints.position_constraints[0].constraint_region.primitives[0].dimensions[1] += 0.2; // x
+    dmp_information_.dmp_source_constraints.position_constraints[0].constraint_region.primitives[0].dimensions[2] += 0.2; // x
+
+    dmp_information_.dmp_sink_constraints.position_constraints[0].constraint_region.primitives[0].dimensions[2] += 0.1; // x
+    dmp_information_.dmp_sink_constraints.position_constraints[0].constraint_region.primitives[0].dimensions[2] += 0.1; // x
+    dmp_information_.dmp_sink_constraints.position_constraints[0].constraint_region.primitives[0].dimensions[2] += 0.1; // x
+    attempts_since_last_expansion_ = 0;
   }
  
   ROS_INFO("Setting up the samplers");
@@ -415,7 +428,6 @@ bool ompl_interface::TransitionRegionSampler::sampleGoalsOnline(const ompl::base
   // Sample Sink  this should just be a 7dof SE3 point reachable by the robot.
   robot_state::RobotState sampled_dmp_sink(*kinematic_state_);
 
-  auto sample_start = std::chrono::high_resolution_clock::now();
   while (1)
   {
     if (!dmp_sink_sampler_->sample(sampled_dmp_sink))
@@ -433,10 +445,6 @@ bool ompl_interface::TransitionRegionSampler::sampleGoalsOnline(const ompl::base
     break;
   }
   ROS_INFO("Source Sampled");
-  auto sample_end = std::chrono::high_resolution_clock::now();
-  std::chrono::duration<double> sampling_time = sample_start - sample_end;
-  ROS_INFO("Sampling Time: %f", sampling_time.count());
-
 
   double source_sink_distance = sampled_dmp_source.distance(sampled_dmp_sink, sampled_dmp_source.getJointModelGroup("arm_with_torso"));
   ROS_INFO("Distance between source and sink: %f", source_sink_distance);
@@ -526,6 +534,7 @@ bool ompl_interface::TransitionRegionSampler::sampleGoalsOnline(const ompl::base
   ROS_INFO("Similarity Cost: %f  Partial Cost: %f", similarity_cost, partial_penalty);
   ROS_INFO("Total Score: %f", score);
   num_sampled++;
+  num_sampled_++;
   
   // Insert in heap
   ompl::base::State* new_goal = si_->allocState();
@@ -540,10 +549,6 @@ bool ompl_interface::TransitionRegionSampler::sampleGoalsOnline(const ompl::base
 
   success = true;
 
-  auto finish = std::chrono::high_resolution_clock::now();
-  std::chrono::duration<double> elapsed = finish - start;
-
-  ROS_INFO("SAMPLING TIME: %f", elapsed.count());
 
   if (success)
     return true;
